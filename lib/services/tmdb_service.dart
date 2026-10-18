@@ -17,20 +17,24 @@ class TmdbService {
 
   Future<Map<String, dynamic>?> _get(String path, [Map<String, String> params = const {}]) async {
     if (!enabled) {
-      _lastError = 'TMDB API key is missing.';
+      _lastError = 'TMDB API key is missing. Set the TMDB_API_KEY GitHub secret.';
       return null;
     }
     try {
-      final uri = Uri.https('api.themoviedb.org', '/3$path', {
-        'api_key': _apiKey,
+      final isV4Token = _apiKey.startsWith('eyJ') && _apiKey.length > 80;
+      final query = <String, String>{
         'language': 'en-US',
         ...params,
-      });
-      final response = await http.get(uri, headers: const {'accept': 'application/json'})
-          .timeout(const Duration(seconds: 9));
+        if (!isV4Token) 'api_key': _apiKey,
+      };
+      final uri = Uri.https('api.themoviedb.org', '/3$path', query);
+      final headers = <String, String>{'accept': 'application/json'};
+      if (isV4Token) headers['Authorization'] = 'Bearer $_apiKey';
+      final response = await http.get(uri, headers: headers)
+          .timeout(const Duration(seconds: 14));
       if (response.statusCode != 200) {
         _lastError = response.statusCode == 401
-            ? 'TMDB rejected the API key (HTTP 401).'
+            ? 'TMDB rejected the API key/token (HTTP 401). Check the TMDB_API_KEY GitHub secret.'
             : 'TMDB request failed (HTTP ${response.statusCode}).';
         return null;
       }
@@ -42,9 +46,10 @@ class TmdbService {
       _lastError = 'TMDB returned an unexpected response.';
       return null;
     } catch (error) {
-      _lastError = error.toString().contains('TimeoutException')
-          ? 'TMDB timed out. Check the internet connection and retry.'
-          : 'Could not reach TMDB. Check internet access and the API key.';
+      final message = error.toString().toLowerCase();
+      _lastError = message.contains('timeout')
+          ? 'TMDB timed out. The API host did not respond in 14 seconds.'
+          : 'Could not reach TMDB (${error.runtimeType}). Check internet access and the API key.';
       return null;
     }
   }
@@ -112,17 +117,15 @@ class TmdbService {
   }
 
   /// TMDB's current-day trending catalogue includes both films and series.
-  Future<List<Movie>> trending() => _list('/trending/all/day');
+  Future<List<Movie>> trending() => _list('/trending/movie/day');
 
   /// Combine popular-rated films and shows, then rank by TMDB's rating order.
   Future<List<Movie>> topRated() async {
-    final results = await Future.wait([
-      _list('/movie/top_rated', {'page': '1'}),
-      _list('/tv/top_rated', {'page': '1'}, 'tv'),
-    ], eagerError: false).timeout(const Duration(seconds: 11), onTimeout: () => <List<Movie>>[[], []]);
-    final all = [...results[0], ...results[1]];
-    all.sort((a, b) => (double.tryParse(b.rating) ?? 0).compareTo(double.tryParse(a.rating) ?? 0));
-    return all;
+    // DamiMovies is movie-only, so don't request TV catalogues unnecessarily.
+    final movies = await _list('/movie/top_rated', {'page': '1'});
+    movies.sort((a, b) => (double.tryParse(b.rating) ?? 0)
+        .compareTo(double.tryParse(a.rating) ?? 0));
+    return movies;
   }
 
   Future<List<Movie>> continueDiscover() => _list('/movie/now_playing', {'page':'1'});
@@ -233,7 +236,7 @@ class TmdbService {
 
   Future<List<TmdbTrailer>> latestTrailers() async {
     final candidates = await _list('/movie/now_playing', {'page': '1'});
-    final limited = candidates.take(8).toList();
+    final limited = candidates.take(5).toList();
     final results = await Future.wait<TmdbTrailer?>(limited.map((movie) async {
       final id = movie.tmdbId;
       if (id == null) return null;
