@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
@@ -7,6 +9,7 @@ import '../services/tmdb_service.dart';
 import '../services/movie_library.dart';
 import 'movie_player_screen.dart';
 import 'browser_screen.dart';
+import 'trailer_player_screen.dart';
 
 class MovieDetailScreen extends StatefulWidget {
   final Movie movie;
@@ -22,7 +25,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
   late bool _saved;
   late Movie _movie;
   List<Movie> _similar = [];
-  bool _loadingDetails = true, _loadingSimilar = true;
+  TmdbTrailer? _trailer;
+  bool _loadingDetails = true, _loadingSimilar = true, _loadingTrailer = true;
 
   @override void initState() {
     super.initState();
@@ -44,6 +48,35 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
       _loadingDetails = false;
       _loadingSimilar = false;
     });
+    // Resolve the title to its TMDB ID first, then retrieve the video key.
+    // This avoids duplicate /find requests for catalogue entries using IMDb IDs.
+    unawaited(_loadTrailer(_movie));
+  }
+
+  Future<void> _loadTrailer(Movie movie) async {
+    if (mounted) setState(() => _loadingTrailer = true);
+    TmdbTrailer? found;
+    try {
+      found = await _tmdb.trailerFor(movie)
+          .timeout(const Duration(seconds: 13), onTimeout: () => null);
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _trailer = found;
+      _loadingTrailer = false;
+    });
+  }
+
+  void _watchTrailer() {
+    final trailer = _trailer;
+    if (trailer == null) return;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => TrailerPlayerScreen(
+        title: trailer.title,
+        youtubeKey: trailer.key,
+        poster: trailer.poster,
+      ),
+    ));
   }
 
   Future<void> _toggleSaved() async {
@@ -98,6 +131,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
             Expanded(child: SizedBox(height: 51, child: FilledButton.icon(style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: _play, icon: const Icon(Icons.play_arrow_rounded, size: 25), label: const Text('Play', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15))))),
             const SizedBox(width: 10), Expanded(child: SizedBox(height: 51, child: OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: _download, icon: const Icon(Icons.download_rounded), label: const Text('Download', style: TextStyle(fontWeight: FontWeight.w800))))),
           ])),
+          _trailerSection(),
           Padding(padding: const EdgeInsets.symmetric(horizontal: 18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('OVERVIEW', style: TextStyle(fontSize: 11, color: appRed, letterSpacing: 1.4, fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
@@ -112,6 +146,97 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
           ])),
           const SizedBox(height: 28),
         ]),
+      ),
+    );
+  }
+
+  Widget _trailerSection() {
+    final trailer = _trailer;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('TRAILER', style: TextStyle(color: appRed, fontSize: 11, letterSpacing: 1.4, fontWeight: FontWeight.w900)),
+              const Spacer(),
+              if (_loadingTrailer) const Text('SEARCHING TMDB…', style: TextStyle(color: Colors.white38, fontSize: 9, letterSpacing: .8)),
+              if (!_loadingTrailer && trailer != null) const Text('PLAY IN APP', style: TextStyle(color: Colors.white54, fontSize: 9, letterSpacing: .8)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (_loadingTrailer)
+            Container(
+              height: 158,
+              decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(14)),
+              child: const Center(child: SizedBox(width: 23, height: 23, child: CircularProgressIndicator(strokeWidth: 2, color: appRed))),
+            )
+          else if (trailer != null)
+            Material(
+              color: appSurface,
+              borderRadius: BorderRadius.circular(14),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: _watchTrailer,
+                child: SizedBox(
+                  height: 158,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (trailer.poster.startsWith('http'))
+                        CachedNetworkImage(
+                          imageUrl: trailer.poster,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) => Container(color: appSurface),
+                        )
+                      else
+                        Container(color: appSurface),
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Color(0x22000000), Color(0xCC000000)],
+                          ),
+                        ),
+                      ),
+                      const Center(
+                        child: Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 62),
+                      ),
+                      Positioned(
+                        left: 13,
+                        right: 13,
+                        bottom: 12,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.ondemand_video_rounded, color: Colors.white, size: 17),
+                            const SizedBox(width: 7),
+                            Expanded(child: Text('Watch ${_movie.title} trailer', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12))),
+                            const Icon(Icons.open_in_new_rounded, color: Colors.white70, size: 16),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withValues(alpha: .05))),
+              child: Row(
+                children: [
+                  const Icon(Icons.movie_filter_outlined, color: Colors.white54, size: 30),
+                  const SizedBox(width: 12),
+                  const Expanded(child: Text('No YouTube trailer is listed on TMDB for this title yet.', style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.35))),
+                  TextButton(onPressed: () => _loadTrailer(_movie), child: const Text('Retry')),
+                ],
+              ),
+            ),
+          const SizedBox(height: 2),
+        ],
       ),
     );
   }
