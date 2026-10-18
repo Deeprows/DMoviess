@@ -22,44 +22,71 @@ class MovieLibrary extends ChangeNotifier {
   double progressFor(Movie movie) => _progress[movie.key] ?? 0;
   bool get hasResumeItems => _history.any((m) => progressFor(m) > 0.01);
 
-  Future<void> load() => _loading ??= _read();
+  Future<void> load() {
+    if (_loaded) return Future<void>.value();
+    final pending = _loading;
+    if (pending != null) return pending;
+    _loading = _read().whenComplete(() { _loading = null; });
+    return _loading!;
+  }
+
   Future<void> _read() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<Movie> decode(String key) {
-      try {
-        final raw = prefs.getString(key);
-        if (raw == null) return [];
-        final value = jsonDecode(raw);
-        if (value is! List) return [];
-        return value.whereType<Map>().map((e) => Movie.fromJson(Map<String, dynamic>.from(e))).toList();
-      } catch (_) { return []; }
-    }
-    _saved..clear()..addAll(decode(_savedKey));
-    _history..clear()..addAll(decode(_historyKey));
-    _progress.clear();
     try {
-      final rawProgress = prefs.getString(_progressKey);
-      if (rawProgress != null) {
-        final value = jsonDecode(rawProgress);
-        if (value is Map) {
-          for (final entry in value.entries) {
-            final n = entry.value;
-            if (n is num && n >= 0 && n <= 1) _progress[entry.key.toString()] = n.toDouble();
+      // Preferences are convenience storage, never a reason to block playback.
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 4));
+      List<Movie> decode(String key) {
+        try {
+          final raw = prefs.getString(key);
+          if (raw == null) return [];
+          final value = jsonDecode(raw);
+          if (value is! List) return [];
+          return value.whereType<Map>()
+              .map((e) => Movie.fromJson(Map<String, dynamic>.from(e)))
+              .toList();
+        } catch (_) { return []; }
+      }
+      _saved..clear()..addAll(decode(_savedKey));
+      _history..clear()..addAll(decode(_historyKey));
+      _progress.clear();
+      try {
+        final rawProgress = prefs.getString(_progressKey);
+        if (rawProgress != null) {
+          final value = jsonDecode(rawProgress);
+          if (value is Map) {
+            for (final entry in value.entries) {
+              final n = entry.value;
+              if (n is num && n >= 0 && n <= 1) {
+                _progress[entry.key.toString()] = n.toDouble();
+              }
+            }
           }
         }
-      }
-    } catch (_) {}
-    _loaded = true;
-    notifyListeners();
+      } catch (_) {}
+    } catch (_) {
+      // A blank local library is valid. A storage/plugin failure must not
+      // wedge load() forever, because movie taps also record history.
+      _saved.clear();
+      _history.clear();
+      _progress.clear();
+    } finally {
+      _loaded = true;
+      notifyListeners();
+    }
   }
 
   Future<void> _save() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_savedKey, jsonEncode(_saved.map((m) => m.toJson()).toList()));
-    await prefs.setString(_historyKey, jsonEncode(_history.map((m) => m.toJson()).toList()));
-    await prefs.setString(_progressKey, jsonEncode(_progress));
+    final prefs = await SharedPreferences.getInstance()
+        .timeout(const Duration(seconds: 4));
+    await prefs.setString(_savedKey, jsonEncode(_saved.map((m) => m.toJson()).toList()))
+        .timeout(const Duration(seconds: 3));
+    await prefs.setString(_historyKey, jsonEncode(_history.map((m) => m.toJson()).toList()))
+        .timeout(const Duration(seconds: 3));
+    await prefs.setString(_progressKey, jsonEncode(_progress))
+        .timeout(const Duration(seconds: 3));
     // Keep compatibility with the first DamiMovies build's watchlist key list.
-    await prefs.setStringList('damimovies_watchlist', _saved.map((m) => m.key).toList());
+    await prefs.setStringList('damimovies_watchlist', _saved.map((m) => m.key).toList())
+        .timeout(const Duration(seconds: 3));
   }
 
   Future<bool> toggleSaved(Movie movie) async {
