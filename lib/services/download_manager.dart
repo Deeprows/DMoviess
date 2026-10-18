@@ -117,7 +117,8 @@ class DownloadManager extends ChangeNotifier {
     _ready = true;
 
     try {
-      await fd.FlutterDownloader.initialize(debug: false, ignoreSsl: false);
+      await fd.FlutterDownloader.initialize(debug: false, ignoreSsl: false)
+          .timeout(const Duration(seconds: 8));
       fd.FlutterDownloader.registerCallback(downloadCallback);
       _available = true;
     } catch (e) {
@@ -132,7 +133,8 @@ class DownloadManager extends ChangeNotifier {
 
     // Our list (names, sizes) ...
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 5));
       final raw = prefs.getString(_prefsKey);
       if (raw != null) {
         final list = jsonDecode(raw);
@@ -147,7 +149,9 @@ class DownloadManager extends ChangeNotifier {
     // ... reconciled with what the native side says happened meanwhile.
     if (_available) {
       try {
-        final native = await fd.FlutterDownloader.loadTasks() ?? [];
+        final native = await fd.FlutterDownloader.loadTasks()
+                .timeout(const Duration(seconds: 6)) ??
+            [];
         for (final t in List.of(_tasks)) {
           fd.DownloadTask? n;
           for (final x in native) {
