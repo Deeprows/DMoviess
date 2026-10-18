@@ -1,4 +1,7 @@
-/// Works out how a link should be played inside the WebView.
+/// Classifies a source as a direct media stream or a provider-hosted embed.
+/// Direct HLS, DASH and video URLs use Flutter's native video_player/ExoPlayer.
+/// Provider embed pages remain in WebView because their actual stream URL is
+/// hidden behind the provider's own player and authorization flow.
 enum StreamKind { hls, dash, video, embed, invalid }
 
 class ResolvedStream {
@@ -6,8 +9,8 @@ class ResolvedStream {
   final StreamKind kind;
   const ResolvedStream(this.url, this.kind);
 
-  /// m3u8 / mpd / mp4 etc. are played by our own HTML5 player page.
-  bool get usesHtmlPlayer =>
+  /// Direct media formats can be played directly by Flutter/Android ExoPlayer.
+  bool get usesNativePlayer =>
       kind == StreamKind.hls ||
       kind == StreamKind.dash ||
       kind == StreamKind.video;
@@ -15,11 +18,11 @@ class ResolvedStream {
   String get label {
     switch (kind) {
       case StreamKind.hls:
-        return 'HLS · m3u8';
+        return 'Native HLS · m3u8';
       case StreamKind.dash:
-        return 'DASH · mpd';
+        return 'Native DASH · mpd';
       case StreamKind.video:
-        return 'Direct video';
+        return 'Native video';
       case StreamKind.embed:
         return 'Web embed';
       case StreamKind.invalid:
