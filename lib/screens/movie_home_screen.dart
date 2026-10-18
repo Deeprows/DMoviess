@@ -444,9 +444,6 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
     return Scaffold(
       body: SafeArea(child: CustomScrollView(slivers: [
         SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(20, 14, 18, 14), child: Row(children: [
-          Container(width: 42, height: 42, decoration: BoxDecoration(gradient: LinearGradient(colors: [appAccentSoft, appRed]), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.movie_filter_rounded, color: Colors.white, size: 25)),
-          const SizedBox(width: 11), const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('DamiMovies', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: -.7)), Text('Your next favourite starts here', style: TextStyle(color: Colors.white54, fontSize: 11))])),
-          IconButton(tooltip: _watchlistOnly ? 'Show home' : 'My watchlist', onPressed: () => setState(() => _watchlistOnly = !_watchlistOnly), icon: Icon(_watchlistOnly ? Icons.home_rounded : Icons.bookmark_border_rounded, color: _watchlistOnly ? appRed : Colors.white, size: 26)),
           PopupMenuButton<String>(icon: const Icon(Icons.more_vert_rounded), onSelected: (v) {
             if (v == 'refresh') _loadHome();
             if (v == 'library') Navigator.push(context, MaterialPageRoute(builder: (_) => const LibraryScreen()));
@@ -464,6 +461,9 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
             PopupMenuItem(value: 'notice', child: Text('Notice / About')),
             PopupMenuItem(value: 'share', child: Text('Share DamiMovies')),
           ]),
+          const SizedBox(width: 4),
+          Container(width: 42, height: 42, decoration: BoxDecoration(gradient: LinearGradient(colors: [appAccentSoft, appRed]), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.movie_filter_rounded, color: Colors.white, size: 25)),
+          const SizedBox(width: 11), const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('DamiMovies', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: -.7)), Text('Your next favourite starts here', style: TextStyle(color: Colors.white54, fontSize: 11))])),
         ]))),
         SliverToBoxAdapter(
           child: Padding(
