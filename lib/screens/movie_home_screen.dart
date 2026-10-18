@@ -1,0 +1,401 @@
+import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../main.dart';
+import '../models/movie.dart';
+import '../services/tmdb_service.dart';
+import '../services/movie_library.dart';
+import '../services/app_preferences.dart';
+import '../config.dart';
+import 'library_screen.dart';
+import 'browser_screen.dart';
+import 'downloads_screen.dart';
+import 'package:share_plus/share_plus.dart';
+import 'movie_detail_screen.dart';
+import 'settings_screen.dart';
+
+class MovieHomeScreen extends StatefulWidget {
+  const MovieHomeScreen({super.key});
+  @override State<MovieHomeScreen> createState() => _MovieHomeScreenState();
+}
+
+class _MovieHomeScreenState extends State<MovieHomeScreen> {
+  final TmdbService _tmdb = TmdbService();
+  final TextEditingController _search = TextEditingController();
+  List<Movie> _local = [], _trending = [], _top10 = [], _continueWatching = [];
+  List<TmdbTrailer> _trailers = [];
+  Set<String> _saved = {};
+  bool _loading = true, _watchlistOnly = false;
+  bool _tmdbLoading = true, _tmdbAvailable = false;
+  String _tmdbError = '';
+  String _query = '';
+  String _typeFilter = 'All';
+  String? _genreFilter;
+  List<Movie> _genreResults = [];
+  bool _genreLoading = false;
+
+  @override void initState() { super.initState(); MovieLibrary.instance.addListener(_syncLibrary); _loadHome(); }
+  @override void dispose() { MovieLibrary.instance.removeListener(_syncLibrary); _search.dispose(); super.dispose(); }
+
+  void _syncLibrary() {
+    if (!mounted) return;
+    final library = MovieLibrary.instance;
+    setState(() {
+      _saved = library.saved.map((m) => m.key).toSet();
+      _continueWatching = library.history;
+    });
+  }
+
+  Future<void> _loadHome() async {
+    if (mounted) {
+      setState(() {
+        _tmdbLoading = true;
+        _tmdbError = '';
+      });
+    }
+
+    // Load bundled movies first. The app can render immediately even if TMDB
+    // or Android network access is unavailable.
+    try {
+      final raw = await rootBundle
+          .loadString('assets/data/movies.json')
+          .timeout(const Duration(seconds: 5));
+      final decoded = jsonDecode(raw);
+      final list = decoded is List
+          ? decoded
+          : (decoded is Map && decoded['movies'] is List
+              ? decoded['movies'] as List
+              : <dynamic>[]);
+      final localMovies = list
+          .whereType<Map>()
+          .map((e) => Movie.fromJson(Map<String, dynamic>.from(e)))
+          .where((movie) => movie.name.isNotEmpty)
+          .toList();
+      if (mounted) {
+        setState(() {
+          _local = localMovies;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+
+    // Library lists live in shared preferences and never block first paint.
+    try {
+      await MovieLibrary.instance.load().timeout(const Duration(seconds: 4));
+      await MovieLibrary.instance.seedFromCatalogue(_local);
+      final prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 4));
+      final legacyContinue = (prefs.getStringList('damimovies_continue') ?? []).map((value) {
+        try { return Movie.fromJson(Map<String, dynamic>.from(jsonDecode(value) as Map)); } catch (_) { return null; }
+      }).whereType<Movie>().toList();
+      if (mounted) setState(() {
+        _saved = MovieLibrary.instance.saved.map((m) => m.key).toSet();
+        if (MovieLibrary.instance.history.isNotEmpty) { _continueWatching = MovieLibrary.instance.history; }
+        else { _continueWatching = legacyContinue; }
+      });
+    } catch (_) { /* An empty local library is a safe fallback. */ }
+
+    // A timeout on any TMDB request should return control to the UI. Rows that
+    // have already loaded are kept; the bundled catalogue remains available.
+    try {
+      final results = await Future.wait<dynamic>([
+        _tmdb.trending().timeout(
+          const Duration(seconds: 12),
+          onTimeout: () => <Movie>[],
+        ),
+        _tmdb.topRated().timeout(
+          const Duration(seconds: 12),
+          onTimeout: () => <Movie>[],
+        ),
+        _tmdb.latestTrailers().timeout(
+          const Duration(seconds: 13),
+          onTimeout: () => <TmdbTrailer>[],
+        ),
+      ], eagerError: false).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => <dynamic>[<Movie>[], <Movie>[], <TmdbTrailer>[]],
+      );
+      final trending = results[0] as List<Movie>;
+      final topRated = results[1] as List<Movie>;
+      final trailers = results[2] as List<TmdbTrailer>;
+      await MovieLibrary.instance.seedFromCatalogue([..._local, ...trending, ...topRated]);
+      if (!mounted) return;
+      setState(() {
+        _trending = trending;
+        _top10 = (trending.isNotEmpty ? trending : topRated).take(10).toList();
+        _trailers = trailers;
+        _tmdbAvailable = trending.isNotEmpty || topRated.isNotEmpty;
+        _tmdbLoading = false;
+        _tmdbError = _tmdbAvailable
+            ? ''
+            : (_tmdb.lastError ?? 'TMDB has not returned any movies.');
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _tmdbLoading = false;
+        _tmdbAvailable = false;
+        _tmdbError = _tmdb.lastError ?? 'Could not connect to TMDB.';
+      });
+    }
+  }
+
+  Future<void> _toggleSaved(Movie movie) async {
+    final saved = await MovieLibrary.instance.toggleSaved(movie);
+    if (!mounted) return;
+    setState(() { if (saved) { _saved.add(movie.key); } else { _saved.remove(movie.key); } });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('damimovies_watchlist', _saved.toList());
+  }
+
+  Future<void> _open(Movie movie) async {
+    await MovieLibrary.instance.recordOpened(movie);
+    final prefs = await SharedPreferences.getInstance();
+    final recent = <Movie>[movie, ..._continueWatching.where((m) => m.key != movie.key)].take(12).toList();
+    await prefs.setStringList('damimovies_continue', recent.map((m) => jsonEncode(m.toJson())).toList());
+    if (mounted) setState(() => _continueWatching = recent);
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => MovieDetailScreen(
+      movie: movie, saved: _saved.contains(movie.key), onToggleSaved: () async { await _toggleSaved(movie); })));
+  }
+
+  List<Movie> get _baseMovies => _trending.isNotEmpty ? _trending : _local;
+  List<Movie> get _searchResults => [..._trending, ..._top10, ..._local, ..._genreResults]
+    .fold<Map<String, Movie>>({}, (map, m) { map.putIfAbsent(m.key, () => m); return map; }).values
+    .where((m) => '${m.title} ${m.genre}'.toLowerCase().contains(_query.toLowerCase()))
+    .where((m) => _typeFilter == 'All' || (_typeFilter == 'Series' ? m.isSeries : !m.isSeries))
+    .where((m) => _genreFilter == null || m.genres.any((g) => g.toLowerCase() == _genreFilter!.toLowerCase()))
+    .where((m) => !_watchlistOnly || _saved.contains(m.key)).toList();
+
+  Future<void> _selectGenre(String? genre) async {
+    setState(() { _genreFilter = genre; _genreLoading = genre != null; });
+    if (genre == null) { if (mounted) setState(() { _genreResults = []; _genreLoading = false; }); return; }
+    try {
+      final rows = await _tmdb.discover(genre).timeout(const Duration(seconds: 10), onTimeout: () => <Movie>[]);
+      if (mounted && _genreFilter == genre) setState(() { _genreResults = rows; _genreLoading = false; });
+    } catch (_) { if (mounted) setState(() => _genreLoading = false); }
+  }
+
+  @override Widget build(BuildContext context) {
+    final searching = _query.trim().isNotEmpty || _watchlistOnly;
+    final results = _searchResults;
+    return Scaffold(
+      body: SafeArea(child: CustomScrollView(slivers: [
+        SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(20, 14, 18, 14), child: Row(children: [
+          Container(width: 42, height: 42, decoration: BoxDecoration(gradient: LinearGradient(colors: [appAccentSoft, appRed]), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.movie_filter_rounded, color: Colors.white, size: 25)),
+          const SizedBox(width: 11), const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('DamiMovies', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: -.7)), Text('Your next favourite starts here', style: TextStyle(color: Colors.white54, fontSize: 11))])),
+          IconButton(tooltip: _watchlistOnly ? 'Show home' : 'My watchlist', onPressed: () => setState(() => _watchlistOnly = !_watchlistOnly), icon: Icon(_watchlistOnly ? Icons.home_rounded : Icons.bookmark_border_rounded, color: _watchlistOnly ? appRed : Colors.white, size: 26)),
+          PopupMenuButton<String>(icon: const Icon(Icons.more_vert_rounded), onSelected: (v) {
+            if (v == 'refresh') _loadHome();
+            if (v == 'library') Navigator.push(context, MaterialPageRoute(builder: (_) => const LibraryScreen()));
+            if (v == 'browser') Navigator.push(context, MaterialPageRoute(builder: (_) => const BrowserScreen()));
+            if (v == 'downloads') Navigator.push(context, MaterialPageRoute(builder: (_) => const DownloadsScreen()));
+            if (v == 'share') Share.share('Discover movies with DamiMovies.\n${AppConfig.appUrl}');
+            if (v == 'settings') Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+            if (v == 'notice') Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+          }, itemBuilder: (_) => const [
+            PopupMenuItem(value: 'refresh', child: Text('Refresh movie catalogue')),
+            PopupMenuItem(value: 'library', child: Text('My Library')),
+            PopupMenuItem(value: 'browser', child: Text('In-app Browser')),
+            PopupMenuItem(value: 'downloads', child: Text('Downloads')),
+            PopupMenuItem(value: 'settings', child: Text('Settings & Themes')),
+            PopupMenuItem(value: 'notice', child: Text('Notice / About')),
+            PopupMenuItem(value: 'share', child: Text('Share DamiMovies')),
+          ]),
+        ]))),
+        SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(18, 0, 18, 18), child: TextField(controller: _search, onChanged: (v) => setState(() => _query = v), textInputAction: TextInputAction.search, decoration: InputDecoration(hintText: 'Search movies...'.tr, prefixIcon: const Icon(Icons.search_rounded), suffixIcon: _query.isEmpty ? null : IconButton(onPressed: () { _search.clear(); setState(() => _query = ''); }, icon: const Icon(Icons.close)), filled: true, fillColor: appSurface, contentPadding: const EdgeInsets.symmetric(vertical: 15), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none))))),
+        SliverToBoxAdapter(child: SizedBox(height: 42, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 17), children: [
+          for (final type in ['All', 'Movies', 'Series']) Padding(padding: const EdgeInsets.only(right: 7), child: ChoiceChip(label: Text(type.tr), selected: _typeFilter == (type == 'Movies' ? 'Movies' : type), onSelected: (_) => setState(() => _typeFilter = type), selectedColor: appRed.withValues(alpha: .2), side: BorderSide(color: _typeFilter == type ? appRed : Colors.white12), labelStyle: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: _typeFilter == type ? Colors.white : Colors.white60))),
+          const SizedBox(width: 3),
+          for (final genre in ['Action','Adventure','Animation','Comedy','Crime','Drama','Fantasy','Horror','Mystery','Romance','Sci-Fi','Thriller']) Padding(padding: const EdgeInsets.only(right: 7), child: ChoiceChip(label: Text(genre), selected: _genreFilter == genre, onSelected: (_) => _selectGenre(_genreFilter == genre ? null : genre), selectedColor: appRed.withValues(alpha: .2), side: BorderSide(color: _genreFilter == genre ? appRed : Colors.white12), labelStyle: TextStyle(fontSize: 11, color: _genreFilter == genre ? Colors.white : Colors.white60))),
+        ]))),
+        if (_genreLoading) SliverToBoxAdapter(child: LinearProgressIndicator(minHeight: 2, color: appRed, backgroundColor: Colors.white10)),
+        if (searching || _genreFilter != null || _typeFilter != 'All') ...[
+          SliverToBoxAdapter(child: _sectionTitle(_watchlistOnly ? 'My Watchlist' : 'Search Results', '${results.length} titles')),
+          if (results.isEmpty) SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(30), child: Center(child: Text(_loading ? 'Loading movies…' : 'No movies found', style: const TextStyle(color: Colors.white60)))))
+          else SliverPadding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 28), sliver: SliverGrid(delegate: SliverChildBuilderDelegate((context, i) => _poster(results[i]), childCount: results.length), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 17, childAspectRatio: .52))),
+        ] else ...[
+          if (_baseMovies.isNotEmpty) SliverToBoxAdapter(child: _hero(_baseMovies.first)),
+          if (_top10.isNotEmpty)
+            SliverToBoxAdapter(child: _topTenRail())
+          else if (_local.isNotEmpty)
+            SliverToBoxAdapter(child: _movieRail(_tmdbLoading ? 'Popular Movies' : 'Movie Picks', _local.take(10).toList())),
+          if (_continueWatching.isNotEmpty) SliverToBoxAdapter(child: _movieRail('Continue Watching', _continueWatching, showProgress: true)),
+          if (_trending.isNotEmpty) SliverToBoxAdapter(child: _movieRail('Trending Movies', _trending)),
+          if (_trailers.isNotEmpty) SliverToBoxAdapter(child: _trailerRail()),
+          if (_loading && _local.isEmpty)
+            SliverToBoxAdapter(child: const Padding(padding: EdgeInsets.all(30), child: Center(child: CircularProgressIndicator()))),
+          if (!_tmdbLoading && !_tmdbAvailable)
+            SliverToBoxAdapter(child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(16)),
+                child: Row(children: [
+                  const Icon(Icons.cloud_off_rounded, color: Colors.white60),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(
+                    _tmdbError.isEmpty
+                        ? 'TMDB is unavailable. Showing your saved movie catalogue.'
+                        : 'TMDB unavailable: $_tmdbError Showing your saved catalogue.',
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  )),
+                  TextButton(onPressed: _loadHome, child: const Text('Retry')),
+                ]),
+              ),
+            )),
+          if (!_loading && _local.isEmpty && !_tmdbLoading && !_tmdbAvailable)
+            SliverToBoxAdapter(child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Center(child: Column(children: [
+                const Icon(Icons.movie_filter_outlined, size: 42, color: Colors.white54),
+                const SizedBox(height: 10),
+                const Text('No movies could be loaded.', style: TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                FilledButton(onPressed: _loadHome, child: const Text('Try again')),
+              ])),
+            )),
+          const SliverToBoxAdapter(child: SizedBox(height: 26)),
+        ],
+      ])),
+    );
+  }
+
+  Widget _sectionTitle(String title, [String? subtitle]) => Padding(padding: const EdgeInsets.fromLTRB(18, 8, 18, 13), child: Row(children: [Expanded(child: Text(title.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -.3))), if (subtitle != null) Text(subtitle.tr, style: const TextStyle(color: Colors.white54, fontSize: 11))]));
+
+  Widget _hero(Movie movie) {
+    final backdrop = movie.backdrop.startsWith('http') ? movie.backdrop : movie.image;
+    return Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 19), child: GestureDetector(onTap: () => _open(movie), child: Container(height: 390, clipBehavior: Clip.antiAlias, decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(26)), child: Stack(fit: StackFit.expand, children: [
+      if (backdrop.startsWith('http')) CachedNetworkImage(imageUrl: backdrop, fit: BoxFit.cover, errorWidget: (_, __, ___) => Container(color: appSurface)),
+      const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x11000000), Color(0x22000000), Color(0xF2080B10)], stops: [0, .35, 1]))),
+      Positioned(top: 16, left: 16, child: Container(padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7), decoration: BoxDecoration(color: appRed, borderRadius: BorderRadius.circular(9)), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.local_fire_department_rounded, size: 15), const SizedBox(width: 5), Text(_trending.isNotEmpty ? 'TRENDING NOW' : 'FEATURED MOVIE', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: .8))]))),
+      Positioned(left: 20, right: 20, bottom: 21, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(movie.genres.take(3).join('  •  ').toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFFFFB8C5), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
+        const SizedBox(height: 9), Text(movie.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 31, height: 1.02, fontWeight: FontWeight.w900, letterSpacing: -.7)),
+        const SizedBox(height: 9), Row(children: [const Icon(Icons.star_rounded, color: Color(0xFFFFC857), size: 18), const SizedBox(width: 4), Text(movie.rating.isEmpty ? 'Trending on TMDB' : '${movie.rating} / 10', style: const TextStyle(fontSize: 12, color: Colors.white70)), const SizedBox(width: 9), if (movie.year.isNotEmpty) Text(movie.year, style: const TextStyle(color: Colors.white60, fontSize: 12))]),
+        const SizedBox(height: 15), Row(children: [FilledButton.icon(style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 12)), onPressed: () => _open(movie), icon: const Icon(Icons.play_arrow_rounded), label: Text('Play'.tr, style: const TextStyle(fontWeight: FontWeight.w900))), const SizedBox(width: 10), OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)), onPressed: () => _toggleSaved(movie), icon: Icon(_saved.contains(movie.key) ? Icons.bookmark : Icons.add), label: Text(_saved.contains(movie.key) ? 'Saved' : 'My List'.tr))]),
+      ])),
+    ]))));
+  }
+
+  Widget _movieRail(String title, List<Movie> movies, {bool showProgress = false}) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    _sectionTitle(title.tr, title == 'Continue Watching' ? 'Pick up again'.tr : null),
+    SizedBox(height: showProgress ? 202 : 220, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 17), scrollDirection: Axis.horizontal, itemCount: movies.length, separatorBuilder: (_, __) => const SizedBox(width: 12), itemBuilder: (_, i) => SizedBox(width: 128, child: GestureDetector(onTap: () => _open(movies[i]), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Expanded(child: Stack(fit: StackFit.expand, children: [ClipRRect(borderRadius: BorderRadius.circular(15), child: _image(movies[i].image)), Positioned(right: 7, top: 7, child: _bookmarkButton(movies[i])), if (showProgress && MovieLibrary.instance.progressFor(movies[i]) > 0) Positioned(left: 0, right: 0, bottom: 0, child: LinearProgressIndicator(value: MovieLibrary.instance.progressFor(movies[i]), minHeight: 4, backgroundColor: Colors.white24, color: appRed))])),
+      const SizedBox(height: 8), Text(movies[i].title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, height: 1.2)),
+      if (showProgress) const Padding(padding: EdgeInsets.only(top: 4), child: Text('Continue watching', style: TextStyle(color: Colors.white54, fontSize: 10))),
+    ]))))), const SizedBox(height: 7)]);
+
+  Widget _topTenRail() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    _sectionTitle('Top 10 Today', 'TMDB TRENDING'),
+    SizedBox(height: 218, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 15), scrollDirection: Axis.horizontal, itemCount: _top10.length, separatorBuilder: (_, __) => const SizedBox(width: 5), itemBuilder: (_, i) => SizedBox(width: 142, child: GestureDetector(onTap: () => _open(_top10[i]), child: Stack(clipBehavior: Clip.none, children: [
+      Positioned(left: 28, right: 0, top: 2, bottom: 0, child: ClipRRect(borderRadius: BorderRadius.circular(14), child: _image(_top10[i].image))),
+      Positioned(left: 0, bottom: -7, child: Text('${i + 1}', style: TextStyle(fontSize: 96, height: 1, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = appBg))),
+      Positioned(left: 0, bottom: -7, child: Text('${i + 1}', style: const TextStyle(fontSize: 96, height: 1, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, color: Colors.white))),
+      Positioned(top: 9, right: 7, child: _bookmarkButton(_top10[i])),
+    ]))))), const SizedBox(height: 17)]);
+
+  Widget _trailerRail() => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle('Latest Trailers', 'WATCH ON YOUTUBE'),
+          SizedBox(
+            height: 174,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 17),
+              scrollDirection: Axis.horizontal,
+              itemCount: _trailers.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (_, i) {
+                final trailer = _trailers[i];
+                return SizedBox(
+                  width: 246,
+                  child: GestureDetector(
+                    onTap: () => launchUrl(
+                      Uri.parse(trailer.youtubeUrl),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(15),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                _image(trailer.poster),
+                                const DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.transparent,
+                                        Color(0xAA000000),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const Center(
+                                  child: Icon(
+                                    Icons.play_circle_fill_rounded,
+                                    color: Colors.white,
+                                    size: 52,
+                                  ),
+                                ),
+                                Positioned(
+                                  left: 9,
+                                  bottom: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 7,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: appRed,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      'TRAILER',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          trailer.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+      );
+
+  Widget _poster(Movie movie) => GestureDetector(onTap: () => _open(movie), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: Stack(fit: StackFit.expand, children: [ClipRRect(borderRadius: BorderRadius.circular(14), child: _image(movie.image)), Positioned(top: 6, right: 6, child: _bookmarkButton(movie)), if (movie.rating.isNotEmpty) Positioned(left: 6, bottom: 6, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4), decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(6)), child: Text('★ ${movie.rating}', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))))])), const SizedBox(height: 7), Text(movie.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)), const SizedBox(height: 3), Text('${movie.year}${movie.genres.isNotEmpty ? ' • ${movie.genres.first}' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white54, fontSize: 10))]));
+
+  Widget _image(String url) => url.startsWith('http') ? CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, placeholder: (_, __) => Container(color: appSurface), errorWidget: (_, __, ___) => Container(color: appSurface, child: const Icon(Icons.movie_outlined, color: Colors.white24))) : Container(color: appSurface, child: const Icon(Icons.movie_outlined, color: Colors.white24));
+  Widget _bookmarkButton(Movie movie) => GestureDetector(onTap: () => _toggleSaved(movie), child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.black.withValues(alpha: .75), shape: BoxShape.circle), child: Icon(_saved.contains(movie.key) ? Icons.bookmark : Icons.bookmark_border, size: 16, color: _saved.contains(movie.key) ? appRed : Colors.white)));
+}
