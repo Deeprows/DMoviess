@@ -889,44 +889,7 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       onPopInvokedWithResult: (didPop, _) { if (!didPop) _onBack(); },
       child: Scaffold(
         backgroundColor: Colors.black,
-        appBar: _isImmersive ? null : AppBar(
-          titleSpacing: 0,
-          title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(widget.movie.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
-            Text('${_sourceIndex + 1}/${_sources.length} · ${_stream.label}${widget.movie.rating.isNotEmpty ? ' · ★ ${widget.movie.rating}' : ''}', style: const TextStyle(fontSize: 10, color: Colors.white54)),
-          ]),
-          actions: [
-            IconButton(tooltip: 'Reload', onPressed: _loadSource, icon: const Icon(Icons.refresh_rounded)),
-            if (_sources.length > 1) IconButton(tooltip: 'Switch player', onPressed: _switchSource, icon: const Icon(Icons.swap_horiz_rounded)),
-            IconButton(tooltip: 'Rotate / landscape', onPressed: _toggleLandscape, icon: const Icon(Icons.screen_rotation_alt_rounded)),
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                switch (value) {
-                  case 'copy': _copyLink(); break;
-                  case 'share': _share(); break;
-                  case 'cast': _cast(); break;
-                  case 'pip': _enterPip(); break;
-                  case 'fullscreen': _setFullscreen(true); break;
-                  case 'download': _downloadPage(); break;
-                  case 'browser': _openBrowser(); break;
-                  case 'quality': _toggleQuality(); break;
-                  case 'save': _saveWatchLater(); break;
-                }
-              },
-              itemBuilder: (_) => [
-                const PopupMenuItem(value: 'save', child: Text('Add / remove Watch Later')),
-                const PopupMenuItem(value: 'download', child: Text('Open download page')),
-                const PopupMenuItem(value: 'browser', child: Text('Open source in browser')),
-                const PopupMenuItem(value: 'copy', child: Text('Copy player link')),
-                const PopupMenuItem(value: 'share', child: Text('Share movie')),
-                const PopupMenuItem(value: 'cast', child: Text('Cast / display settings')),
-                PopupMenuItem(value: 'quality', child: Text(AppPreferences.instance.lowQuality ? 'Use automatic quality' : 'Prefer low quality')),
-                if (_pipAvailable) const PopupMenuItem(value: 'pip', child: Text('Picture-in-picture')),
-                const PopupMenuItem(value: 'fullscreen', child: Text('Fullscreen')),
-              ],
-            ),
-          ],
-        ),
+        appBar: null,
         body: Stack(
           children: [
             Column(children: [
