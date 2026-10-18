@@ -23,6 +23,7 @@ dependencies:
   share_plus: ^10.1.4
   android_intent_plus: ^5.2.0
   open_filex: ^4.7.0
+  google_sign_in: ^6.2.2
 
 dev_dependencies:
   flutter_test:
