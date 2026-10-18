@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import 'browser_screen.dart';
 import 'downloads_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'movie_detail_screen.dart';
+import 'movie_player_screen.dart';
 import 'settings_screen.dart';
 
 class MovieHomeScreen extends StatefulWidget {
@@ -36,6 +38,9 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   String? _genreFilter;
   List<Movie> _genreResults = [];
   bool _genreLoading = false;
+  bool _homeRequestInFlight = false;
+  static const String _cachedTrendingKey = 'damimovies_tmdb_trending_cache_v2';
+  static const String _cachedTopKey = 'damimovies_tmdb_top_cache_v2';
 
   @override void initState() { super.initState(); MovieLibrary.instance.addListener(_syncLibrary); _loadHome(); }
   @override void dispose() { MovieLibrary.instance.removeListener(_syncLibrary); _search.dispose(); super.dispose(); }
@@ -49,118 +54,234 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
     });
   }
 
-  Future<void> _loadHome() async {
-    if (mounted) {
-      setState(() {
-        _tmdbLoading = true;
-        _tmdbError = '';
-      });
-    }
-
-    // Load bundled movies first. The app can render immediately even if TMDB
-    // or Android network access is unavailable.
+  Future<List<Movie>> _readMovieCache(String key) async {
     try {
-      final raw = await rootBundle
-          .loadString('assets/data/movies.json')
-          .timeout(const Duration(seconds: 5));
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 3));
+      final raw = prefs.getString(key);
+      if (raw == null || raw.isEmpty) return [];
       final decoded = jsonDecode(raw);
-      final list = decoded is List
-          ? decoded
-          : (decoded is Map && decoded['movies'] is List
-              ? decoded['movies'] as List
-              : <dynamic>[]);
-      final localMovies = list
-          .whereType<Map>()
-          .map((e) => Movie.fromJson(Map<String, dynamic>.from(e)))
-          .where((movie) => movie.name.isNotEmpty)
+      if (decoded is! List) return [];
+      return decoded.whereType<Map>()
+          .map((item) => Movie.fromJson(Map<String, dynamic>.from(item)))
           .toList();
-      if (mounted) {
-        setState(() {
-          _local = localMovies;
-          _loading = false;
-        });
-      }
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      return [];
     }
+  }
 
-    // Library lists live in shared preferences and never block first paint.
+  Future<void> _writeMovieCache(String key, List<Movie> movies) async {
+    if (movies.isEmpty) return;
     try {
-      await MovieLibrary.instance.load().timeout(const Duration(seconds: 4));
-      await MovieLibrary.instance.seedFromCatalogue(_local);
-      final prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 4));
-      final legacyContinue = (prefs.getStringList('damimovies_continue') ?? []).map((value) {
-        try { return Movie.fromJson(Map<String, dynamic>.from(jsonDecode(value) as Map)); } catch (_) { return null; }
-      }).whereType<Movie>().toList();
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 3));
+      await prefs.setString(key, jsonEncode(movies.map((m) => m.toJson()).toList()))
+          .timeout(const Duration(seconds: 3));
+    } catch (_) {}
+  }
+
+  Future<void> _refreshLocalLibrary() async {
+    try {
+      await MovieLibrary.instance.load().timeout(const Duration(seconds: 5));
+      await MovieLibrary.instance.seedFromCatalogue(_local)
+          .timeout(const Duration(seconds: 4));
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 3));
+      final legacyContinue = (prefs.getStringList('damimovies_continue') ?? [])
+          .map((value) {
+            try {
+              return Movie.fromJson(
+                  Map<String, dynamic>.from(jsonDecode(value) as Map));
+            } catch (_) { return null; }
+          }).whereType<Movie>().toList();
       if (mounted) setState(() {
         _saved = MovieLibrary.instance.saved.map((m) => m.key).toSet();
-        if (MovieLibrary.instance.history.isNotEmpty) { _continueWatching = MovieLibrary.instance.history; }
-        else { _continueWatching = legacyContinue; }
-      });
-    } catch (_) { /* An empty local library is a safe fallback. */ }
-
-    // A timeout on any TMDB request should return control to the UI. Rows that
-    // have already loaded are kept; the bundled catalogue remains available.
-    try {
-      final results = await Future.wait<dynamic>([
-        _tmdb.trending().timeout(
-          const Duration(seconds: 12),
-          onTimeout: () => <Movie>[],
-        ),
-        _tmdb.topRated().timeout(
-          const Duration(seconds: 12),
-          onTimeout: () => <Movie>[],
-        ),
-        _tmdb.latestTrailers().timeout(
-          const Duration(seconds: 13),
-          onTimeout: () => <TmdbTrailer>[],
-        ),
-      ], eagerError: false).timeout(
-        const Duration(seconds: 15),
-        onTimeout: () => <dynamic>[<Movie>[], <Movie>[], <TmdbTrailer>[]],
-      );
-      final trending = results[0] as List<Movie>;
-      final topRated = results[1] as List<Movie>;
-      final trailers = results[2] as List<TmdbTrailer>;
-      await MovieLibrary.instance.seedFromCatalogue([..._local, ...trending, ...topRated]);
-      if (!mounted) return;
-      setState(() {
-        _trending = trending;
-        _top10 = (trending.isNotEmpty ? trending : topRated).take(10).toList();
-        _trailers = trailers;
-        _tmdbAvailable = trending.isNotEmpty || topRated.isNotEmpty;
-        _tmdbLoading = false;
-        _tmdbError = _tmdbAvailable
-            ? ''
-            : (_tmdb.lastError ?? 'TMDB has not returned any movies.');
+        _continueWatching = MovieLibrary.instance.history.isNotEmpty
+            ? MovieLibrary.instance.history
+            : legacyContinue;
       });
     } catch (_) {
+      // History/watchlist are optional and never block movie opening.
+    }
+  }
+
+  Future<void> _loadHome() async {
+    if (_homeRequestInFlight) return;
+    _homeRequestInFlight = true;
+    if (mounted) setState(() {
+      _tmdbLoading = true;
+      _tmdbError = '';
+    });
+    try {
+      // Read the packaged movie catalogue first, independent of TMDB.
+      try {
+        final raw = await rootBundle.loadString('assets/data/movies.json')
+            .timeout(const Duration(seconds: 5));
+        final decoded = jsonDecode(raw);
+        final list = decoded is List
+            ? decoded
+            : (decoded is Map && decoded['movies'] is List
+                ? decoded['movies'] as List
+                : <dynamic>[]);
+        final localMovies = list.whereType<Map>()
+            .map((e) => Movie.fromJson(Map<String, dynamic>.from(e)))
+            .where((movie) => movie.name.isNotEmpty).toList();
+        if (mounted) setState(() { _local = localMovies; _loading = false; });
+      } catch (_) {
+        if (mounted) setState(() => _loading = false);
+      }
+
+      // Cached TMDB titles appear immediately on later launches/offline starts.
+      final cached = await Future.wait<List<Movie>>([
+        _readMovieCache(_cachedTrendingKey),
+        _readMovieCache(_cachedTopKey),
+      ]).timeout(const Duration(seconds: 4), onTimeout: () => <List<Movie>>[[], []]);
+      final cachedTrending = cached[0];
+      final cachedTop = cached[1];
+      if (mounted && (cachedTrending.isNotEmpty || cachedTop.isNotEmpty)) {
+        setState(() {
+          if (_trending.isEmpty) _trending = cachedTrending;
+          if (_top10.isEmpty) _top10 = cachedTop.isNotEmpty
+              ? cachedTop.take(10).toList()
+              : cachedTrending.take(10).toList();
+        });
+      }
+
+      // Hydrate local list/history out of band. Never await storage before
+      // allowing a user to open a movie.
+      unawaited(_refreshLocalLibrary());
+
+      // Request only trending movies first. The previous screen started the
+      // trend, top-rated, now-playing and many video requests simultaneously;
+      // slow mobile networks often timed out all of them. Show the first live
+      // row as soon as it arrives, then enrich the other rows afterward.
+      List<Movie> trending = [];
+      try {
+        trending = await _tmdb.trending().timeout(
+          const Duration(seconds: 17), onTimeout: () => <Movie>[]);
+      } catch (_) {}
+
       if (!mounted) return;
+      if (trending.isEmpty) {
+        setState(() {
+          _tmdbLoading = false;
+          _tmdbAvailable = false;
+          _tmdbError = _tmdb.lastError ?? 'TMDB did not return any movies. Tap Retry.';
+          if (_top10.isEmpty) _top10 = _local.take(10).toList();
+        });
+        return;
+      }
+
       setState(() {
+        _trending = trending;
+        _top10 = trending.take(10).toList();
+        _tmdbAvailable = true;
         _tmdbLoading = false;
-        _tmdbAvailable = false;
-        _tmdbError = _tmdb.lastError ?? 'Could not connect to TMDB.';
+        _tmdbError = '';
       });
+      unawaited(_writeMovieCache(_cachedTrendingKey, trending));
+      unawaited(_writeMovieCache(_cachedTopKey, trending.take(10).toList()));
+      unawaited(_seedCatalogueSafely([..._local, ...trending]));
+
+      // Top-rated movies and trailer metadata are secondary loads. A failure
+      // here must not hide already-visible trending results or disable taps.
+      try {
+        final topRated = await _tmdb.topRated().timeout(
+          const Duration(seconds: 16), onTimeout: () => <Movie>[]);
+        if (mounted && topRated.isNotEmpty) {
+          final top = topRated.take(10).toList();
+          setState(() { _top10 = top; _tmdbAvailable = true; });
+          unawaited(_writeMovieCache(_cachedTopKey, top));
+        }
+      } catch (_) {}
+
+      try {
+        final trailers = await _tmdb.latestTrailers().timeout(
+          const Duration(seconds: 16), onTimeout: () => <TmdbTrailer>[]);
+        if (mounted && trailers.isNotEmpty) setState(() => _trailers = trailers);
+      } catch (_) {}
+    } catch (error) {
+      if (mounted) setState(() {
+        _tmdbLoading = false;
+        _tmdbAvailable = _trending.isNotEmpty || _top10.isNotEmpty;
+        _tmdbError = _tmdb.lastError ?? 'Could not connect to TMDB. Tap Retry.';
+      });
+    } finally {
+      _homeRequestInFlight = false;
     }
   }
 
   Future<void> _toggleSaved(Movie movie) async {
-    final saved = await MovieLibrary.instance.toggleSaved(movie);
-    if (!mounted) return;
-    setState(() { if (saved) { _saved.add(movie.key); } else { _saved.remove(movie.key); } });
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('damimovies_watchlist', _saved.toList());
+    // Update the icon immediately; disk persistence is best-effort background work.
+    final shouldSave = !_saved.contains(movie.key);
+    if (mounted) setState(() {
+      if (shouldSave) { _saved.add(movie.key); } else { _saved.remove(movie.key); }
+    });
+    try {
+      await MovieLibrary.instance.load().timeout(const Duration(seconds: 4));
+      final alreadySaved = MovieLibrary.instance.isSaved(movie);
+      if (alreadySaved != shouldSave) {
+        await MovieLibrary.instance.toggleSaved(movie)
+            .timeout(const Duration(seconds: 4));
+      }
+    } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 3));
+      await prefs.setStringList('damimovies_watchlist', _saved.toList())
+          .timeout(const Duration(seconds: 3));
+    } catch (_) {}
+  }
+
+  Future<void> _seedCatalogueSafely(Iterable<Movie> movies) async {
+    try {
+      await MovieLibrary.instance.seedFromCatalogue(movies)
+          .timeout(const Duration(seconds: 4));
+    } catch (_) {}
   }
 
   Future<void> _open(Movie movie) async {
-    await MovieLibrary.instance.recordOpened(movie);
-    final prefs = await SharedPreferences.getInstance();
-    final recent = <Movie>[movie, ..._continueWatching.where((m) => m.key != movie.key)].take(12).toList();
-    await prefs.setStringList('damimovies_continue', recent.map((m) => jsonEncode(m.toJson())).toList());
-    if (mounted) setState(() => _continueWatching = recent);
     if (!mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => MovieDetailScreen(
-      movie: movie, saved: _saved.contains(movie.key), onToggleSaved: () async { await _toggleSaved(movie); })));
+    final recent = <Movie>[movie,
+      ..._continueWatching.where((m) => m.key != movie.key)]
+        .take(12).toList();
+    setState(() => _continueWatching = recent);
+    // Push first; shared-preference or history storage must never make a tap
+    // look dead when opening a title.
+    unawaited(_persistOpenedMovie(movie, recent));
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => MovieDetailScreen(
+        movie: movie,
+        saved: _saved.contains(movie.key),
+        onToggleSaved: () async { await _toggleSaved(movie); },
+      ),
+    ));
+  }
+
+  Future<void> _persistOpenedMovie(Movie movie, List<Movie> recent) async {
+    try {
+      await MovieLibrary.instance.recordOpened(movie)
+          .timeout(const Duration(seconds: 4));
+    } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(seconds: 3));
+      await prefs.setStringList('damimovies_continue',
+        recent.map((m) => jsonEncode(m.toJson())).toList())
+          .timeout(const Duration(seconds: 3));
+    } catch (_) {}
+  }
+
+  void _playNow(Movie movie) {
+    if (!mounted) return;
+    final recent = <Movie>[movie,
+      ..._continueWatching.where((m) => m.key != movie.key)]
+        .take(12).toList();
+    setState(() => _continueWatching = recent);
+    unawaited(_persistOpenedMovie(movie, recent));
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => MoviePlayerScreen(movie: movie),
+    ));
   }
 
   List<Movie> get _baseMovies => _trending.isNotEmpty ? _trending : _local;
@@ -277,7 +398,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
         Text(movie.genres.take(3).join('  •  ').toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFFFFB8C5), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
         const SizedBox(height: 9), Text(movie.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 31, height: 1.02, fontWeight: FontWeight.w900, letterSpacing: -.7)),
         const SizedBox(height: 9), Row(children: [const Icon(Icons.star_rounded, color: Color(0xFFFFC857), size: 18), const SizedBox(width: 4), Text(movie.rating.isEmpty ? 'Trending on TMDB' : '${movie.rating} / 10', style: const TextStyle(fontSize: 12, color: Colors.white70)), const SizedBox(width: 9), if (movie.year.isNotEmpty) Text(movie.year, style: const TextStyle(color: Colors.white60, fontSize: 12))]),
-        const SizedBox(height: 15), Row(children: [FilledButton.icon(style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 12)), onPressed: () => _open(movie), icon: const Icon(Icons.play_arrow_rounded), label: Text('Play'.tr, style: const TextStyle(fontWeight: FontWeight.w900))), const SizedBox(width: 10), OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)), onPressed: () => _toggleSaved(movie), icon: Icon(_saved.contains(movie.key) ? Icons.bookmark : Icons.add), label: Text(_saved.contains(movie.key) ? 'Saved' : 'My List'.tr))]),
+        const SizedBox(height: 15), Row(children: [FilledButton.icon(style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 12)), onPressed: () => _playNow(movie), icon: const Icon(Icons.play_arrow_rounded), label: Text('Play'.tr, style: const TextStyle(fontWeight: FontWeight.w900))), const SizedBox(width: 10), OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)), onPressed: () => _toggleSaved(movie), icon: Icon(_saved.contains(movie.key) ? Icons.bookmark : Icons.add), label: Text(_saved.contains(movie.key) ? 'Saved' : 'My List'.tr))]),
       ])),
     ]))));
   }
