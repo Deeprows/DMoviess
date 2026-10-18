@@ -212,7 +212,7 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const CircularProgressIndicator(color: appRed),
+                                CircularProgressIndicator(color: appRed),
                                 const SizedBox(height: 12),
                                 Text('Loading trailer… ${_progress.clamp(0, 100)}%',
                                     style: const TextStyle(color: Colors.white70, fontSize: 12)),
