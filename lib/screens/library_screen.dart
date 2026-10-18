@@ -36,7 +36,43 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
       final movie = movies[i];
       return Container(height: 118, padding: const EdgeInsets.all(9), decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(15)), child: Row(children: [
         ClipRRect(borderRadius: BorderRadius.circular(9), child: SizedBox(width: 70, height: 100, child: movie.image.startsWith('http') ? CachedNetworkImage(imageUrl: movie.image, fit: BoxFit.cover, errorWidget: (_, __, ___) => const Icon(Icons.movie_outlined)) : const Icon(Icons.movie_outlined))),
-        const SizedBox(width: 12), Expanded(child: InkWell(onTap: () => _open(movie), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [Text(movie.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)), const SizedBox(height: 5), Text([if (movie.year.isNotEmpty) movie.year, if (movie.rating.isNotEmpty) '★ ${movie.rating}', if (movie.isSeries) 'Series' else 'Movie'].join(' • '), const SizedBox(height: 5), Text(movie.genres.take(2).join(' • '), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Colors.white54))]))),
+        const SizedBox(width: 12),
+        Expanded(
+          child: InkWell(
+            onTap: () => _open(movie),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  movie.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text([
+                  if (movie.year.isNotEmpty) movie.year,
+                  if (movie.rating.isNotEmpty) '★ ${movie.rating}',
+                  movie.isSeries ? 'Series' : 'Movie',
+                ].join(' • ')),
+                const SizedBox(height: 5),
+                Text(
+                  movie.genres.take(2).join(' • '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.white54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
         IconButton(tooltip: 'Remove', onPressed: () => remove(movie), icon: const Icon(Icons.delete_outline_rounded, color: Colors.white54)),
       ]));
     });
