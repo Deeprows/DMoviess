@@ -463,7 +463,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
           ]),
           const SizedBox(width: 4),
           Container(width: 42, height: 42, decoration: BoxDecoration(gradient: LinearGradient(colors: [appAccentSoft, appRed]), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.movie_filter_rounded, color: Colors.white, size: 25)),
-          const SizedBox(width: 11), const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('DamiMovies', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: -.7)), Text('Your next favourite starts here', style: TextStyle(color: Colors.white54, fontSize: 11))])),
+          const SizedBox(width: 11), const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('DamiMovies', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: -.7))])),
         ]))),
         SliverToBoxAdapter(
           child: Padding(
@@ -834,7 +834,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
     ]))))), const SizedBox(height: 7)]);
 
   Widget _topTenRail() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    _sectionTitle('Top 10 Today', 'TMDB TRENDING'),
+    _sectionTitle('Top 10 Today'),
     SizedBox(height: 218, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 15), scrollDirection: Axis.horizontal, itemCount: _top10.length, separatorBuilder: (_, __) => const SizedBox(width: 5), itemBuilder: (_, i) => SizedBox(width: 142, child: GestureDetector(onTap: () => _open(_top10[i]), child: Stack(clipBehavior: Clip.none, children: [
       Positioned(left: 28, right: 0, top: 2, bottom: 0, child: ClipRRect(borderRadius: BorderRadius.circular(14), child: _image(_top10[i].image))),
       Positioned(left: 0, bottom: -7, child: Text('${i + 1}', style: TextStyle(fontSize: 96, height: 1, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = appBg))),
@@ -845,7 +845,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   Widget _trailerRail() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Latest Trailers', 'PLAY IN APP'),
+          _sectionTitle('Latest Trailers'),
           SizedBox(
             height: 174,
             child: ListView.separated(
