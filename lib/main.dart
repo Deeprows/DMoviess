@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'screens/app_shell_screen.dart';
+import 'screens/auth_gate.dart';
 import 'services/app_preferences.dart';
 import 'services/download_manager.dart';
 
@@ -105,7 +105,7 @@ class DamiMoviesApp extends StatelessWidget {
               ),
               useMaterial3: true,
             ),
-            home: const AppShellScreen(),
+            home: const AuthGate(),
           );
         },
       );
