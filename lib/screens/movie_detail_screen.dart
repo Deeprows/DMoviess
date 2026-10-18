@@ -170,7 +170,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
             Container(
               height: 158,
               decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(14)),
-              child: const Center(child: SizedBox(width: 23, height: 23, child: CircularProgressIndicator(strokeWidth: 2, color: appRed))),
+              child: Center(child: SizedBox(width: 23, height: 23, child: CircularProgressIndicator(strokeWidth: 2, color: appRed))),
             )
           else if (trailer != null)
             Material(
