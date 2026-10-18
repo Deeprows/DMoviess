@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 import '../main.dart';
 import '../models/movie.dart';
 import '../services/tmdb_service.dart';
@@ -95,8 +94,6 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
     Navigator.push(context, MaterialPageRoute(builder: (_) => BrowserScreen(initialUrl: _movie.downloadUrl)));
   }
 
-  Future<void> _share() => Share.share('${_movie.title}${_movie.year.isEmpty ? '' : ' (${_movie.year})'} on DamiMovies\n${_movie.url}');
-
   @override void dispose() { _tabs.dispose(); super.dispose(); }
 
   @override Widget build(BuildContext context) {
@@ -108,7 +105,6 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
             expandedHeight: 370, pinned: true, backgroundColor: appBg,
             actions: [
               IconButton(tooltip: _saved ? 'Remove from My List' : 'Add to My List', onPressed: _toggleSaved, icon: Icon(_saved ? Icons.bookmark_rounded : Icons.bookmark_add_outlined, color: _saved ? appRed : Colors.white)),
-              IconButton(tooltip: 'Share title', onPressed: _share, icon: const Icon(Icons.share_rounded)),
             ],
             flexibleSpace: FlexibleSpaceBar(background: Stack(fit: StackFit.expand, children: [
               if (backdrop.startsWith('http')) CachedNetworkImage(imageUrl: backdrop, fit: BoxFit.cover, errorWidget: (_, __, ___) => Container(color: appSurface)),
