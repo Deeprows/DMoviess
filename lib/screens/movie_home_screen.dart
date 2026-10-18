@@ -4,7 +4,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../models/movie.dart';
 import '../services/tmdb_service.dart';
@@ -17,6 +16,7 @@ import 'downloads_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'movie_detail_screen.dart';
 import 'movie_player_screen.dart';
+import 'trailer_player_screen.dart';
 import 'settings_screen.dart';
 
 class MovieHomeScreen extends StatefulWidget {
@@ -423,7 +423,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   Widget _trailerRail() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('Latest Trailers', 'WATCH ON YOUTUBE'),
+          _sectionTitle('Latest Trailers', 'PLAY IN APP'),
           SizedBox(
             height: 174,
             child: ListView.separated(
@@ -436,10 +436,13 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                 return SizedBox(
                   width: 246,
                   child: GestureDetector(
-                    onTap: () => launchUrl(
-                      Uri.parse(trailer.youtubeUrl),
-                      mode: LaunchMode.externalApplication,
-                    ),
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => TrailerPlayerScreen(
+                        title: trailer.title,
+                        youtubeKey: trailer.key,
+                        poster: trailer.poster,
+                      ),
+                    )),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
