@@ -41,7 +41,6 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
   DateTime _lastNativeProgressSave = DateTime.fromMillisecondsSinceEpoch(0);
   late final List<({String url, String referer, String agent})> _sources;
   int _sourceIndex = 0;
-  int _progress = 0;
   bool _loading = true;
   bool _error = false;
   bool _fullscreen = false;
@@ -102,7 +101,6 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
           if (!mounted) return;
           setState(() {
             _loading = true;
-            _progress = 5;
             _error = false;
             _errorDetail = null;
           });
@@ -110,15 +108,13 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
           _keepVisible();
           _applyShield();
         },
-        onProgress: (value) {
-          if (mounted) setState(() => _progress = value.clamp(0, 100).toInt());
+        onProgress: (_) {
           _applyShield();
         },
         onPageFinished: (url) {
           _loadTimeout?.cancel();
           if (mounted) setState(() {
             _loading = false;
-            _progress = 100;
           });
           _keepVisible();
           _applyShield();
@@ -309,7 +305,6 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       if (!mounted || !_loading) return;
       setState(() {
         _loading = false;
-        _progress = 100;
         _error = true;
         _errorDetail = 'This source is taking too long to respond. Try switching to another player.';
       });
@@ -445,7 +440,6 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       next.addListener(_onNativePlayerChanged);
       setState(() {
         _loading = true;
-        _progress = 8;
         _error = false;
         _errorDetail = null;
       });
@@ -458,7 +452,6 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       _loadTimeout?.cancel();
       setState(() {
         _loading = false;
-        _progress = 100;
         _error = false;
       });
       _nativeProgressTimer?.cancel();
@@ -489,7 +482,6 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     if (!mounted) return;
     setState(() {
       _loading = true;
-      _progress = 5;
       _error = false;
       _errorDetail = null;
     });
@@ -893,7 +885,6 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
         body: Stack(
           children: [
             Column(children: [
-              if (!_isImmersive) Container(height: 3, alignment: Alignment.centerLeft, child: AnimatedContainer(duration: const Duration(milliseconds: 180), width: MediaQuery.sizeOf(context).width * (_progress.clamp(0, 100) / 100), color: appRed)),
               Expanded(child: video),
               if (!_isImmersive) Container(
                 color: appSurface,
