@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:video_player/video_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -596,10 +595,6 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Player link copied')));
   }
 
-  Future<void> _share() async {
-    await Share.share('${widget.movie.title}\nWatch on DamiMovies\n${widget.movie.url}');
-  }
-
   Future<void> _cast() async {
     for (final action in const ['android.settings.CAST_SETTINGS', 'android.settings.WIFI_DISPLAY_SETTINGS']) {
       try {
@@ -902,7 +897,6 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
                       _Control(icon: Icons.bookmark_add_outlined, label: 'Watch Later', onTap: _saveWatchLater),
                       _Control(icon: Icons.download_rounded, label: 'Download', onTap: _downloadPage),
                       _Control(icon: Icons.copy_rounded, label: 'Copy link', onTap: _copyLink),
-                      _Control(icon: Icons.share_rounded, label: 'Share', onTap: _share),
                     ])),
                   ),
                 ),
