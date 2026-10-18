@@ -1,3 +1,4 @@
+import '../services/auth_service.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -192,10 +193,40 @@ class SettingsScreen extends StatelessWidget {
             _actionTile(Icons.campaign_outlined, 'Notice', 'Read the current DamiMovies notice', () => _notice(context)),
             _actionTile(Icons.system_update_alt_rounded, 'Check for updates', 'Check a configured update source', () => _checkUpdate(context)),
             _actionTile(Icons.favorite_border_rounded, 'Support DamiMovies', 'Open the configured support page', () => _support(context)),
+            if (AuthService.instance.user != null) _accountTile(context),
             _actionTile(Icons.share_rounded, 'Share DamiMovies', 'Share the app link', () => Share.share('Discover movies with DamiMovies.\n${AppConfig.appUrl}')),
             _actionTile(Icons.info_outline_rounded, 'About', 'TMDB-powered movie discovery and player', () => showAboutDialog(context: context, applicationName: 'DamiMovies', applicationVersion: AppConfig.appVersion, applicationLegalese: 'This product uses the TMDB API but is not endorsed or certified by TMDB. Movie streams and downloads may be provided by third-party websites.')),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _accountTile(BuildContext context) {
+    final user = AuthService.instance.user!;
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 2),
+      leading: Icon(Icons.account_circle_rounded, color: appRed),
+      title: Text(user.name.isNotEmpty ? user.name : 'Signed in', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+      subtitle: Text(user.email, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+      trailing: TextButton(
+        onPressed: () async {
+          final ok = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Sign out?'),
+              content: const Text('You will need to sign in with Gmail again to keep watching.'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign out')),
+              ],
+            ),
+          );
+          if (ok != true) return;
+          await AuthService.instance.signOut();
+          if (context.mounted) Navigator.of(context).popUntil((route) => route.isFirst);
+        },
+        child: const Text('Sign out'),
       ),
     );
   }
