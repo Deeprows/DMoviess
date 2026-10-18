@@ -72,6 +72,38 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
           onNavigationRequest: (request) {
             final uri = Uri.tryParse(request.url);
             if (uri == null) return NavigationDecision.prevent;
+
+            // Keep every trailer and any YouTube navigation inside this WebView.
+            // Convert ordinary YouTube watch links to the embedded player rather
+            // than allowing a browser/app hand-off.
+            final host = uri.host.toLowerCase();
+            final isYouTube = host == 'youtube.com' ||
+                host.endsWith('.youtube.com') ||
+                host == 'youtu.be' ||
+                host.endsWith('.youtu.be');
+            if (isYouTube && !uri.path.startsWith('/embed/')) {
+              String? videoId;
+              if (host == 'youtu.be' || host.endsWith('.youtu.be')) {
+                videoId = uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
+              } else {
+                videoId = uri.queryParameters['v'];
+              }
+              if (videoId != null && videoId.isNotEmpty) {
+                unawaited(_controller.loadRequest(Uri.https(
+                  'www.youtube-nocookie.com',
+                  '/embed/$videoId',
+                  const {
+                    'autoplay': '1',
+                    'playsinline': '1',
+                    'rel': '0',
+                    'controls': '1',
+                    'modestbranding': '1',
+                  },
+                )));
+                return NavigationDecision.prevent;
+              }
+            }
+
             final scheme = uri.scheme.toLowerCase();
             return scheme == 'https' || scheme == 'http'
                 ? NavigationDecision.navigate
