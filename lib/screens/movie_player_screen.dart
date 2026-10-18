@@ -350,12 +350,7 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     // block main-frame jumps to unrelated domains. The explicit Browser action
     // remains available for users who intentionally want to leave the player.
     if (request.isMainFrame && _stream.kind == StreamKind.embed && !_isTrustedPlayerHost(uri.host)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('External redirect blocked. Use Switch player to try another source.'),
-          duration: Duration(seconds: 3),
-        ));
-      }
+      // Blocked silently: no notification is shown to the user.
       return NavigationDecision.prevent;
     }
     return NavigationDecision.navigate;
