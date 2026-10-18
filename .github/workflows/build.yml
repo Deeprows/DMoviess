@@ -24,12 +24,22 @@ jobs:
           python3 tool/patch_main_activity.py
           python3 tool/patch_background_playback.py
           python3 tool/patch_android_manifest.py
+      - name: Use fixed signing key (keeps the Google sign-in SHA-1 the same every build)
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
+            mkdir -p ~/.android
+            echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
+          else
+            echo "DEBUG_KEYSTORE_BASE64 secret not set; using a throwaway key (Google sign-in will fail with error 10)."
+          fi
       - name: Get dependencies
         run: flutter pub get
       - name: Generate app icon
         run: dart run flutter_launcher_icons
       - name: Build release APK
-        run: flutter build apk --release --dart-define=TMDB_API_KEY="${{ secrets.TMDB_API_KEY }}" --dart-define=APP_VERSION="1.0.0"
+        run: flutter build apk --release --dart-define=TMDB_API_KEY="${{ secrets.TMDB_API_KEY }}" --dart-define=APP_VERSION="1.0.0" --dart-define=GOOGLE_WEB_CLIENT_ID="${{ secrets.GOOGLE_WEB_CLIENT_ID }}"
       - uses: actions/upload-artifact@v4
         with:
           name: DamiMovies-APK
