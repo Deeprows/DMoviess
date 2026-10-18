@@ -27,6 +27,9 @@ class MovieHomeScreen extends StatefulWidget {
 class _MovieHomeScreenState extends State<MovieHomeScreen> {
   final TmdbService _tmdb = TmdbService();
   final TextEditingController _search = TextEditingController();
+  final PageController _heroController = PageController();
+  Timer? _heroAutoTimer;
+  int _heroPage = 0;
   List<Movie> _local = [], _trending = [], _top10 = [], _continueWatching = [];
   List<TmdbTrailer> _trailers = [];
   Set<String> _saved = {};
@@ -42,8 +45,32 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   static const String _cachedTrendingKey = 'damimovies_tmdb_trending_cache_v2';
   static const String _cachedTopKey = 'damimovies_tmdb_top_cache_v2';
 
-  @override void initState() { super.initState(); MovieLibrary.instance.addListener(_syncLibrary); _loadHome(); }
-  @override void dispose() { MovieLibrary.instance.removeListener(_syncLibrary); _search.dispose(); super.dispose(); }
+  @override void initState() {
+    super.initState();
+    MovieLibrary.instance.addListener(_syncLibrary);
+    _loadHome();
+    // The hero cycles through several trending titles automatically, while
+    // remaining swipeable by the user.
+    _heroAutoTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (!mounted || !_heroController.hasClients) return;
+      final count = _heroMovies.length;
+      if (count < 2) return;
+      final next = (_heroPage + 1) % count;
+      _heroController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 550),
+        curve: Curves.easeInOutCubic,
+      );
+    });
+  }
+
+  @override void dispose() {
+    _heroAutoTimer?.cancel();
+    _heroController.dispose();
+    MovieLibrary.instance.removeListener(_syncLibrary);
+    _search.dispose();
+    super.dispose();
+  }
 
   void _syncLibrary() {
     if (!mounted) return;
@@ -145,6 +172,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
               ? cachedTop.take(10).toList()
               : cachedTrending.take(10).toList();
         });
+        _resetHeroCarousel();
       }
 
       // Hydrate local list/history out of band. Never await storage before
@@ -179,6 +207,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
         _tmdbLoading = false;
         _tmdbError = '';
       });
+      _resetHeroCarousel();
       unawaited(_writeMovieCache(_cachedTrendingKey, trending));
       unawaited(_writeMovieCache(_cachedTopKey, trending.take(10).toList()));
       unawaited(_seedCatalogueSafely([..._local, ...trending]));
@@ -285,6 +314,24 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   }
 
   List<Movie> get _baseMovies => _trending.isNotEmpty ? _trending : _local;
+  List<Movie> get _heroMovies {
+    final source = _baseMovies;
+    final unique = <String, Movie>{};
+    for (final movie in source) {
+      unique.putIfAbsent(movie.key, () => movie);
+    }
+    // Keep hero loading light but provide several titles, not just one.
+    return unique.values.take(8).toList();
+  }
+
+  void _resetHeroCarousel() {
+    _heroPage = 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _heroController.hasClients) {
+        _heroController.jumpToPage(0);
+      }
+    });
+  }
   List<Movie> get _searchResults => [..._trending, ..._top10, ..._local, ..._genreResults]
     .fold<Map<String, Movie>>({}, (map, m) { map.putIfAbsent(m.key, () => m); return map; }).values
     .where((m) => '${m.title} ${m.genre}'.toLowerCase().contains(_query.toLowerCase()))
@@ -340,7 +387,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
           if (results.isEmpty) SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(30), child: Center(child: Text(_loading ? 'Loading movies…' : 'No movies found', style: const TextStyle(color: Colors.white60)))))
           else SliverPadding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 28), sliver: SliverGrid(delegate: SliverChildBuilderDelegate((context, i) => _poster(results[i]), childCount: results.length), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 17, childAspectRatio: .52))),
         ] else ...[
-          if (_baseMovies.isNotEmpty) SliverToBoxAdapter(child: _hero(_baseMovies.first)),
+          if (_heroMovies.isNotEmpty) SliverToBoxAdapter(child: _heroCarousel(_heroMovies)),
           if (_top10.isNotEmpty)
             SliverToBoxAdapter(child: _topTenRail())
           else if (_local.isNotEmpty)
@@ -388,19 +435,169 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
 
   Widget _sectionTitle(String title, [String? subtitle]) => Padding(padding: const EdgeInsets.fromLTRB(18, 8, 18, 13), child: Row(children: [Expanded(child: Text(title.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -.3))), if (subtitle != null) Text(subtitle.tr, style: const TextStyle(color: Colors.white54, fontSize: 11))]));
 
-  Widget _hero(Movie movie) {
+  Widget _heroCarousel(List<Movie> movies) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 19),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 390,
+            child: PageView.builder(
+              controller: _heroController,
+              itemCount: movies.length,
+              onPageChanged: (index) {
+                if (mounted) setState(() => _heroPage = index);
+              },
+              itemBuilder: (context, index) => _heroSlide(movies[index], index, movies.length),
+            ),
+          ),
+          if (movies.length > 1) ...[
+            const SizedBox(height: 13),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(movies.length, (index) {
+                final selected = index == _heroPage;
+                return GestureDetector(
+                  onTap: () => _heroController.animateToPage(
+                    index,
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.easeOutCubic,
+                  ),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: selected ? 22 : 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: selected ? appRed : Colors.white30,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _heroSlide(Movie movie, int index, int total) {
     final backdrop = movie.backdrop.startsWith('http') ? movie.backdrop : movie.image;
-    return Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 19), child: GestureDetector(onTap: () => _open(movie), child: Container(height: 390, clipBehavior: Clip.antiAlias, decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(26)), child: Stack(fit: StackFit.expand, children: [
-      if (backdrop.startsWith('http')) CachedNetworkImage(imageUrl: backdrop, fit: BoxFit.cover, errorWidget: (_, __, ___) => Container(color: appSurface)),
-      const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x11000000), Color(0x22000000), Color(0xF2080B10)], stops: [0, .35, 1]))),
-      Positioned(top: 16, left: 16, child: Container(padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7), decoration: BoxDecoration(color: appRed, borderRadius: BorderRadius.circular(9)), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.local_fire_department_rounded, size: 15), const SizedBox(width: 5), Text(_trending.isNotEmpty ? 'TRENDING NOW' : 'FEATURED MOVIE', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: .8))]))),
-      Positioned(left: 20, right: 20, bottom: 21, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(movie.genres.take(3).join('  •  ').toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFFFFB8C5), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1)),
-        const SizedBox(height: 9), Text(movie.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 31, height: 1.02, fontWeight: FontWeight.w900, letterSpacing: -.7)),
-        const SizedBox(height: 9), Row(children: [const Icon(Icons.star_rounded, color: Color(0xFFFFC857), size: 18), const SizedBox(width: 4), Text(movie.rating.isEmpty ? 'Trending on TMDB' : '${movie.rating} / 10', style: const TextStyle(fontSize: 12, color: Colors.white70)), const SizedBox(width: 9), if (movie.year.isNotEmpty) Text(movie.year, style: const TextStyle(color: Colors.white60, fontSize: 12))]),
-        const SizedBox(height: 15), Row(children: [FilledButton.icon(style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 12)), onPressed: () => _playNow(movie), icon: const Icon(Icons.play_arrow_rounded), label: Text('Play'.tr, style: const TextStyle(fontWeight: FontWeight.w900))), const SizedBox(width: 10), OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)), onPressed: () => _toggleSaved(movie), icon: Icon(_saved.contains(movie.key) ? Icons.bookmark : Icons.add), label: Text(_saved.contains(movie.key) ? 'Saved' : 'My List'.tr))]),
-      ])),
-    ]))));
+    return GestureDetector(
+      onTap: () => _open(movie),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 1),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: appSurface,
+          borderRadius: BorderRadius.circular(26),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (backdrop.startsWith('http'))
+              CachedNetworkImage(
+                imageUrl: backdrop,
+                fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => Container(color: appSurface),
+              )
+            else
+              Container(color: appSurface),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x11000000), Color(0x44000000), Color(0xF2080B10)],
+                  stops: [0, .35, 1],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 16,
+              left: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+                decoration: BoxDecoration(color: appRed, borderRadius: BorderRadius.circular(9)),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.local_fire_department_rounded, size: 15, color: Colors.white),
+                    SizedBox(width: 5),
+                    Text('TRENDING NOW', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: .8, color: Colors.white)),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              top: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                decoration: BoxDecoration(color: Colors.black.withValues(alpha: .55), borderRadius: BorderRadius.circular(20)),
+                child: Text(
+                  '${index + 1} / $total',
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 20,
+              right: 20,
+              bottom: 21,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    movie.genres.take(3).join('  •  ').toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Color(0xFFFFB8C5), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1),
+                  ),
+                  const SizedBox(height: 9),
+                  Text(
+                    movie.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 31, height: 1.02, fontWeight: FontWeight.w900, letterSpacing: -.7),
+                  ),
+                  const SizedBox(height: 9),
+                  Row(
+                    children: [
+                      const Icon(Icons.star_rounded, color: Color(0xFFFFC857), size: 18),
+                      const SizedBox(width: 4),
+                      Text(movie.rating.isEmpty ? 'Trending on TMDB' : '${movie.rating} / 10', style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                      const SizedBox(width: 9),
+                      if (movie.year.isNotEmpty) Text(movie.year, style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  Row(
+                    children: [
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 12)),
+                        onPressed: () => _playNow(movie),
+                        icon: const Icon(Icons.play_arrow_rounded),
+                        label: Text('Play'.tr, style: const TextStyle(fontWeight: FontWeight.w900)),
+                      ),
+                      const SizedBox(width: 10),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                        onPressed: () => _toggleSaved(movie),
+                        icon: Icon(_saved.contains(movie.key) ? Icons.bookmark : Icons.add),
+                        label: Text(_saved.contains(movie.key) ? 'Saved' : 'My List'.tr),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _movieRail(String title, List<Movie> movies, {bool showProgress = false}) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
