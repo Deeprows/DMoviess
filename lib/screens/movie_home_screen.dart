@@ -29,6 +29,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   final TextEditingController _search = TextEditingController();
   final PageController _heroController = PageController();
   Timer? _heroAutoTimer;
+  Timer? _searchDebounce;
   int _heroPage = 0;
   List<Movie> _local = [], _trending = [], _top10 = [], _continueWatching = [];
   List<TmdbTrailer> _trailers = [];
@@ -37,6 +38,10 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   bool _tmdbLoading = true, _tmdbAvailable = false;
   String _tmdbError = '';
   String _query = '';
+  List<Movie> _remoteSearchResults = [];
+  bool _searchLoading = false;
+  String _searchError = '';
+  int _searchRequestId = 0;
   String _typeFilter = 'All';
   String? _genreFilter;
   List<Movie> _genreResults = [];
@@ -66,6 +71,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
 
   @override void dispose() {
     _heroAutoTimer?.cancel();
+    _searchDebounce?.cancel();
+    _searchRequestId++;
     _heroController.dispose();
     MovieLibrary.instance.removeListener(_syncLibrary);
     _search.dispose();
@@ -105,6 +112,69 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
       await prefs.setString(key, jsonEncode(movies.map((m) => m.toJson()).toList()))
           .timeout(const Duration(seconds: 3));
     } catch (_) {}
+  }
+
+  /// Search TMDB as the user types. The debounce avoids making one request per
+  /// keystroke; the explicit search icon and keyboard action can submit at once.
+  void _handleSearchChanged(String value) {
+    final query = value.trim();
+    _searchDebounce?.cancel();
+    _searchRequestId++; // Ignore any request that belongs to an older query.
+    if (!mounted) return;
+    setState(() {
+      _query = value;
+      _remoteSearchResults = [];
+      _searchError = '';
+      _searchLoading = query.length >= 2;
+    });
+    if (query.length < 2) {
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 450), () {
+      _runRemoteSearch(query);
+    });
+  }
+
+  Future<void> _runRemoteSearch([String? requestedQuery]) async {
+    final query = (requestedQuery ?? _query).trim();
+    _searchDebounce?.cancel();
+    if (query.isEmpty) return;
+    final requestId = ++_searchRequestId;
+    if (mounted) setState(() {
+      _searchLoading = true;
+      _searchError = '';
+    });
+    try {
+      final remote = await _tmdb.search(query).timeout(
+        const Duration(seconds: 20),
+        onTimeout: () => <Movie>[],
+      );
+      if (!mounted || requestId != _searchRequestId || query != _query.trim()) return;
+      setState(() {
+        _remoteSearchResults = remote;
+        _searchLoading = false;
+        _searchError = remote.isEmpty ? (_tmdb.lastError ?? '') : '';
+      });
+    } catch (_) {
+      if (!mounted || requestId != _searchRequestId || query != _query.trim()) return;
+      setState(() {
+        _searchLoading = false;
+        _searchError = _tmdb.lastError ?? 'Could not search TMDB. Check your internet connection and retry.';
+      });
+    }
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    _searchRequestId++;
+    _search.clear();
+    if (!mounted) return;
+    setState(() {
+      _query = '';
+      _remoteSearchResults = [];
+      _searchLoading = false;
+      _searchError = '';
+    });
   }
 
   Future<void> _refreshLocalLibrary() async {
@@ -332,12 +402,32 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
       }
     });
   }
-  List<Movie> get _searchResults => [..._trending, ..._top10, ..._local, ..._genreResults]
-    .fold<Map<String, Movie>>({}, (map, m) { map.putIfAbsent(m.key, () => m); return map; }).values
-    .where((m) => '${m.title} ${m.genre}'.toLowerCase().contains(_query.toLowerCase()))
-    .where((m) => _typeFilter == 'All' || (_typeFilter == 'Series' ? m.isSeries : !m.isSeries))
-    .where((m) => _genreFilter == null || m.genres.any((g) => g.toLowerCase() == _genreFilter!.toLowerCase()))
-    .where((m) => !_watchlistOnly || _saved.contains(m.key)).toList();
+  List<Movie> get _searchResults {
+    final query = _query.trim().toLowerCase();
+    final remoteKeys = _remoteSearchResults.map((movie) => movie.key).toSet();
+    final all = <String, Movie>{};
+    for (final movie in [
+      ..._remoteSearchResults,
+      ..._trending,
+      ..._top10,
+      ..._local,
+      ..._genreResults,
+    ]) {
+      all.putIfAbsent(movie.key, () => movie);
+    }
+    return all.values
+        // TMDB relevance matches may include alternative/original titles that
+        // are not visible in the display title, so don't filter remote matches
+        // a second time using local substring matching.
+        .where((movie) => query.isEmpty || remoteKeys.contains(movie.key) ||
+            '${movie.title} ${movie.genre}'.toLowerCase().contains(query))
+        .where((movie) => _typeFilter == 'All' ||
+            (_typeFilter == 'Series' ? movie.isSeries : !movie.isSeries))
+        .where((movie) => _genreFilter == null || movie.genres.any(
+            (genre) => genre.toLowerCase() == _genreFilter!.toLowerCase()))
+        .where((movie) => !_watchlistOnly || _saved.contains(movie.key))
+        .toList();
+  }
 
   Future<void> _selectGenre(String? genre) async {
     setState(() { _genreFilter = genre; _genreLoading = genre != null; });
@@ -375,7 +465,39 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
             PopupMenuItem(value: 'share', child: Text('Share DamiMovies')),
           ]),
         ]))),
-        SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(18, 0, 18, 18), child: TextField(controller: _search, onChanged: (v) => setState(() => _query = v), textInputAction: TextInputAction.search, decoration: InputDecoration(hintText: 'Search movies...'.tr, prefixIcon: const Icon(Icons.search_rounded), suffixIcon: _query.isEmpty ? null : IconButton(onPressed: () { _search.clear(); setState(() => _query = ''); }, icon: const Icon(Icons.close)), filled: true, fillColor: appSurface, contentPadding: const EdgeInsets.symmetric(vertical: 15), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none))))),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+            child: TextField(
+              controller: _search,
+              onChanged: _handleSearchChanged,
+              onSubmitted: (value) => _runRemoteSearch(value),
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: 'Search movies on TMDB...'.tr,
+                prefixIcon: IconButton(
+                  tooltip: 'Search TMDB',
+                  onPressed: () => _runRemoteSearch(_query),
+                  icon: const Icon(Icons.search_rounded),
+                ),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Clear search',
+                        onPressed: _clearSearch,
+                        icon: const Icon(Icons.close),
+                      ),
+                filled: true,
+                fillColor: appSurface,
+                contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+        ),
         SliverToBoxAdapter(child: SizedBox(height: 42, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 17), children: [
           for (final type in ['All', 'Movies', 'Series']) Padding(padding: const EdgeInsets.only(right: 7), child: ChoiceChip(label: Text(type.tr), selected: _typeFilter == (type == 'Movies' ? 'Movies' : type), onSelected: (_) => setState(() => _typeFilter = type), selectedColor: appRed.withValues(alpha: .2), side: BorderSide(color: _typeFilter == type ? appRed : Colors.white12), labelStyle: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: _typeFilter == type ? Colors.white : Colors.white60))),
           const SizedBox(width: 3),
@@ -383,9 +505,112 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
         ]))),
         if (_genreLoading) SliverToBoxAdapter(child: LinearProgressIndicator(minHeight: 2, color: appRed, backgroundColor: Colors.white10)),
         if (searching || _genreFilter != null || _typeFilter != 'All') ...[
-          SliverToBoxAdapter(child: _sectionTitle(_watchlistOnly ? 'My Watchlist' : 'Search Results', '${results.length} titles')),
-          if (results.isEmpty) SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.all(30), child: Center(child: Text(_loading ? 'Loading movies…' : 'No movies found', style: const TextStyle(color: Colors.white60)))))
-          else SliverPadding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 28), sliver: SliverGrid(delegate: SliverChildBuilderDelegate((context, i) => _poster(results[i]), childCount: results.length), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, crossAxisSpacing: 10, mainAxisSpacing: 17, childAspectRatio: .52))),
+          SliverToBoxAdapter(
+            child: _sectionTitle(
+              _watchlistOnly ? 'My Watchlist' : 'Search Results',
+              _searchLoading ? 'SEARCHING TMDB…' : '${results.length} titles',
+            ),
+          ),
+          if (_searchLoading)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    minHeight: 3,
+                    color: appRed,
+                    backgroundColor: Colors.white12,
+                  ),
+                ),
+              ),
+            ),
+          if (results.isEmpty && _searchLoading)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(30),
+                child: Center(
+                  child: Column(
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 12),
+                      Text('Searching TMDB for “${_query.trim()}”…',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white60)),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else if (results.isEmpty && _searchError.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(22),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: appSurface,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.cloud_off_rounded,
+                          size: 34, color: Colors.white54),
+                      const SizedBox(height: 10),
+                      Text('TMDB search failed: $_searchError',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white70)),
+                      const SizedBox(height: 10),
+                      FilledButton.icon(
+                        onPressed: () => _runRemoteSearch(_query),
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Retry search'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else if (results.isEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(30),
+                child: Center(
+                  child: Text(
+                    _query.trim().length < 2
+                        ? 'Enter at least 2 characters to search TMDB.'
+                        : 'No movies found. Try another title.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white60),
+                  ),
+                ),
+              ),
+            )
+          else ...[
+            if (_searchError.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+                  child: Text('TMDB unavailable: $_searchError. Showing matching saved titles.',
+                      style: const TextStyle(color: Colors.orangeAccent, fontSize: 11)),
+                ),
+              ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+              sliver: SliverGrid(
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) => _poster(results[i]),
+                  childCount: results.length,
+                ),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 17,
+                  childAspectRatio: .52,
+                ),
+              ),
+            ),
+          ],
         ] else ...[
           if (_heroMovies.isNotEmpty) SliverToBoxAdapter(child: _heroCarousel(_heroMovies)),
           if (_top10.isNotEmpty)
