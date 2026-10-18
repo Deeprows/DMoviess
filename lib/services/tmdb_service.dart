@@ -139,30 +139,79 @@ class TmdbService {
     final cached = _resolvedReferences[movie.key];
     if (cached != null) return cached;
 
-    // Older catalogue entries use IMDb IDs (tt1234567) in their embed URL.
-    // Resolve them through TMDB's /find endpoint to retrieve cast/details.
-    final imdbId = RegExp(
-      r'/(?:embed/)?(?:movie|tv)/(tt\d+)',
-      caseSensitive: false,
-    ).firstMatch(movie.url)?.group(1);
-    if (imdbId == null) return null;
-    final data = await _get('/find/$imdbId', {'external_source': 'imdb_id'});
-    if (data == null) return null;
-    final desired = movie.isSeries ? 'tv_results' : 'movie_results';
-    final alternate = movie.isSeries ? 'movie_results' : 'tv_results';
-    for (final key in [desired, alternate]) {
-      final rows = data[key];
-      if (rows is! List) continue;
-      for (final row in rows.whereType<Map>()) {
-        final id = (row['id'] as num?)?.toInt();
-        if (id == null) continue;
-        final type = key == 'tv_results' ? 'tv' : 'movie';
-        final reference = (id: id, type: type);
-        _resolvedReferences[movie.key] = reference;
-        return reference;
+    // Older catalogue entries may store IMDb IDs in the path or query string,
+    // e.g. /embed/movie/tt1234567 or /embed/movie?imdb=tt1234567.
+    final parsedUrl = Uri.tryParse(movie.url);
+    final imdbId = RegExp(r'tt\d+', caseSensitive: false)
+        .firstMatch(movie.url)?.group(0)
+        ?? (parsedUrl?.queryParameters['imdb'] ?? parsedUrl?.queryParameters['imdb_id']);
+    if (imdbId != null && RegExp(r'^tt\d+$', caseSensitive: false).hasMatch(imdbId)) {
+      final data = await _get('/find/$imdbId', {'external_source': 'imdb_id'});
+      if (data != null) {
+        final desired = movie.isSeries ? 'tv_results' : 'movie_results';
+        final alternate = movie.isSeries ? 'movie_results' : 'tv_results';
+        for (final key in [desired, alternate]) {
+          final rows = data[key];
+          if (rows is! List) continue;
+          for (final row in rows.whereType<Map>()) {
+            final id = (row['id'] as num?)?.toInt();
+            if (id == null) continue;
+            final type = key == 'tv_results' ? 'tv' : 'movie';
+            final reference = (id: id, type: type);
+            _resolvedReferences[movie.key] = reference;
+            return reference;
+          }
+        }
+      }
+    }
+
+    // Some catalogue entries use third-party/archive URLs without an IMDb ID.
+    // Resolve their exact title in TMDB so their detail pages can still show a
+    // trailer. Prefer a matching release year and don't cache a fuzzy miss.
+    final year = movie.year;
+    final query = movie.title.trim();
+    if (query.isNotEmpty) {
+      final data = await _get('/search/multi', {
+        'query': query,
+        'include_adult': 'false',
+      });
+      final rows = data?['results'];
+      if (rows is List) {
+        final normalized = query.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+        final candidates = rows.whereType<Map>().where((row) {
+          final media = (row['media_type'] ?? '').toString();
+          return media == 'movie' || media == 'tv';
+        }).toList();
+        candidates.sort((a, b) {
+          int score(Map row) {
+            final media = (row['media_type'] ?? '').toString();
+            final title = (row[media == 'tv' ? 'name' : 'title'] ?? '').toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+            final date = (row[media == 'tv' ? 'first_air_date' : 'release_date'] ?? '').toString();
+            return (title == normalized ? 10 : 0) + (year.isNotEmpty && date.startsWith(year) ? 3 : 0);
+          }
+          return score(b).compareTo(score(a));
+        });
+        if (candidates.isNotEmpty && scoreIsGood(candidates.first, normalized: normalized, year: year)) {
+          final row = candidates.first;
+          final media = (row['media_type'] ?? 'movie').toString();
+          final id = (row['id'] as num?)?.toInt();
+          if (id != null) {
+            final reference = (id: id, type: media == 'tv' ? 'tv' : 'movie');
+            _resolvedReferences[movie.key] = reference;
+            return reference;
+          }
+        }
       }
     }
     return null;
+  }
+
+  bool scoreIsGood(Map row, {required String normalized, required String year}) {
+    final media = (row['media_type'] ?? 'movie').toString();
+    final title = (row[media == 'tv' ? 'name' : 'title'] ?? '').toString()
+        .toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+    final date = (row[media == 'tv' ? 'first_air_date' : 'release_date'] ?? '').toString();
+    return title == normalized || (year.isNotEmpty && date.startsWith(year) && title.startsWith(normalized));
   }
 
   Future<Movie?> details(Movie movie) async {
@@ -232,6 +281,40 @@ class TmdbService {
     final reference = await _resolveReference(movie);
     if (reference == null) return [];
     return _list('/${reference.type}/${reference.id}/similar', {'page': '1'}, reference.type);
+  }
+
+  /// Returns the best available YouTube trailer for a movie or series.
+  /// The caller can play it inside the app using the returned YouTube key.
+  Future<TmdbTrailer?> trailerFor(Movie movie) async {
+    final reference = await _resolveReference(movie);
+    if (reference == null) return null;
+    final data = await _get('/${reference.type}/${reference.id}/videos');
+    final results = data?['results'];
+    if (results is! List) return null;
+    final videos = results.whereType<Map>().where((video) =>
+        (video['site'] ?? '').toString().toLowerCase() == 'youtube' &&
+        (video['key'] ?? '').toString().trim().isNotEmpty &&
+        const {'trailer', 'teaser'}.contains((video['type'] ?? '').toString().toLowerCase())).toList();
+    if (videos.isEmpty) return null;
+    videos.sort((a, b) {
+      int score(Map video) {
+        final type = (video['type'] ?? '').toString().toLowerCase();
+        final official = video['official'] == true;
+        final published = (video['published_at'] ?? '').toString();
+        return (type == 'trailer' ? 1000000000 : 0) +
+            (official ? 100000000 : 0) +
+            (DateTime.tryParse(published)?.millisecondsSinceEpoch ?? 0) ~/ 1000;
+      }
+      return score(b).compareTo(score(a));
+    });
+    final video = videos.first;
+    final poster = movie.backdrop.startsWith('http') ? movie.backdrop : movie.image;
+    return TmdbTrailer(
+      title: movie.title,
+      poster: poster,
+      key: video['key'].toString(),
+      publishedAt: (video['published_at'] ?? '').toString(),
+    );
   }
 
   Future<List<TmdbTrailer>> latestTrailers() async {
