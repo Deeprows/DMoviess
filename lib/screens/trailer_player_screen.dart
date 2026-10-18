@@ -76,6 +76,13 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
             // Keep every trailer and any YouTube navigation inside this WebView.
             // Convert ordinary YouTube watch links to the embedded player rather
             // than allowing a browser/app hand-off.
+            final scheme0 = uri.scheme.toLowerCase();
+            if (scheme0 == 'about' || scheme0 == 'data') return NavigationDecision.navigate;
+            if (!request.isMainFrame) {
+              return scheme0 == 'https' || scheme0 == 'http'
+                  ? NavigationDecision.navigate
+                  : NavigationDecision.prevent;
+            }
             final host = uri.host.toLowerCase();
             final isYouTube = host == 'youtube.com' ||
                 host.endsWith('.youtube.com') ||
@@ -136,19 +143,12 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
       _loading = true;
       _failed = false;
     });
-    final uri = Uri.https(
-      'www.youtube-nocookie.com',
-      '/embed/$key',
-      const {
-        'autoplay': '1',
-        'playsinline': '1',
-        'rel': '0',
-        'controls': '1',
-        'modestbranding': '1',
-      },
-    );
+    final safeKey = key.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
     try {
-      await _controller.loadRequest(uri);
+      await _controller.loadHtmlString(
+        _autoplayHtml(safeKey),
+        baseUrl: 'https://www.youtube-nocookie.com',
+      );
     } catch (_) {
       if (mounted) setState(() {
         _loading = false;
@@ -156,6 +156,47 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
       });
     }
   }
+
+  /// Wraps the YouTube player so the trailer starts by itself as soon as it is
+  /// ready. If the WebView refuses autoplay with sound, it retries muted and
+  /// then keeps nudging playback until it actually starts.
+  String _autoplayHtml(String id) => '''
+<!DOCTYPE html>
+<html><head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}#p{position:absolute;inset:0;width:100%;height:100%}</style>
+</head><body>
+<div id="p"></div>
+<script>
+var player, tries = 0, started = false;
+var tag = document.createElement('script');
+tag.src = 'https://www.youtube.com/iframe_api';
+document.head.appendChild(tag);
+function onYouTubeIframeAPIReady() {
+  player = new YT.Player('p', {
+    videoId: '$id',
+    host: 'https://www.youtube-nocookie.com',
+    playerVars: {autoplay: 1, playsinline: 1, rel: 0, controls: 1, modestbranding: 1, origin: location.origin},
+    events: {
+      onReady: function(e) { e.target.playVideo(); },
+      onAutoplayBlocked: function() { player.mute(); player.playVideo(); },
+      onStateChange: function(e) {
+        if (e.data === 1) { started = true; }
+        if ((e.data === -1 || e.data === 5) && !started) { setTimeout(nudge, 400); }
+      }
+    }
+  });
+}
+function nudge() {
+  if (started || !player || tries > 6) return;
+  tries++;
+  if (tries > 2) { try { player.mute(); } catch (_) {} }
+  try { player.playVideo(); } catch (_) {}
+  setTimeout(nudge, 700);
+}
+</script>
+</body></html>
+''';
 
   void _showFullscreen(Widget child, void Function() onHidden) {
     if (!mounted) return;
