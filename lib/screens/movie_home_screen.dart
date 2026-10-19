@@ -1,3 +1,6 @@
+import '../services/app_remote_config.dart';
+import '../services/premium_service.dart';
+import 'remove_ads_screen.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -449,17 +452,29 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
             if (v == 'library') Navigator.push(context, MaterialPageRoute(builder: (_) => const LibraryScreen()));
             if (v == 'browser') Navigator.push(context, MaterialPageRoute(builder: (_) => const BrowserScreen()));
             if (v == 'downloads') Navigator.push(context, MaterialPageRoute(builder: (_) => const DownloadsScreen()));
+            if (v == 'removeAds') Navigator.push(context, MaterialPageRoute(builder: (_) => const RemoveAdsScreen()));
             if (v == 'share') Share.share('Discover movies with DamiMovies.\n${AppConfig.appUrl}');
             if (v == 'settings') Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
             if (v == 'notice') Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
-          }, itemBuilder: (_) => const [
-            PopupMenuItem(value: 'refresh', child: Text('Refresh movie catalogue')),
-            PopupMenuItem(value: 'library', child: Text('My Library')),
-            PopupMenuItem(value: 'browser', child: Text('In-app Browser')),
-            PopupMenuItem(value: 'downloads', child: Text('Downloads')),
-            PopupMenuItem(value: 'settings', child: Text('Settings & Themes')),
-            PopupMenuItem(value: 'notice', child: Text('Notice / About')),
-            PopupMenuItem(value: 'share', child: Text('Share DamiMovies')),
+          }, itemBuilder: (_) => [
+            const PopupMenuItem(value: 'refresh', child: Text('Refresh movie catalogue')),
+            const PopupMenuItem(value: 'library', child: Text('My Library')),
+            const PopupMenuItem(value: 'browser', child: Text('In-app Browser')),
+            const PopupMenuItem(value: 'downloads', child: Text('Downloads')),
+            if (RemoteConfig.instance.removeAds.enabled)
+              PopupMenuItem(
+                value: 'removeAds',
+                child: Row(children: [
+                  const Icon(Icons.block_rounded, size: 20),
+                  const SizedBox(width: 12),
+                  Text(PremiumService.instance.active
+                      ? 'Ads removed · ${PremiumService.instance.daysLeft}d left'
+                      : 'Remove ads'),
+                ]),
+              ),
+            const PopupMenuItem(value: 'settings', child: Text('Settings & Themes')),
+            const PopupMenuItem(value: 'notice', child: Text('Notice / About')),
+            const PopupMenuItem(value: 'share', child: Text('Share DamiMovies')),
           ]),
           const SizedBox(width: 4),
           Container(width: 42, height: 42, decoration: BoxDecoration(gradient: LinearGradient(colors: [appAccentSoft, appRed]), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.movie_filter_rounded, color: Colors.white, size: 25)),
