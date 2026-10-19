@@ -50,11 +50,12 @@ class _AuthScreenState extends State<AuthScreen> {
       _busy = true;
       _failure = null;
     });
-    final failure = await AuthService.instance.signIn();
+    final failure = await AuthService.instance.signIn(signUp: _signUp);
     if (!mounted) return;
     setState(() {
       _busy = false;
       _failure = failure;
+      if (failure?.switchTo != null) _signUp = failure!.switchTo == 'signup';
     });
   }
 
