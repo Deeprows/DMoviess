@@ -37,6 +37,13 @@ class AppConfig {
 
   /// Optional integrations described in the upstream repo. Blank links disable
   /// the relevant external feature gracefully without affecting playback.
+  /// Optional remote config address (same format as assets/data/app_config.json).
+  /// Blank = the app only uses the bundled copy.
+  static const String configUrl = String.fromEnvironment(
+    'CONFIG_URL',
+    defaultValue: '',
+  );
+
   static const String supportUrl = String.fromEnvironment('SUPPORT_URL', defaultValue: '');
   static const String updateUrl = String.fromEnvironment('UPDATE_URL', defaultValue: '');
   static const String noticeUrl = String.fromEnvironment('NOTICE_URL', defaultValue: '');
