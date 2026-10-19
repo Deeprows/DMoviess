@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../models/movie.dart';
+import '../services/ad_service.dart';
 import '../services/tmdb_service.dart';
 import '../services/movie_library.dart';
 import 'movie_player_screen.dart';
@@ -261,7 +262,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
     ]);
   }
 
-  Widget _similarCard(Movie movie) => GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MovieDetailScreen(movie: movie, saved: MovieLibrary.instance.isSaved(movie), onToggleSaved: () async { await MovieLibrary.instance.toggleSaved(movie); }))), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(12), child: movie.image.startsWith('http') ? CachedNetworkImage(imageUrl: movie.image, fit: BoxFit.cover, width: double.infinity, errorWidget: (_, __, ___) => Container(color: appSurface, child: const Icon(Icons.movie_outlined))) : Container(color: appSurface, child: const Icon(Icons.movie_outlined)))), const SizedBox(height: 6), Text(movie.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)), if (movie.rating.isNotEmpty) Text('★ ${movie.rating}', style: const TextStyle(color: Colors.amber, fontSize: 10))]));
+  Widget _similarCard(Movie movie) => GestureDetector(onTap: () => AdService.instance.guard(context, () { if (!mounted) return; Navigator.push(context, MaterialPageRoute(builder: (_) => MovieDetailScreen(movie: movie, saved: MovieLibrary.instance.isSaved(movie), onToggleSaved: () async { await MovieLibrary.instance.toggleSaved(movie); }))); }), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(12), child: movie.image.startsWith('http') ? CachedNetworkImage(imageUrl: movie.image, fit: BoxFit.cover, width: double.infinity, errorWidget: (_, __, ___) => Container(color: appSurface, child: const Icon(Icons.movie_outlined))) : Container(color: appSurface, child: const Icon(Icons.movie_outlined)))), const SizedBox(height: 6), Text(movie.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)), if (movie.rating.isNotEmpty) Text('★ ${movie.rating}', style: const TextStyle(color: Colors.amber, fontSize: 10))]));
 
   Widget _tag(String text) => Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6), decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white.withValues(alpha: .06))), child: Text(text, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700)));
 }
