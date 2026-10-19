@@ -50,6 +50,7 @@ class _MovieDownloadScreenState extends State<MovieDownloadScreen> {
       m.title,
       if (m.year.isNotEmpty) '(${m.year})',
       if (f.quality != null) f.quality!,
+      if (f.server != null) '- ${f.server}',
     ];
     final base = parts.join(' ').trim();
     if (m.title.trim().isEmpty) return f.fileName ?? fileNameFromUrl(f.url);
@@ -137,7 +138,24 @@ class _MovieDownloadScreenState extends State<MovieDownloadScreen> {
                 ]),
               )
             else
-              Positioned(left: 0, top: 0, width: 1, height: 1, child: WebViewWidget(controller: _scanner.controller)),
+              // 1 px on screen, but laid out as a phone-sized page so the site
+              // builds its normal mobile layout (buttons, servers ...).
+              Positioned(
+                left: 0,
+                top: 0,
+                width: 1,
+                height: 1,
+                child: ClipRect(
+                  child: OverflowBox(
+                    alignment: Alignment.topLeft,
+                    minWidth: 390,
+                    maxWidth: 390,
+                    minHeight: 780,
+                    maxHeight: 780,
+                    child: WebViewWidget(controller: _scanner.controller),
+                  ),
+                ),
+              ),
           ]),
         ),
       );
@@ -234,6 +252,14 @@ class _MovieDownloadScreenState extends State<MovieDownloadScreen> {
                   maxLines: 2, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
               const SizedBox(height: 5),
+              if (f.label.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 5),
+                  child: Text(f.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, color: Colors.white54)),
+                ),
               Wrap(spacing: 8, runSpacing: 4, children: [
                 if (f.quality != null) _chip(f.quality!, appRed),
                 _chip(f.extension.toUpperCase(), Colors.white24),
