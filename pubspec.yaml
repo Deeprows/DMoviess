@@ -35,6 +35,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/data/movies.json
+    - assets/data/app_config.json
 
 flutter_launcher_icons:
   android: true
