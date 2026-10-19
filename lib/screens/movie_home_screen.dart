@@ -22,6 +22,7 @@ import 'movie_detail_screen.dart';
 import 'movie_player_screen.dart';
 import 'trailer_player_screen.dart';
 import 'settings_screen.dart';
+import '../widgets/app_drawer.dart';
 
 class MovieHomeScreen extends StatefulWidget {
   const MovieHomeScreen({super.key});
@@ -29,6 +30,7 @@ class MovieHomeScreen extends StatefulWidget {
 }
 
 class _MovieHomeScreenState extends State<MovieHomeScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TmdbService _tmdb = TmdbService();
   final TextEditingController _search = TextEditingController();
   final PageController _heroController = PageController();
@@ -473,40 +475,11 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
       );
 
   Widget _brandHeader() => Row(children: [
-          PopupMenuButton<String>(
-            tooltip: 'Menu',
-            offset: const Offset(0, 58),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          InkWell(
+            customBorder: const CircleBorder(),
+            onTap: () => _scaffoldKey.currentState?.openDrawer(),
             child: _circleIcon(Icons.menu_rounded),
-            onSelected: (v) {
-            if (v == 'refresh') _loadHome();
-            if (v == 'library') Navigator.push(context, MaterialPageRoute(builder: (_) => const LibraryScreen()));
-            if (v == 'browser') Navigator.push(context, MaterialPageRoute(builder: (_) => const BrowserScreen()));
-            if (v == 'downloads') Navigator.push(context, MaterialPageRoute(builder: (_) => const DownloadsScreen()));
-            if (v == 'removeAds') Navigator.push(context, MaterialPageRoute(builder: (_) => const RemoveAdsScreen()));
-            if (v == 'share') Share.share('Discover movies with DamiMovies.\n${AppConfig.appUrl}');
-            if (v == 'settings') Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
-            if (v == 'notice') Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
-          }, itemBuilder: (_) => [
-            const PopupMenuItem(value: 'refresh', child: Text('Refresh movie catalogue')),
-            const PopupMenuItem(value: 'library', child: Text('My Library')),
-            const PopupMenuItem(value: 'browser', child: Text('In-app Browser')),
-            const PopupMenuItem(value: 'downloads', child: Text('Downloads')),
-            if (RemoteConfig.instance.removeAds.enabled)
-              PopupMenuItem(
-                value: 'removeAds',
-                child: Row(children: [
-                  const Icon(Icons.block_rounded, size: 20),
-                  const SizedBox(width: 12),
-                  Text(PremiumService.instance.active
-                      ? 'Ads removed · ${PremiumService.instance.daysLeft}d left'
-                      : 'Remove ads'),
-                ]),
-              ),
-            const PopupMenuItem(value: 'settings', child: Text('Settings & Themes')),
-            const PopupMenuItem(value: 'notice', child: Text('Notice / About')),
-            const PopupMenuItem(value: 'share', child: Text('Share DamiMovies')),
-          ]),
+          ),
         const SizedBox(width: 12),
         Container(width: 44, height: 44, decoration: BoxDecoration(gradient: LinearGradient(colors: [appAccentSoft, appRed]), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.movie_filter_rounded, color: Colors.white, size: 26)),
         const SizedBox(width: 11),
@@ -542,6 +515,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
     final searching = _query.trim().isNotEmpty || _watchlistOnly;
     final results = _searchResults;
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: const AppDrawer(),
       body: SafeArea(child: CustomScrollView(slivers: [
         SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 14), child: _searchOpen ? _searchHeader() : _brandHeader())),
         SliverToBoxAdapter(child: SizedBox(height: 42, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 17), children: [
