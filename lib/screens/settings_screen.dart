@@ -14,7 +14,7 @@ class SettingsScreen extends StatelessWidget {
 
   Future<void> _notice(BuildContext context) async {
     var title = 'DamiMovies Notice';
-    var body = 'Discover movies and series from TMDB, save titles to your library, and continue watching where supported by the player source. Playback and downloads depend on the third-party source used by each title.';
+    var body = 'No update for now. Check back later';
     if (AppConfig.noticeUrl.trim().isNotEmpty) {
       try {
         final response = await http.get(Uri.parse(AppConfig.noticeUrl)).timeout(const Duration(seconds: 8));
