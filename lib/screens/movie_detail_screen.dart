@@ -9,7 +9,6 @@ import '../services/tmdb_service.dart';
 import '../services/movie_library.dart';
 import 'movie_player_screen.dart';
 import 'browser_screen.dart';
-import 'movie_download_screen.dart';
 import 'trailer_player_screen.dart';
 
 class MovieDetailScreen extends StatefulWidget {
@@ -93,7 +92,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No download link is available for this title.')));
       return;
     }
-    Navigator.push(context, MaterialPageRoute(builder: (_) => MovieDownloadScreen(movie: _movie)));
+    Navigator.push(context, MaterialPageRoute(builder: (_) => BrowserScreen(initialUrl: _movie.downloadUrl)));
   }
 
   @override void dispose() { _tabs.dispose(); super.dispose(); }
