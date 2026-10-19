@@ -86,7 +86,22 @@ class _Probe {
   final String? error;
   final String? fileName;
   final int? total;
-  const _Probe({this.error, this.fileName, this.total});
+
+  /// The link answered with a web page (not a file).
+  final bool isPage;
+  const _Probe({this.error, this.fileName, this.total, this.isPage = false});
+}
+
+/// What a link really is, for the in-app download scanner.
+class LinkInfo {
+  /// True when the link is a file we can download.
+  final bool isFile;
+
+  /// True when the link is a web page (HTML).
+  final bool isPage;
+  final String? fileName;
+  final int? total;
+  const LinkInfo({this.isFile = false, this.isPage = false, this.fileName, this.total});
 }
 
 // ------------------------------------------------------------------ manager
@@ -324,6 +339,14 @@ class DownloadManager extends ChangeNotifier {
     return null;
   }
 
+  /// Checks what a link is (file or web page) without downloading it.
+  Future<LinkInfo> checkLink(String url, {String referer = '', String cookie = ''}) async {
+    final p = await _probe(url, referer, cookie);
+    if (p.isPage) return const LinkInfo(isPage: true);
+    if (p.error != null) return const LinkInfo();
+    return LinkInfo(isFile: true, fileName: p.fileName, total: p.total);
+  }
+
   Future<void> pause(String id) async {
     final t = _find(id);
     if (t == null || !t.active) return;
@@ -450,6 +473,7 @@ class DownloadManager extends ChangeNotifier {
       final disp = fileNameFromDisposition(res.headers['content-disposition']);
       if (type.startsWith('text/html') && disp == null) {
         return const _Probe(
+            isPage: true,
             error: 'This link opens a web page, not a file. Use the page\'s '
                 'own download button.');
       }
