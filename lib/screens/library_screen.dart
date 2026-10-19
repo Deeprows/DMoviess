@@ -7,12 +7,13 @@ import '../services/movie_library.dart';
 import 'movie_detail_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
-  const LibraryScreen({super.key});
+  final int initialTab;
+  const LibraryScreen({super.key, this.initialTab = 0});
   @override State<LibraryScreen> createState() => _LibraryScreenState();
 }
 class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabs;
-  @override void initState() { super.initState(); _tabs = TabController(length: 2, vsync: this); MovieLibrary.instance.load(); }
+  @override void initState() { super.initState(); _tabs = TabController(length: 2, vsync: this, initialIndex: widget.initialTab.clamp(0, 1)); MovieLibrary.instance.load(); }
   @override void dispose() { _tabs.dispose(); super.dispose(); }
 
   @override Widget build(BuildContext context) {
