@@ -87,10 +87,15 @@ class AuthService extends ChangeNotifier {
   Future<void> _save() async {
     final user = _user;
     if (user == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kEmail, user.email);
-    await prefs.setString(_kName, user.name);
-    await prefs.setString(_kPhoto, user.photo);
+    // A storage problem must never turn a successful Google sign-in into a failure.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kEmail, user.email);
+      await prefs.setString(_kName, user.name);
+      await prefs.setString(_kPhoto, user.photo);
+    } catch (error) {
+      debugPrint('DamiMovies: could not save session: $error');
+    }
   }
 
   bool _isGmail(String email) {
