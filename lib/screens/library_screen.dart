@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../models/movie.dart';
+import '../services/ad_service.dart';
 import '../services/movie_library.dart';
 import 'movie_detail_screen.dart';
 
@@ -79,6 +80,11 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   }
 
   Future<void> _open(Movie movie) async {
+    await AdService.instance.guard(context, () => _openNow(movie));
+  }
+
+  Future<void> _openNow(Movie movie) async {
+    if (!mounted) return;
     final library = MovieLibrary.instance;
     await Navigator.push(context, MaterialPageRoute(builder: (_) => MovieDetailScreen(movie: movie, saved: library.isSaved(movie), onToggleSaved: () async { await library.toggleSaved(movie); })));
   }
