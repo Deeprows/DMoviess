@@ -1,0 +1,8 @@
+{
+  "ads": {
+    "enabled": true,
+    "supportUrl": "",
+    "intervalMinutes": 10,
+    "skipAfterSeconds": 6
+  }
+}
