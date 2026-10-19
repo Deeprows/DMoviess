@@ -19,6 +19,7 @@ import '../services/download_manager.dart';
 import '../services/movie_library.dart';
 import '../services/stream_resolver.dart';
 import 'browser_screen.dart';
+import 'movie_download_screen.dart';
 
 class MoviePlayerScreen extends StatefulWidget {
   final Movie movie;
@@ -623,11 +624,13 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
 
   Future<void> _downloadPage() async {
     final url = widget.movie.downloadUrl.trim();
-    if (url.isEmpty) {
+    // A direct video file being played can be downloaded as it is.
+    final direct = _stream.kind == StreamKind.video ? [_stream.url] : const <String>[];
+    if (url.isEmpty && direct.isEmpty) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No download page is available for this title.')));
       return;
     }
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => BrowserScreen(initialUrl: url)));
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => MovieDownloadScreen(movie: widget.movie, directUrls: direct)));
   }
 
   Future<void> _openBrowser() async {
