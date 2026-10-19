@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -39,6 +40,9 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
   final Set<String> _selectedPeople = {};
   Movie? _selectedMovie;
   String _movieQuery = '';
+  Timer? _movieDebounce;
+  List<Movie> _tmdbFound = [];
+  bool _searchingMovies = false;
   String _personQuery = '';
   bool _loading = true;
   bool _busy = false;
@@ -53,6 +57,39 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
     final pre = widget.inviteEmail?.trim().toLowerCase();
     if (pre != null && pre.isNotEmpty) _selectedPeople.add(pre);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _movieDebounce?.cancel();
+    super.dispose();
+  }
+
+  /// Typing in the movie box also searches TMDB (like the Post screen does),
+  /// so any title can be picked, not only the short list shown at first.
+  void _onMovieQuery(String v) {
+    setState(() => _movieQuery = v);
+    _movieDebounce?.cancel();
+    final q = v.trim();
+    if (q.length < 2 || !_tmdb.enabled) {
+      setState(() {
+        _tmdbFound = [];
+        _searchingMovies = false;
+      });
+      return;
+    }
+    setState(() => _searchingMovies = true);
+    _movieDebounce = Timer(const Duration(milliseconds: 400), () async {
+      List<Movie> res = const [];
+      try {
+        res = await _tmdb.search(q);
+      } catch (_) {}
+      if (!mounted || _movieQuery.trim() != q) return;
+      setState(() {
+        _tmdbFound = res;
+        _searchingMovies = false;
+      });
+    });
   }
 
   Future<void> _load() async {
@@ -189,10 +226,15 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
   @override
   Widget build(BuildContext context) {
     final q = _movieQuery.trim().toLowerCase();
-    final movies = _movies
-        .where((m) => q.isEmpty || m.title.toLowerCase().contains(q))
-        .take(60)
-        .toList();
+    final movies = <Movie>[];
+    final seenMovies = <String>{};
+    for (final m in [
+      ..._movies.where((m) => q.isEmpty || m.title.toLowerCase().contains(q)),
+      if (q.length >= 2) ..._tmdbFound,
+    ]) {
+      if (m.name.isNotEmpty && seenMovies.add(m.key)) movies.add(m);
+      if (movies.length >= 60) break;
+    }
     final pq = _personQuery.trim().toLowerCase();
     final people = _people
         .where((p) => pq.isEmpty || p.name.toLowerCase().contains(pq))
@@ -229,10 +271,14 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
                     for (final r in _rooms) _roomTile(r),
                   ],
                   _heading('1  Choose the movie', Icons.movie_creation_rounded),
-                  _search('Search movies and series',
-                      (v) => setState(() => _movieQuery = v)),
+                  _search('Search movies and series', _onMovieQuery),
                   const SizedBox(height: 10),
-                  if (movies.isEmpty)
+                  if (_searchingMovies && movies.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (movies.isEmpty)
                     _note('No movies found.')
                   else
                     SizedBox(
@@ -364,7 +410,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
       );
 
   Widget _poster(Movie m) {
-    final chosen = _selectedMovie?.url == m.url;
+    final chosen = _selectedMovie?.key == m.key;
     return GestureDetector(
       onTap: () => setState(() => _selectedMovie = m),
       child: AnimatedContainer(
