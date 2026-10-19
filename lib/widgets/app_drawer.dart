@@ -4,10 +4,14 @@ import 'package:share_plus/share_plus.dart';
 
 import '../config.dart';
 import '../main.dart';
+import '../screens/community_profile_screen.dart';
+import '../screens/community_screen.dart';
 import '../screens/downloads_screen.dart';
 import '../screens/library_screen.dart';
 import '../screens/remove_ads_screen.dart';
 import '../screens/settings_screen.dart';
+import '../screens/watch_together_screen.dart';
+import '../services/app_preferences.dart';
 import '../services/app_remote_config.dart';
 import '../services/auth_service.dart';
 import '../services/premium_service.dart';
@@ -44,6 +48,14 @@ class AppDrawer extends StatelessWidget {
               ? null
               : 'Ads off until ${until.day} ${months[until.month - 1]} ${until.year}',
         ),
+      _Item(Icons.forum_rounded, 'Movie Community'.tr,
+          () => _go(context, const CommunityScreen(standalone: true))),
+      if (AuthService.instance.user != null)
+        _Item(Icons.edit_note_rounded, 'My community posts'.tr,
+            () => _go(context,
+                CommunityProfileScreen(email: AuthService.instance.user!.email))),
+      _Item(Icons.theaters_rounded, 'Watch Together'.tr,
+          () => _go(context, const WatchTogetherScreen())),
       _Item(Icons.video_library_rounded, 'My Library',
           () => _go(context, const LibraryScreen())),
       _Item(Icons.download_rounded, 'Downloads',
