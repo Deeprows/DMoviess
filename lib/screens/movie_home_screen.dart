@@ -41,6 +41,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   bool _tmdbLoading = true, _tmdbAvailable = false;
   String _tmdbError = '';
   String _query = '';
+  bool _searchOpen = false;
   List<Movie> _remoteSearchResults = [];
   bool _searchLoading = false;
   String _searchError = '';
@@ -441,13 +442,31 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
     } catch (_) { if (mounted) setState(() => _genreLoading = false); }
   }
 
-  @override Widget build(BuildContext context) {
-    final searching = _query.trim().isNotEmpty || _watchlistOnly;
-    final results = _searchResults;
-    return Scaffold(
-      body: SafeArea(child: CustomScrollView(slivers: [
-        SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(20, 14, 18, 14), child: Row(children: [
-          PopupMenuButton<String>(icon: const Icon(Icons.more_vert_rounded), onSelected: (v) {
+  void _openSearch() => setState(() => _searchOpen = true);
+
+  void _closeSearch() {
+    _clearSearch();
+    setState(() => _searchOpen = false);
+  }
+
+  Widget _circleIcon(IconData icon) => Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.black.withValues(alpha: .25),
+          border: Border.all(color: Colors.white24),
+        ),
+        child: Icon(icon, size: 26),
+      );
+
+  Widget _brandHeader() => Row(children: [
+          PopupMenuButton<String>(
+            tooltip: 'Menu',
+            offset: const Offset(0, 58),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: _circleIcon(Icons.menu_rounded),
+            onSelected: (v) {
             if (v == 'refresh') _loadHome();
             if (v == 'library') Navigator.push(context, MaterialPageRoute(builder: (_) => const LibraryScreen()));
             if (v == 'browser') Navigator.push(context, MaterialPageRoute(builder: (_) => const BrowserScreen()));
@@ -476,43 +495,43 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
             const PopupMenuItem(value: 'notice', child: Text('Notice / About')),
             const PopupMenuItem(value: 'share', child: Text('Share DamiMovies')),
           ]),
-          const SizedBox(width: 4),
-          Container(width: 42, height: 42, decoration: BoxDecoration(gradient: LinearGradient(colors: [appAccentSoft, appRed]), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.movie_filter_rounded, color: Colors.white, size: 25)),
-          const SizedBox(width: 11), const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('DamiMovies', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: -.7))])),
-        ]))),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-            child: TextField(
-              controller: _search,
-              onChanged: _handleSearchChanged,
-              onSubmitted: (value) => _runRemoteSearch(value),
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: 'Search movies on TMDB...'.tr,
-                prefixIcon: IconButton(
-                  tooltip: 'Search TMDB',
-                  onPressed: () => _runRemoteSearch(_query),
-                  icon: const Icon(Icons.search_rounded),
-                ),
-                suffixIcon: _query.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'Clear search',
-                        onPressed: _clearSearch,
-                        icon: const Icon(Icons.close),
-                      ),
-                filled: true,
-                fillColor: appSurface,
-                contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+        const SizedBox(width: 12),
+        Container(width: 44, height: 44, decoration: BoxDecoration(gradient: LinearGradient(colors: [appAccentSoft, appRed]), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.movie_filter_rounded, color: Colors.white, size: 26)),
+        const SizedBox(width: 11),
+        const Expanded(child: Text('DamiMovies', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: -.7))),
+        InkWell(customBorder: const CircleBorder(), onTap: _openSearch, child: _circleIcon(Icons.search_rounded)),
+      ]);
+
+  Widget _searchHeader() => Row(children: [
+        InkWell(customBorder: const CircleBorder(), onTap: _closeSearch, child: _circleIcon(Icons.arrow_back_rounded)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: TextField(
+            controller: _search,
+            autofocus: true,
+            onChanged: _handleSearchChanged,
+            onSubmitted: (value) => _runRemoteSearch(value),
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search movies on TMDB...'.tr,
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(tooltip: 'Clear search', onPressed: _clearSearch, icon: const Icon(Icons.close)),
+              filled: true,
+              fillColor: appSurface,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
             ),
           ),
         ),
+      ]);
+
+  @override Widget build(BuildContext context) {
+    final searching = _query.trim().isNotEmpty || _watchlistOnly;
+    final results = _searchResults;
+    return Scaffold(
+      body: SafeArea(child: CustomScrollView(slivers: [
+        SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 14), child: _searchOpen ? _searchHeader() : _brandHeader())),
         SliverToBoxAdapter(child: SizedBox(height: 42, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 17), children: [
           for (final type in ['All', 'Movies', 'Series']) Padding(padding: const EdgeInsets.only(right: 7), child: ChoiceChip(label: Text(type.tr), selected: _typeFilter == (type == 'Movies' ? 'Movies' : type), onSelected: (_) => setState(() => _typeFilter = type), selectedColor: appRed.withValues(alpha: .2), side: BorderSide(color: _typeFilter == type ? appRed : Colors.white12), labelStyle: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: _typeFilter == type ? Colors.white : Colors.white60))),
           const SizedBox(width: 3),
