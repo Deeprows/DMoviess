@@ -4,5 +4,25 @@
     "supportUrl": "https://www.profitableratecpmnetwork.com/iqv44jk21?key=c2752cc0c9c553ac66e4fb16cdb95f60",
     "intervalMinutes": 10,
     "skipAfterSeconds": 6
+  },
+  "removeAds": {
+    "enabled": true,
+    "whatsapp": "",
+    "publicKey": "",
+    "plans": [
+      {
+        "days": 7,
+        "usd": 0.5
+      },
+      {
+        "days": 30,
+        "usd": 1.5
+      },
+      {
+        "days": 90,
+        "usd": 4
+      }
+    ],
+    "localPrices": {}
   }
 }
