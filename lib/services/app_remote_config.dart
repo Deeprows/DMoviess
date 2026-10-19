@@ -41,6 +41,63 @@ class AdsConfig {
   }
 }
 
+class RemovePlan {
+  final int days;
+  final double usd;
+  const RemovePlan(this.days, this.usd);
+}
+
+/// "removeAds" block of app_config.json: token-based ad removal.
+class RemoveAdsConfig {
+  final bool enabled;
+  final String whatsapp; // digits with country code, e.g. 2348012345678
+  final String publicKey; // base64url Ed25519 public key made by tool/token-admin.html
+  final List<RemovePlan> plans;
+  final Map<String, Map<String, double>> localPrices; // {"NGN": {"30": 1500}}
+
+  const RemoveAdsConfig({
+    this.enabled = true,
+    this.whatsapp = '',
+    this.publicKey = '',
+    this.plans = const [RemovePlan(7, 0.5), RemovePlan(30, 1.5), RemovePlan(90, 4)],
+    this.localPrices = const {},
+  });
+
+  factory RemoveAdsConfig.fromJson(Object? raw) {
+    if (raw is! Map) return const RemoveAdsConfig();
+    final plans = <RemovePlan>[];
+    final rawPlans = raw['plans'];
+    if (rawPlans is List) {
+      for (final item in rawPlans) {
+        if (item is! Map) continue;
+        final days = item['days'] is num ? (item['days'] as num).toInt() : int.tryParse('${item['days']}');
+        final usd = item['usd'] is num ? (item['usd'] as num).toDouble() : double.tryParse('${item['usd']}');
+        if (days != null && days > 0 && usd != null && usd > 0) plans.add(RemovePlan(days, usd));
+      }
+    }
+    final local = <String, Map<String, double>>{};
+    final rawLocal = raw['localPrices'];
+    if (rawLocal is Map) {
+      rawLocal.forEach((code, value) {
+        if (value is! Map) return;
+        final inner = <String, double>{};
+        value.forEach((days, amount) {
+          final n = amount is num ? amount.toDouble() : double.tryParse('$amount');
+          if (n != null && n > 0) inner['$days'] = n;
+        });
+        if (inner.isNotEmpty) local['$code'.toUpperCase()] = inner;
+      });
+    }
+    return RemoveAdsConfig(
+      enabled: raw['enabled'] is bool ? raw['enabled'] as bool : true,
+      whatsapp: ('${raw['whatsapp'] ?? ''}').replaceAll(RegExp(r'[^0-9]'), ''),
+      publicKey: ('${raw['publicKey'] ?? ''}').trim(),
+      plans: plans.isEmpty ? const RemoveAdsConfig().plans : plans,
+      localPrices: local,
+    );
+  }
+}
+
 class RemoteConfig extends ChangeNotifier {
   RemoteConfig._();
   static final RemoteConfig instance = RemoteConfig._();
@@ -49,11 +106,14 @@ class RemoteConfig extends ChangeNotifier {
 
   AdsConfig _ads = const AdsConfig();
   AdsConfig get ads => _ads;
+  RemoveAdsConfig _removeAds = const RemoveAdsConfig();
+  RemoveAdsConfig get removeAds => _removeAds;
 
   void _apply(String text) {
     final data = jsonDecode(text);
     if (data is Map) {
       _ads = AdsConfig.fromJson(data['ads']);
+      _removeAds = RemoveAdsConfig.fromJson(data['removeAds']);
       notifyListeners();
     }
   }
