@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'screens/auth_gate.dart';
+import 'services/ad_service.dart';
 import 'services/app_preferences.dart';
 import 'services/download_manager.dart';
 
@@ -37,6 +38,12 @@ Future<void> _initializeServices() async {
         .timeout(const Duration(seconds: 5));
   } catch (error) {
     debugPrint('DamiMovies: preferences could not be loaded at startup: $error');
+  }
+
+  try {
+    AdService.instance.start();
+  } catch (error) {
+    debugPrint('DamiMovies: ads unavailable at startup: $error');
   }
 
   try {
@@ -104,6 +111,12 @@ class DamiMoviesApp extends StatelessWidget {
                         : null),
               ),
               useMaterial3: true,
+            ),
+            navigatorKey: AdService.instance.navigatorKey,
+            builder: (context, child) => Listener(
+              behavior: HitTestBehavior.translucent,
+              onPointerDown: (_) => AdService.instance.onUserTap(),
+              child: child ?? const SizedBox.shrink(),
             ),
             home: const AuthGate(),
           );
