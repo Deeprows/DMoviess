@@ -875,7 +875,16 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
         body: Stack(
           children: [
             Column(children: [
-              Expanded(child: video),
+              // Normal (portrait) mode: start below the phone status bar so the
+              // player never covers it. Fullscreen / landscape stay edge to edge.
+              Expanded(
+                child: _isImmersive
+                    ? video
+                    : Padding(
+                        padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
+                        child: MediaQuery.removePadding(context: context, removeTop: true, child: video),
+                      ),
+              ),
               if (!_isImmersive) Container(
                 color: appSurface,
                 child: SafeArea(
