@@ -235,22 +235,32 @@ class DownloadScanner extends ChangeNotifier {
     await _load(pageUrl, run);
     if (!_alive(run)) return;
 
-    // The listing builds itself after loading: look a few times, opening
-    // collapsed servers so that all their Download buttons exist.
+    // The nxsha listing renders server cards lazily. Keep scanning after the
+    // first button appears: expanding one server can reveal more cards, and
+    // the page may hydrate its remaining buttons a moment later.
     final entries = <String, _Entry>{};
-    for (var round = 0; round < 6 && _alive(run); round++) {
-      await _wait(round == 0 ? 1200 : 2200);
+    var stableRounds = 0;
+    for (var round = 0; round < 8 && _alive(run); round++) {
+      await _wait(round == 0 ? 1800 : 1300);
       if (!_alive(run)) return;
-      for (var pass = 0; pass < 2; pass++) {
+      final before = entries.length;
+      for (var pass = 0; pass < 3; pass++) {
         for (final e in await _collectEntries()) {
-          entries.putIfAbsent('${e.url ?? ''}|${e.label}', () => e);
+          final key = '${e.url ?? ''}|${e.label}';
+          entries.putIfAbsent(key, () => e);
         }
         final opened = await _js(_expandJs);
-        if (opened is! num || opened == 0) break;
-        await _wait(700);
+        if (opened is! num || opened <= 0) break;
+        await _wait(500);
       }
       await _scanPageFiles(pageUrl, probePages: false);
-      if (entries.isNotEmpty) break;
+      if (entries.length == before) {
+        stableRounds++;
+      } else {
+        stableRounds = 0;
+      }
+      // Require two quiet passes so a late-rendered server card isn't missed.
+      if (stableRounds >= 2) break;
     }
     if (!_alive(run)) return;
 
@@ -392,6 +402,16 @@ class DownloadScanner extends ChangeNotifier {
       done.push(el); try{el.click(); n++;}catch(e){}
     }
   });
+  // nxsha server panels often use clickable divs instead of native buttons.
+  [].slice.call(document.querySelectorAll('div,section,article')).forEach(function(el){
+    if(done.indexOf(el)>=0) return;
+    var t=(el.innerText||'').replace(/\s+/g,' ').trim();
+    if(!t||t.length>100||!/\b(server|4k|hd\/sd\/fhd|bkl|cdn|drive|\d{3,4}p)\b/i.test(t)) return;
+    if(el.querySelectorAll('a,button,[role=button]').length>0) return;
+    var r=el.getBoundingClientRect();
+    if(r.width<180||r.height<35||r.height>180) return;
+    done.push(el); try{el.click();n++;}catch(e){}
+  });
   return n;
 })();
 ''';
@@ -400,32 +420,38 @@ class DownloadScanner extends ChangeNotifier {
   /// printed next to it. Each one is tagged data-dami="index" for tapping.
   static const _entriesJs = r'''
 (function(){
-  var DL=/^\s*(?:[^a-z0-9]{0,3}\s*)?(download|get\s+link|direct)/i;
-  var all=[].slice.call(document.querySelectorAll('a,button,[role=button]'));
-  function isDl(el){ var t=(el.innerText||el.textContent||'').replace(/\s+/g,' ').trim(); return t.length>0 && t.length<=40 && DL.test(t); }
-  var out=[], seen={};
-  all.forEach(function(el){
-    if(!isDl(el)) return;
-    var c=el, label='';
-    for(var i=0;i<6&&c.parentElement;i++){
+  var DL=/download|get\s+link|direct\s+download/i;
+  var all=[].slice.call(document.querySelectorAll('a,button,[role=button],input[type=button],input[type=submit]'));
+  function text(el){return (el.innerText||el.textContent||el.value||el.getAttribute('aria-label')||'').replace(/\s+/g,' ').trim();}
+  function isDl(el){var t=text(el);return t.length>0&&t.length<=55&&DL.test(t);}
+  function visible(el){var r=el.getBoundingClientRect(),s=getComputedStyle(el);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden';}
+  function labelFor(el){
+    var c=el, best='';
+    for(var i=0;i<8&&c.parentElement;i++){
       c=c.parentElement;
-      var cnt=0, as=c.querySelectorAll('a,button,[role=button]');
-      for(var k=0;k<as.length;k++){ if(isDl(as[k])) cnt++; }
-      if(cnt>1) break;
-      var ct=(c.innerText||'').replace(/\s+/g,' ').trim();
-      if(/\d{3,4}p|4k|\d\s?(mb|gb)/i.test(ct)){
-        label=ct.replace(/download/ig,'').replace(/\s+/g,' ').trim().slice(0,100);
-        break;
+      var t=(c.innerText||c.textContent||'').replace(/\s+/g,' ').trim();
+      if(t.length>0&&t.length<260&&(/\b\d{3,4}\s*p\b|\b4k\b|\b\d+\s*(mb|gb)\b|\b(10bit|hevc|h264)\b/i.test(t))){
+        best=t.replace(/download/ig,'').replace(/\s+/g,' ').trim().slice(0,130);
+        if(c.querySelectorAll('a,button,[role=button]').length<=3) break;
       }
     }
+    return best;
+  }
+  var out=[], seen={};
+  all.forEach(function(el){
+    if(!isDl(el)||!visible(el))return;
     var url=null;
     if(el.tagName==='A'){
       var h=el.getAttribute('href')||'';
-      if(h && h!=='#' && !/^javascript/i.test(h)){ try{ url=new URL(h,location.href).href; }catch(e){} }
+      if(h&&h!=='#'&&!/^javascript/i.test(h)){try{url=new URL(h,location.href).href}catch(e){}}
     }
-    if(url && url.split('#')[0]===location.href.split('#')[0]) url=null;
-    if(url){ if(seen[url]) return; seen[url]=1; }
-    el.setAttribute('data-dami', String(out.length));
+    if(url&&url.split('#')[0]===location.href.split('#')[0])url=null;
+    var label=labelFor(el);
+    // Include link-less Download buttons: these are common on nxsha's server cards.
+    var key=(url||'button')+'|'+label;
+    if(seen[key])return;
+    seen[key]=1;
+    el.setAttribute('data-dami',String(out.length));
     out.push({url:url,label:label});
   });
   return JSON.stringify(out);
