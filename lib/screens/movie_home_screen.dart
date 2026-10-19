@@ -1,3 +1,4 @@
+import '../services/ad_service.dart';
 import '../services/app_remote_config.dart';
 import '../services/premium_service.dart';
 import 'remove_ads_screen.dart';
@@ -343,7 +344,13 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
     } catch (_) {}
   }
 
+  /// Card tap: the support ad (when due) shows first, then the movie opens.
   Future<void> _open(Movie movie) async {
+    if (!mounted) return;
+    await AdService.instance.guard(context, () => _openNow(movie));
+  }
+
+  Future<void> _openNow(Movie movie) async {
     if (!mounted) return;
     final recent = <Movie>[movie,
       ..._continueWatching.where((m) => m.key != movie.key)]
@@ -376,6 +383,11 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   }
 
   void _playNow(Movie movie) {
+    if (!mounted) return;
+    unawaited(AdService.instance.guard(context, () => _playNowAfterAd(movie)));
+  }
+
+  void _playNowAfterAd(Movie movie) {
     if (!mounted) return;
     final recent = <Movie>[movie,
       ..._continueWatching.where((m) => m.key != movie.key)]
