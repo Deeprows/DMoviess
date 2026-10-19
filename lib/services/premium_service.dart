@@ -3,9 +3,12 @@ import 'dart:math';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config.dart';
 import 'app_remote_config.dart';
+import 'auth_service.dart';
 
 class RedeemResult {
   final bool ok;
@@ -84,6 +87,56 @@ class PremiumService extends ChangeNotifier {
       return base64Url.decode(base64Url.normalize(value.trim()));
     } catch (_) {
       return null;
+    }
+  }
+
+  /// Sends the customer's WhatsApp number to the worker, which notifies you.
+  Future<RedeemResult> requestToken({
+    required String whatsapp,
+    required RemovePlan plan,
+    required String priceText,
+  }) async {
+    if (!AppConfig.authUrl.startsWith('http')) {
+      return const RedeemResult(false, 'Token requests are not set up yet. Please contact support.');
+    }
+    final digits = whatsapp.replaceAll(RegExp(r'\D'), '');
+    if (digits.startsWith('0')) {
+      return const RedeemResult(false, 'Start with your country code, not 0. Example: 2348012345678');
+    }
+    if (digits.length < 8 || digits.length > 15) {
+      return const RedeemResult(false, 'Enter a valid WhatsApp number with country code.');
+    }
+    final idToken = await AuthService.instance.freshIdToken();
+    if (idToken == null) {
+      return const RedeemResult(false, 'Please sign out and sign in again, then retry.');
+    }
+    try {
+      final response = await http
+          .post(
+            Uri.parse(AppConfig.authUrl),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'action': 'token_request',
+              'idToken': idToken,
+              'whatsapp': digits,
+              'days': plan.days,
+              'price': priceText,
+              'deviceId': _installId,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        return RedeemResult(true, 'Request sent. We will send your token to +$digits on WhatsApp.');
+      }
+      if (response.statusCode == 429) {
+        return const RedeemResult(false, 'Too many requests today. Please try again tomorrow.');
+      }
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        return const RedeemResult(false, 'Please sign out and sign in again, then retry.');
+      }
+      return const RedeemResult(false, 'Could not send your request. Please try again.');
+    } catch (_) {
+      return const RedeemResult(false, 'Could not reach the server. Check your internet and try again.');
     }
   }
 
