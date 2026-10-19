@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../screens/support_ad_screen.dart';
 import 'app_remote_config.dart';
 import 'auth_service.dart';
+import 'currency_service.dart';
+import 'premium_service.dart';
 
 /// Support ads, driven by the "ads" block in app_config.json.
 /// Every `intervalMinutes` of use the next tap opens the "We Need Your Support"
@@ -22,13 +24,16 @@ class AdService with WidgetsBindingObserver {
   bool _showing = false;
   bool _started = false;
 
-  bool get _active => RemoteConfig.instance.ads.hasAd && AuthService.instance.signedIn;
+  bool get _active =>
+      RemoteConfig.instance.ads.hasAd && AuthService.instance.signedIn && !PremiumService.instance.active;
 
   void start() {
     if (_started) return;
     _started = true;
     WidgetsBinding.instance.addObserver(this);
     unawaited(RemoteConfig.instance.load());
+    unawaited(PremiumService.instance.load());
+    unawaited(CurrencyService.instance.load());
     _startTimer();
   }
 
@@ -48,6 +53,7 @@ class AdService with WidgetsBindingObserver {
       _startTimer();
     } else {
       _timer?.cancel();
+      unawaited(PremiumService.instance.touch());
     }
   }
 
@@ -59,7 +65,7 @@ class AdService with WidgetsBindingObserver {
 
   Future<void> _show() async {
     final navigator = navigatorKey.currentState;
-    if (navigator == null || _showing || !_due) return;
+    if (navigator == null || _showing || !_due || PremiumService.instance.active) return;
     final ads = RemoteConfig.instance.ads;
     if (!ads.hasAd) return;
     _showing = true;
