@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config.dart';
 import '../main.dart';
+import '../services/ad_service.dart';
 import '../services/app_remote_config.dart';
 import '../services/currency_service.dart';
 import '../services/premium_service.dart';
@@ -30,10 +31,12 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
   void initState() {
     super.initState();
     CurrencyService.instance.load();
+    AdService.instance.hold(); // no ad pop-up while sorting this out
   }
 
   @override
   void dispose() {
+    AdService.instance.release();
     _token.dispose();
     _whatsapp.dispose();
     super.dispose();
