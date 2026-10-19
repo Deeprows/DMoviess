@@ -8,7 +8,9 @@ import '../services/ad_service.dart';
 import '../services/app_preferences.dart';
 import '../services/tmdb_service.dart';
 import '../services/movie_library.dart';
+import '../services/profile_data.dart';
 import 'community_composer.dart';
+import 'profile_collections_screen.dart';
 import 'movie_player_screen.dart';
 import 'watch_together_screen.dart';
 import 'browser_screen.dart';
@@ -37,6 +39,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
     _movie = widget.movie;
     _saved = widget.saved;
     _tabs = TabController(length: 2, vsync: this);
+    ProfileData.instance.load();
     _loadDetails();
   }
 
@@ -136,6 +139,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
             Expanded(child: SizedBox(height: 46, child: OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: () => showCommunityComposer(context, movie: _movie), icon: const Icon(Icons.chat_bubble_outline_rounded, size: 20), label: Text('Tweet'.tr, style: const TextStyle(fontWeight: FontWeight.w800))))),
             const SizedBox(width: 10), Expanded(child: SizedBox(height: 46, child: OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => WatchTogetherScreen(movie: _movie))), icon: const Icon(Icons.theaters_rounded, size: 20), label: Text('Watch Together'.tr, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800))))),
           ])),
+          _profileActions(),
           _trailerSection(),
           Padding(padding: const EdgeInsets.symmetric(horizontal: 18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('OVERVIEW', style: TextStyle(fontSize: 11, color: appRed, letterSpacing: 1.4, fontWeight: FontWeight.w900)),
@@ -152,6 +156,54 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
           const SizedBox(height: 28),
         ]),
       ),
+    );
+  }
+
+
+  Future<void> _toggleFavoritePerson(MovieCastMember person) async {
+    final was = ProfileData.instance.isFavoritePerson(person.name);
+    await ProfileData.instance.toggleFavoritePerson(person.name, photo: person.photo);
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(was ? '${person.name} removed from favorites' : '${person.name} added to favorites')));
+  }
+
+  Widget _profileActions() {
+    final data = ProfileData.instance;
+    return ListenableBuilder(
+      listenable: data,
+      builder: (context, _) {
+        final stars = data.ratingFor(_movie);
+        final reviewed = data.reviewFor(_movie) != null;
+        Widget action(IconData icon, String label, VoidCallback onTap, {bool active = false}) => Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: onTap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(icon, color: active ? appRed : Colors.white70, size: 24),
+                    const SizedBox(height: 4),
+                    Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: active ? appRed : Colors.white70)),
+                  ]),
+                ),
+              ),
+            );
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+          child: Container(
+            decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withValues(alpha: .06))),
+            child: Row(children: [
+              action(stars == null ? Icons.star_border_rounded : Icons.star_rounded, stars == null ? 'Rate' : 'Rated $stars★', () => showRatingSheet(context, _movie), active: stars != null),
+              action(reviewed ? Icons.rate_review_rounded : Icons.rate_review_outlined, reviewed ? 'Reviewed' : 'Review', () => showReviewDialog(context, _movie), active: reviewed),
+              action(Icons.check_circle_outline_rounded, 'Check in', () => checkInMovie(context, _movie)),
+              action(Icons.playlist_add_rounded, 'Add to list', () => showAddToListSheet(context, _movie)),
+            ]),
+          ),
+        );
+      },
     );
   }
 
@@ -265,7 +317,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
       for (final row in metadata) Padding(padding: const EdgeInsets.symmetric(vertical: 7), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [SizedBox(width: 115, child: Text(row.$1, style: const TextStyle(color: Colors.white54, fontSize: 12))), Expanded(child: Text(row.$2, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)))])),
       if (_movie.cast.isNotEmpty) ...[
         const SizedBox(height: 12), Text('CAST', style: TextStyle(color: appRed, fontWeight: FontWeight.w900, letterSpacing: 1.2, fontSize: 11)), const SizedBox(height: 12),
-        SizedBox(height: 124, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: _movie.cast.length, separatorBuilder: (_, __) => const SizedBox(width: 12), itemBuilder: (_, i) { final person = _movie.cast[i]; return SizedBox(width: 78, child: Column(children: [ClipRRect(borderRadius: BorderRadius.circular(38), child: SizedBox(width: 66, height: 66, child: person.photo.startsWith('http') ? CachedNetworkImage(imageUrl: person.photo, fit: BoxFit.cover, errorWidget: (_, __, ___) => const Icon(Icons.person)) : Container(color: appSurface, child: const Icon(Icons.person, color: Colors.white54)))), const SizedBox(height: 6), Text(person.name, maxLines: 2, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800)), Text(person.character, maxLines: 1, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, color: Colors.white54))])); })),
+        SizedBox(height: 124, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: _movie.cast.length, separatorBuilder: (_, __) => const SizedBox(width: 12), itemBuilder: (_, i) { final person = _movie.cast[i]; return GestureDetector(onTap: () => _toggleFavoritePerson(person), child: SizedBox(width: 78, child: Column(children: [ClipRRect(borderRadius: BorderRadius.circular(38), child: SizedBox(width: 66, height: 66, child: person.photo.startsWith('http') ? CachedNetworkImage(imageUrl: person.photo, fit: BoxFit.cover, errorWidget: (_, __, ___) => const Icon(Icons.person)) : Container(color: appSurface, child: const Icon(Icons.person, color: Colors.white54)))), const SizedBox(height: 6), Text(ProfileData.instance.isFavoritePerson(person.name) ? '♥ ${person.name}' : person.name, maxLines: 2, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: ProfileData.instance.isFavoritePerson(person.name) ? appRed : null)), Text(person.character, maxLines: 1, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, color: Colors.white54))]))); })),
       ],
     ]);
   }
