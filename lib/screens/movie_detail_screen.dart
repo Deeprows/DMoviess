@@ -5,10 +5,14 @@ import 'package:flutter/material.dart';
 import '../main.dart';
 import '../models/movie.dart';
 import '../services/ad_service.dart';
+import '../services/app_preferences.dart';
 import '../services/tmdb_service.dart';
 import '../services/movie_library.dart';
+import 'community_composer.dart';
 import 'movie_player_screen.dart';
+import 'watch_together_screen.dart';
 import 'browser_screen.dart';
+import 'movie_download_screen.dart';
 import 'trailer_player_screen.dart';
 
 class MovieDetailScreen extends StatefulWidget {
@@ -92,7 +96,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No download link is available for this title.')));
       return;
     }
-    Navigator.push(context, MaterialPageRoute(builder: (_) => BrowserScreen(initialUrl: _movie.downloadUrl)));
+    Navigator.push(context, MaterialPageRoute(builder: (_) => MovieDownloadScreen(movie: _movie)));
   }
 
   @override void dispose() { _tabs.dispose(); super.dispose(); }
@@ -127,6 +131,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
           Padding(padding: const EdgeInsets.fromLTRB(18, 4, 18, 18), child: Row(children: [
             Expanded(child: SizedBox(height: 51, child: FilledButton.icon(style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: _play, icon: const Icon(Icons.play_arrow_rounded, size: 25), label: const Text('Play', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15))))),
             const SizedBox(width: 10), Expanded(child: SizedBox(height: 51, child: OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: _download, icon: const Icon(Icons.download_rounded), label: const Text('Download', style: TextStyle(fontWeight: FontWeight.w800))))),
+          ])),
+          Padding(padding: const EdgeInsets.fromLTRB(18, 0, 18, 18), child: Row(children: [
+            Expanded(child: SizedBox(height: 46, child: OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: () => showCommunityComposer(context, movie: _movie), icon: const Icon(Icons.chat_bubble_outline_rounded, size: 20), label: Text('Tweet'.tr, style: const TextStyle(fontWeight: FontWeight.w800))))),
+            const SizedBox(width: 10), Expanded(child: SizedBox(height: 46, child: OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => WatchTogetherScreen(movie: _movie))), icon: const Icon(Icons.theaters_rounded, size: 20), label: Text('Watch Together'.tr, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800))))),
           ])),
           _trailerSection(),
           Padding(padding: const EdgeInsets.symmetric(horizontal: 18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
