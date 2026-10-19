@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../main.dart';
+import 'remove_ads_screen.dart';
 
 /// "We Need Your Support" page: loads the support / smart link and shows
 /// Skip Ad once `skipAfterSeconds` have passed since the ad loaded.
@@ -107,10 +108,19 @@ class _SupportAdScreenState extends State<SupportAdScreen> {
               Container(
                 width: double.infinity,
                 color: appSurface,
-                padding: const EdgeInsets.symmetric(vertical: 7),
-                child: const Text('Ads keep DamiMovies free. Thank you!',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white54, fontSize: 11)),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: Row(children: [
+                  const Expanded(
+                    child: Text('Ads keep DamiMovies free. Thank you!',
+                        style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const RemoveAdsScreen())),
+                    icon: const Icon(Icons.block_rounded, size: 16),
+                    label: const Text('Remove ads'),
+                  ),
+                ]),
               ),
             ]),
           ),
