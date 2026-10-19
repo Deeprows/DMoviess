@@ -41,6 +41,7 @@ class AuthService extends ChangeNotifier {
   static const _kEmail = 'damimovies_auth_email';
   static const _kName = 'damimovies_auth_name';
   static const _kPhoto = 'damimovies_auth_photo';
+  static const _kBackup = 'damimovies_auth_session';
   static const _kRegistered = 'damimovies_registered_emails';
 
   final GoogleSignIn _google = GoogleSignIn(
@@ -55,25 +56,73 @@ class AuthService extends ChangeNotifier {
   bool get ready => _ready;
   bool get signedIn => _user != null;
 
-  /// Loads the saved session so returning users go straight to the app, even
-  /// offline, then quietly refreshes the Google account in the background.
+  /// Keeps users signed in: loads the saved session so returning users go
+  /// straight to the app (even offline), falls back to the Google account that
+  /// is still signed in on the phone, then quietly refreshes in the background.
+  /// Only an explicit [signOut] ever ends a session.
   Future<void> restore() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final email = prefs.getString(_kEmail) ?? '';
-      if (email.isNotEmpty) {
-        _user = AuthUser(
-          email: email,
-          name: prefs.getString(_kName) ?? '',
-          photo: prefs.getString(_kPhoto) ?? '',
-        );
-      }
-    } catch (error) {
-      debugPrint('DamiMovies: could not restore session: $error');
-    }
+    if (_user == null) await _loadSaved();
+    if (_user == null) await _recoverFromGoogle();
     _ready = true;
     notifyListeners();
     if (_user != null) unawaited(_refreshSilently());
+  }
+
+  /// Called when the app comes back to the foreground: if a storage hiccup
+  /// made the session look empty earlier, try once more before asking the
+  /// user to log in again.
+  Future<void> recheck() async {
+    if (!_ready || _user != null) return;
+    await _loadSaved();
+    if (_user != null) {
+      notifyListeners();
+      unawaited(_refreshSilently());
+    }
+  }
+
+  Future<void> _loadSaved() async {
+    for (var attempt = 0; attempt < 3 && _user == null; attempt++) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (attempt > 0) await prefs.reload();
+        var email = prefs.getString(_kEmail) ?? '';
+        var name = prefs.getString(_kName) ?? '';
+        var photo = prefs.getString(_kPhoto) ?? '';
+        if (email.isEmpty) {
+          // Backup copy written alongside the main one.
+          final raw = prefs.getString(_kBackup);
+          if (raw != null && raw.isNotEmpty) {
+            final j = jsonDecode(raw);
+            if (j is Map) {
+              email = '${j['email'] ?? ''}';
+              name = '${j['name'] ?? ''}';
+              photo = '${j['photo'] ?? ''}';
+            }
+          }
+        }
+        if (email.isNotEmpty) {
+          _user = AuthUser(email: email, name: name, photo: photo);
+        }
+        return; // Read worked: nothing saved means nobody is signed in.
+      } catch (error) {
+        debugPrint('DamiMovies: could not restore session (try ${attempt + 1}): $error');
+        await Future<void>.delayed(Duration(milliseconds: 300 * (attempt + 1)));
+      }
+    }
+  }
+
+  /// Google keeps the account signed in on the phone until we call signOut,
+  /// so it can bring the session back if our own copy could not be read.
+  Future<void> _recoverFromGoogle() async {
+    try {
+      final account = await _google.signInSilently().timeout(const Duration(seconds: 6));
+      if (account != null && _isGmail(account.email)) {
+        _user = _fromAccount(account);
+        await _save();
+      }
+    } catch (_) {
+      // Offline or unavailable: the user will simply see the login screen.
+    }
   }
 
   Future<void> _refreshSilently() async {
@@ -104,6 +153,8 @@ class AuthService extends ChangeNotifier {
       await prefs.setString(_kEmail, user.email);
       await prefs.setString(_kName, user.name);
       await prefs.setString(_kPhoto, user.photo);
+      await prefs.setString(
+          _kBackup, jsonEncode({'email': user.email, 'name': user.name, 'photo': user.photo}));
     } catch (error) {
       debugPrint('DamiMovies: could not save session: $error');
     }
@@ -229,6 +280,7 @@ class AuthService extends ChangeNotifier {
       await prefs.remove(_kEmail);
       await prefs.remove(_kName);
       await prefs.remove(_kPhoto);
+      await prefs.remove(_kBackup);
     } catch (_) {}
     notifyListeners();
   }
