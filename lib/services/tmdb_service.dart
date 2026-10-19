@@ -362,10 +362,37 @@ class TmdbService {
     return out;
   }
 
+  Future<List<TmdbPerson>> searchPeople(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return [];
+    final data = await _get('/search/person', {'query': q, 'include_adult': 'false'});
+    final results = data?['results'];
+    if (results is! List) return [];
+    return results
+        .whereType<Map>()
+        .map((e) {
+          final path = e['profile_path'];
+          return TmdbPerson(
+            id: (e['id'] as num?)?.toInt() ?? 0,
+            name: '${e['name'] ?? ''}',
+            photo: path is String && path.isNotEmpty ? '${_imageBase}w185$path' : '',
+            known: '${e['known_for_department'] ?? ''}',
+          );
+        })
+        .where((p) => p.name.isNotEmpty)
+        .toList();
+  }
+
   Future<List<Movie>> search(String query) async {
     if (query.trim().isEmpty) return [];
     return _list('/search/multi', {'query': query.trim(), 'include_adult': 'false'});
   }
+}
+
+class TmdbPerson {
+  final int id;
+  final String name, photo, known;
+  const TmdbPerson({required this.id, required this.name, this.photo = '', this.known = ''});
 }
 
 class TmdbTrailer {
