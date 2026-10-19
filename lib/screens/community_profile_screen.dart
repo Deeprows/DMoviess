@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../services/community_service.dart';
+import '../services/movie_library.dart';
+import '../services/profile_data.dart';
+import 'library_screen.dart';
+import 'profile_collections_screen.dart';
 import 'watch_together_screen.dart';
 import '../theme/app_theme.dart';
 import '../utils/l10n.dart';
@@ -81,7 +85,7 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
   }
 
   Widget _header(String name, String photo, String? bio,
-      {required int posts, required int likes}) {
+      {required int posts, required int likes, String? email, bool badges = false}) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       padding: const EdgeInsets.all(18),
@@ -107,6 +111,31 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
                             fontSize: 21,
                             fontWeight: FontWeight.w900,
                             letterSpacing: -.3)),
+                    if (email != null && email.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(email,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: Ui.muted, fontSize: 13)),
+                    ],
+                    if (badges)
+                      ListenableBuilder(
+                        listenable: ProfileData.instance,
+                        builder: (_, __) => Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Row(children: [
+                            Icon(Icons.workspace_premium_rounded,
+                                size: 16, color: Colors.amber),
+                            const SizedBox(width: 6),
+                            Text(
+                                '${ProfileData.instance.badgesEarned}/10 ${'Badges'.tr}',
+                                style: TextStyle(
+                                    color: Ui.muted,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700)),
+                          ]),
+                        ),
+                      ),
                     if (bio != null && bio.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(bio,
@@ -163,6 +192,93 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
     );
   }
 
+
+  // ---- Profile grid (own profile only) ----------------------------------
+
+  void _open(Widget screen) => Navigator.of(context)
+      .push(MaterialPageRoute<void>(builder: (_) => screen));
+
+  void _openLibrary(int tab) => _open(LibraryScreen(initialTab: tab));
+
+  Widget _statGrid() {
+    final lib = MovieLibrary.instance;
+    final data = ProfileData.instance;
+    lib.load();
+    data.load();
+    return ListenableBuilder(
+      listenable: Listenable.merge([lib, data]),
+      builder: (context, _) {
+        final tiles = <Widget>[
+          _tile(Icons.star_rounded, 'Ratings', data.ratings.length,
+              () => _open(const RatingsScreen())),
+          _tile(Icons.history_rounded, 'Watch history', lib.history.length,
+              () => _openLibrary(1)),
+          _tile(Icons.category_rounded, 'Interests', data.interests.length,
+              () => _open(const InterestsScreen())),
+          _tile(Icons.bookmark_rounded, 'Watchlist', lib.saved.length,
+              () => _openLibrary(0)),
+          _tile(Icons.rate_review_rounded, 'Reviews', data.reviews.length,
+              () => _open(const ReviewsScreen())),
+          _tile(Icons.workspace_premium_rounded, 'Badges', data.badgesEarned,
+              () => _open(const BadgesScreen())),
+          _tile(Icons.format_list_bulleted_rounded, 'Lists', data.lists.length,
+              () => _open(const ListsScreen())),
+          _tile(Icons.check_circle_outline_rounded, 'Check-ins', data.checkIns.length,
+              () => _open(const CheckInsScreen())),
+          _tile(Icons.people_alt_rounded, 'Favorite people', data.people.length,
+              () => _open(const FavoritePeopleScreen())),
+        ];
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: GridView.count(
+            crossAxisCount: 3,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: .98,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: tiles,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _tile(IconData icon, String label, int count, VoidCallback onTap) {
+    return Material(
+      color: Ui.card,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Ui.glassLine),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 28, color: Ui.redSoft),
+              const SizedBox(height: 8),
+              Text(label.tr,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      fontSize: 13.5, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text('$count',
+                  style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700, color: Ui.muted)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _section(String title, IconData icon) => Padding(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
         child: Row(
@@ -188,7 +304,11 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
         padding: const EdgeInsets.only(bottom: 32),
         children: [
           _header(p.name, p.photoUrl, p.bio,
-              posts: p.postCount, likes: p.likeCount),
+              posts: p.postCount,
+              likes: p.likeCount,
+              email: p.mine ? p.email : null,
+              badges: p.mine),
+          if (p.mine) _statGrid(),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: SizedBox(
