@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../config.dart';
 import '../main.dart';
 import '../services/app_remote_config.dart';
 import '../services/currency_service.dart';
@@ -16,6 +17,10 @@ class RemoveAdsScreen extends StatefulWidget {
 
 class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
   final _token = TextEditingController();
+  final _whatsapp = TextEditingController();
+  bool _requesting = false;
+  String? _requestMsg;
+  bool _requestOk = false;
   int _plan = 0;
   bool _busy = false;
   String? _message;
@@ -30,6 +35,7 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
   @override
   void dispose() {
     _token.dispose();
+    _whatsapp.dispose();
     super.dispose();
   }
 
@@ -47,6 +53,23 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
       _message = result.message;
       _messageOk = result.ok;
       if (result.ok) _token.clear();
+    });
+  }
+
+  Future<void> _request(RemoveAdsConfig config, RemovePlan plan) async {
+    if (_requesting) return;
+    setState(() { _requesting = true; _requestMsg = null; });
+    final price = CurrencyService.instance.priceFor(plan, config);
+    final result = await PremiumService.instance.requestToken(
+      whatsapp: _whatsapp.text,
+      plan: plan,
+      priceText: price.text,
+    );
+    if (!mounted) return;
+    setState(() {
+      _requesting = false;
+      _requestMsg = result.message;
+      _requestOk = result.ok;
     });
   }
 
@@ -84,18 +107,7 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
                 const SizedBox(height: 10),
                 for (var i = 0; i < plans.length; i++) _planTile(i, plans[i], config),
                 const SizedBox(height: 14),
-                if (config.whatsapp.isNotEmpty)
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF1FAF5A),
-                      minimumSize: const Size.fromHeight(52),
-                    ),
-                    onPressed: () => _buyOnWhatsApp(config, plans[_plan]),
-                    icon: const Icon(Icons.chat_rounded),
-                    label: const Text('Buy token on WhatsApp', style: TextStyle(fontWeight: FontWeight.w800)),
-                  )
-                else
-                  const Text('Contact support to buy a token.', style: TextStyle(color: Colors.white60)),
+                _requestSection(config, plans[_plan]),
                 const SizedBox(height: 12),
                 _deviceId(premium),
                 const SizedBox(height: 26),
@@ -136,6 +148,73 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
           );
         },
       );
+
+  Widget _requestSection(RemoveAdsConfig config, RemovePlan plan) {
+    final whatsappButton = config.whatsapp.isNotEmpty
+        ? FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF1FAF5A),
+              minimumSize: const Size.fromHeight(52),
+            ),
+            onPressed: () => _buyOnWhatsApp(config, plan),
+            icon: const Icon(Icons.chat_rounded),
+            label: const Text('Buy token on WhatsApp', style: TextStyle(fontWeight: FontWeight.w800)),
+          )
+        : const Text('Contact support to buy a token.', style: TextStyle(color: Colors.white60));
+    if (!AppConfig.authUrl.startsWith('http')) return whatsappButton;
+
+    final okColor = const Color(0xFF1FAF5A);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: appSurface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Request a token', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 6),
+        const Text(
+          'Enter your WhatsApp number with country code. We will send your token there after payment details are confirmed.',
+          style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.4),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _whatsapp,
+          keyboardType: TextInputType.phone,
+          decoration: const InputDecoration(
+            hintText: 'WhatsApp number, e.g. 2348012345678',
+            prefixIcon: Icon(Icons.chat_rounded),
+          ),
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: okColor, minimumSize: const Size.fromHeight(52)),
+          onPressed: _requesting ? null : () => _request(config, plan),
+          child: _requesting
+              ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
+              : Text('Request ${plan.days}-day token', style: const TextStyle(fontWeight: FontWeight.w800)),
+        ),
+        if (_requestMsg != null) ...[
+          const SizedBox(height: 12),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Icon(_requestOk ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                color: _requestOk ? okColor : appAccentSoft, size: 20),
+            const SizedBox(width: 8),
+            Expanded(child: Text(_requestMsg!, style: TextStyle(color: _requestOk ? okColor : appAccentSoft))),
+          ]),
+        ],
+        if (config.whatsapp.isNotEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () => _buyOnWhatsApp(config, plan),
+              child: const Text('Or message us on WhatsApp'),
+            ),
+          ),
+      ]),
+    );
+  }
 
   Widget _activeCard(PremiumService premium) => Container(
         padding: const EdgeInsets.all(16),
