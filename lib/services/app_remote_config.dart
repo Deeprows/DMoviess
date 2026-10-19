@@ -12,13 +12,15 @@ import '../config.dart';
 class AdsConfig {
   final bool enabled;
   final String supportUrl;
-  final int intervalMinutes;
+  final int intervalMinutes; // timer ad: every N minutes of use (YouTube style)
+  final int cardCooldownMinutes; // card-tap ad: at most once per N minutes
   final int skipAfterSeconds;
 
   const AdsConfig({
     this.enabled = true,
     this.supportUrl = '',
-    this.intervalMinutes = 10,
+    this.intervalMinutes = 15,
+    this.cardCooldownMinutes = 5,
     this.skipAfterSeconds = 6,
   });
 
@@ -35,7 +37,8 @@ class AdsConfig {
     return AdsConfig(
       enabled: raw['enabled'] is bool ? raw['enabled'] as bool : true,
       supportUrl: ('${raw['supportUrl'] ?? ''}').trim(),
-      intervalMinutes: number(raw['intervalMinutes'], 10, 1, 24 * 60),
+      intervalMinutes: number(raw['intervalMinutes'], 15, 1, 24 * 60),
+      cardCooldownMinutes: number(raw['cardCooldownMinutes'], 5, 0, 24 * 60),
       skipAfterSeconds: number(raw['skipAfterSeconds'], 6, 0, 60),
     );
   }
