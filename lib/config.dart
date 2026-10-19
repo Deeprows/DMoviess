@@ -39,6 +39,10 @@ class AppConfig {
   /// the relevant external feature gracefully without affecting playback.
   /// Optional remote config address (same format as assets/data/app_config.json).
   /// Blank = the app only uses the bundled copy.
+  /// Address of cloudflare/auth-worker.js. Blank = accounts are remembered on
+  /// this phone only.
+  static const String authUrl = String.fromEnvironment('AUTH_API_URL');
+
   static const String configUrl = String.fromEnvironment(
     'CONFIG_URL',
     defaultValue: '',
