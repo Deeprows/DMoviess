@@ -41,7 +41,7 @@ Future<void> _initializeServices() async {
   }
 
   try {
-    AdService.instance.start();
+    unawaited(AdService.instance.start());
   } catch (error) {
     debugPrint('DamiMovies: ads unavailable at startup: $error');
   }
@@ -113,11 +113,6 @@ class DamiMoviesApp extends StatelessWidget {
               useMaterial3: true,
             ),
             navigatorKey: AdService.instance.navigatorKey,
-            builder: (context, child) => Listener(
-              behavior: HitTestBehavior.translucent,
-              onPointerDown: (_) => AdService.instance.onUserTap(),
-              child: child ?? const SizedBox.shrink(),
-            ),
             home: const AuthGate(),
           );
         },
