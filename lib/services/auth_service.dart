@@ -8,12 +8,16 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config.dart';
+import 'community_service.dart';
 
 class AuthUser {
   final String email;
   final String name;
   final String photo;
   const AuthUser({required this.email, this.name = '', this.photo = ''});
+
+  /// The Gmail picture, or null when the account has none.
+  String? get photoUrl => photo.isEmpty ? null : photo;
 }
 
 class AuthFailure {
@@ -209,8 +213,16 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Google ID token for the community server. Only available when the build
+  /// has a Web client ID; otherwise the community uses this phone's own key.
+  Future<String?> googleIdToken() async {
+    if (_webClientId.isEmpty) return null;
+    return freshIdToken();
+  }
+
   Future<void> signOut() async {
     try { await _google.signOut(); } catch (_) {}
+    CommunityService.instance.clear();
     _user = null;
     try {
       final prefs = await SharedPreferences.getInstance();
