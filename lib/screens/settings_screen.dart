@@ -41,7 +41,7 @@ class SettingsScreen extends StatelessWidget {
       if (!context.mounted) return;
       await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
         title: const Text('Update checker'),
-        content: const Text('Automatic update checking is ready, but no update URL is configured for this build. Set UPDATE_URL to a JSON update manifest or a direct APK link in the build workflow.'),
+        content: const Text('No update at the moment. Please check again later.'),
         actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('OK'))],
       ));
       return;
@@ -72,6 +72,25 @@ class SettingsScreen extends StatelessWidget {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not check updates. Check your connection and try again.')));
     }
+  }
+
+  Future<void> _about(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('DamiMovies'),
+        content: const Text(
+          'DamiMovies is just a movie hub for movie lovers. No video or movie is hosted here. All content is the copyright of its respective owners.',
+          style: TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _support(BuildContext context) async {
@@ -195,7 +214,7 @@ class SettingsScreen extends StatelessWidget {
             _actionTile(Icons.favorite_border_rounded, 'Support DamiMovies', 'Open the configured support page', () => _support(context)),
             if (AuthService.instance.user != null) _accountTile(context),
             _actionTile(Icons.share_rounded, 'Share DamiMovies', 'Share the app link', () => Share.share('Discover movies with DamiMovies.\n${AppConfig.appUrl}')),
-            _actionTile(Icons.info_outline_rounded, 'About', 'TMDB-powered movie discovery and player', () => showAboutDialog(context: context, applicationName: 'DamiMovies', applicationVersion: AppConfig.appVersion, applicationLegalese: 'This product uses the TMDB API but is not endorsed or certified by TMDB. Movie streams and downloads may be provided by third-party websites.')),
+            _actionTile(Icons.info_outline_rounded, 'About', 'Movie hub for movie lovers', () => _about(context)),
           ],
         ),
       ),
