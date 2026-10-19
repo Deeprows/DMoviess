@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DamiMovies token admin</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#0d0b14;color:#eee;margin:0;padding:18px;max-width:640px;margin:auto}
+  h1{font-size:20px} h2{font-size:16px;margin-top:28px}
+  textarea,input{width:100%;box-sizing:border-box;background:#1b1727;color:#fff;border:1px solid #3a3350;border-radius:10px;padding:10px;font-size:14px;margin:6px 0}
+  button{background:#9b5cff;color:#fff;border:0;border-radius:10px;padding:12px 16px;font-size:15px;font-weight:700;margin:6px 6px 6px 0}
+  button.alt{background:#2a2540} a.btn{display:inline-block;background:#1faf5a;color:#fff;text-decoration:none;border-radius:10px;padding:12px 16px;font-weight:700;margin:6px 0}
+  .note{color:#9a94ad;font-size:12px;line-height:1.5} .out{word-break:break-all;font-family:monospace;font-size:12px}
+  .warn{color:#ffb36b}
+</style></head><body>
+<h1>DamiMovies token admin</h1>
+<p class="note">Works offline in your phone browser. Nothing is uploaded anywhere. Keep this file and your private key off GitHub.</p>
+
+<h2>1. Create signing keys (once)</h2>
+<button id="gen">Create new signing keys</button>
+<div id="keys" style="display:none">
+  <p><b>Public key</b> (paste into <code>app_config.json</code> &rarr; <code>removeAds.publicKey</code>):</p>
+  <textarea id="pub" rows="2" readonly></textarea>
+  <p class="warn"><b>Private key</b>: save it somewhere safe. Anyone who has it can make tokens. If you lose it you must make new keys and ship a new APK.</p>
+  <textarea id="priv" rows="4" readonly></textarea>
+</div>
+
+<h2>2. Make a token</h2>
+<label class="note">Your private key</label>
+<textarea id="privIn" rows="3" placeholder="Paste your private key"></textarea>
+<label class="note"><input type="checkbox" id="remember" style="width:auto"> Remember the private key on this phone</label>
+<label class="note">Customer's Device ID (they send it on WhatsApp)</label>
+<input id="dev" placeholder="XXXX-XXXX-XXXX" autocapitalize="characters">
+<label class="note">Days</label>
+<input id="days" type="number" min="1" max="3650" value="30">
+<button id="mk">Make token</button>
+<div id="res" style="display:none">
+  <p class="note">Token (send this to the customer):</p>
+  <textarea id="tok" rows="5" readonly></textarea>
+  <button class="alt" id="copy">Copy token</button>
+  <a class="btn" id="wa" target="_blank" rel="noopener">Send on WhatsApp</a>
+</div>
+<p id="err" class="warn"></p>
+
+<script>
+const enc = new TextEncoder();
+const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const unb64u = (s) => { s=s.trim().replace(/-/g,'+').replace(/_/g,'/'); while(s.length%4) s+='='; return Uint8Array.from(atob(s), c=>c.charCodeAt(0)); };
+const $ = (id) => document.getElementById(id);
+const fail = (m) => { $('err').textContent = m; };
+const ok = !!(window.crypto && crypto.subtle);
+
+if (localStorage.getItem('dm_priv')) { $('privIn').value = localStorage.getItem('dm_priv'); $('remember').checked = true; }
+
+$('gen').onclick = async () => {
+  fail('');
+  try {
+    const pair = await crypto.subtle.generateKey({name:'Ed25519'}, true, ['sign','verify']);
+    $('pub').value = b64u(await crypto.subtle.exportKey('raw', pair.publicKey));
+    $('priv').value = b64u(await crypto.subtle.exportKey('pkcs8', pair.privateKey));
+    $('keys').style.display = 'block';
+  } catch (e) { fail('This browser cannot make Ed25519 keys. Update Chrome/Safari/Firefox and try again.'); }
+};
+
+$('mk').onclick = async () => {
+  fail('');
+  try {
+    const privText = $('privIn').value.trim();
+    const dev = $('dev').value.trim().toUpperCase();
+    const days = parseInt($('days').value, 10);
+    if (!privText) return fail('Paste your private key.');
+    if (!/^[A-Z0-9-]{8,20}$/.test(dev)) return fail('Enter the customer\'s Device ID.');
+    if (!(days >= 1 && days <= 3650)) return fail('Days must be between 1 and 3650.');
+    const key = await crypto.subtle.importKey('pkcs8', unb64u(privText), {name:'Ed25519'}, false, ['sign']);
+    const nonce = Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b=>b.toString(16).padStart(2,'0')).join('');
+    const payload = enc.encode(`v1|${dev}|${days}|${nonce}`);
+    const sig = await crypto.subtle.sign({name:'Ed25519'}, key, payload);
+    const token = b64u(payload) + '.' + b64u(sig);
+    $('tok').value = token;
+    $('wa').href = 'https://wa.me/?text=' + encodeURIComponent('Your DamiMovies ad-free token (' + days + ' days):\n\n' + token);
+    $('res').style.display = 'block';
+    if ($('remember').checked) localStorage.setItem('dm_priv', privText); else localStorage.removeItem('dm_priv');
+  } catch (e) { fail('Could not make the token. Check the private key. (' + e.message + ')'); }
+};
+$('copy').onclick = async () => { try { await navigator.clipboard.writeText($('tok').value); $('copy').textContent='Copied'; } catch(e){ $('tok').select(); } };
+</script></body></html>
