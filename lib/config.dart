@@ -43,6 +43,12 @@ class AppConfig {
   /// this phone only.
   static const String authUrl = String.fromEnvironment('AUTH_API_URL');
 
+  /// Address of the server that stores the community (posts, likes, comments,
+  /// profiles, Watch Together rooms). Pass it at build time with
+  /// --dart-define=COMMUNITY_API_URL=... Blank = the Community screens say it
+  /// is not set up yet. See COMMUNITY_SETUP.md.
+  static const String communityUrl = String.fromEnvironment('COMMUNITY_API_URL');
+
   static const String configUrl = String.fromEnvironment(
     'CONFIG_URL',
     defaultValue: '',
