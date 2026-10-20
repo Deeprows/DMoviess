@@ -7,7 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config.dart';
 import '../main.dart';
 import '../services/app_preferences.dart';
-import 'browser_screen.dart';
+import '../utils/external_link.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -100,7 +100,7 @@ class SettingsScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No support link is configured for this build.')));
       return;
     }
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => BrowserScreen(initialUrl: link)));
+    await openInExternalBrowser(context, link);
   }
 
   @override
