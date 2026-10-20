@@ -1,3 +1,4 @@
+import '../utils/l10n.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -499,7 +500,7 @@ class _TheatreScreenState extends State<TheatreScreen>
                     children: [
                       const Icon(Icons.forum_rounded, size: 14, color: _gold, shadows: _chatShadow),
                       const SizedBox(width: 6),
-                      const Text('Room chat',
+                      Text('Room chat'.tr,
                           style: TextStyle(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w900,
@@ -672,7 +673,7 @@ class _TheatreScreenState extends State<TheatreScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('NOW SHOWING',
+                  Text('NOW SHOWING'.tr,
                       style: TextStyle(
                           color: _gold.withValues(alpha: .9),
                           fontSize: 10.5,
@@ -699,7 +700,7 @@ class _TheatreScreenState extends State<TheatreScreen>
                 children: [
                   const Icon(Icons.circle, size: 8, color: Color(0xFF4ADE80)),
                   const SizedBox(width: 6),
-                  Text('LIVE ROOM',
+                  Text('LIVE ROOM'.tr,
                       style: TextStyle(
                           color: Colors.white.withValues(alpha: .85),
                           fontSize: 10.5,
@@ -991,7 +992,7 @@ class _TheatreScreenState extends State<TheatreScreen>
                 children: [
                   const Icon(Icons.forum_rounded, size: 16, color: _gold),
                   const SizedBox(width: 8),
-                  const Text('Room chat',
+                  Text('Room chat'.tr,
                       style: TextStyle(
                           fontWeight: FontWeight.w900, fontSize: 13.5)),
                   const Spacer(),
@@ -1009,7 +1010,7 @@ class _TheatreScreenState extends State<TheatreScreen>
               height: MediaQuery.of(context).viewInsets.bottom > 0 ? 64 : 112,
               child: _msgs.isEmpty
                   ? Center(
-                      child: Text('Say something to the room…',
+                      child: Text('Say something to the room…'.tr,
                           style: TextStyle(
                               color: Colors.white.withValues(alpha: .45),
                               fontSize: 12.5)))
@@ -1087,7 +1088,7 @@ class _TheatreScreenState extends State<TheatreScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('THE SHOW BEGINS IN',
+                Text('THE SHOW BEGINS IN'.tr,
                     style: TextStyle(
                         color: _gold.withValues(alpha: .9),
                         letterSpacing: 3,
@@ -1109,7 +1110,7 @@ class _TheatreScreenState extends State<TheatreScreen>
                           decoration: TextDecoration.none)),
                 ),
                 const SizedBox(height: 6),
-                const Text('Press play together when the movie opens',
+                Text('Press play together when the movie opens'.tr,
                     style: TextStyle(color: Colors.white60, fontSize: 12.5)),
               ],
             ),
