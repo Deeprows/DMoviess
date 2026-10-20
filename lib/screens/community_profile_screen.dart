@@ -72,7 +72,7 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
       appBar: AppBar(
         backgroundColor: Ui.bg,
         automaticallyImplyLeading: !widget.asTab,
-        title: Text((!widget.asTab && (p?.mine ?? false) ? 'My posts' : 'Profile').tr,
+        title: Text((!widget.asTab && (p?.mine ?? false) ? 'My profile' : 'Profile').tr,
             style: const TextStyle(fontWeight: FontWeight.w900)),
       ),
       body: p == null ? _loading() : _content(p),
