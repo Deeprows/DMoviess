@@ -37,6 +37,8 @@ flutter:
   assets:
     - assets/data/movies.json
     - assets/data/app_config.json
+    - assets/icon/home_logo.png
+    - assets/splash/splash.png
 
 flutter_launcher_icons:
   android: true
