@@ -1,3 +1,4 @@
+import '../utils/l10n.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -174,13 +175,13 @@ class _BrowserScreenState extends State<BrowserScreen> {
 
   Future<void> _startDownload(String url) async {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Preparing download…')));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Preparing download…'.tr)));
     final error = await DownloadManager.instance.enqueue(url, referer: _url, cookie: await _cookies());
     if (!mounted) return;
     if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error), duration: const Duration(seconds: 8))); 
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Download started'), action: SnackBarAction(label: 'VIEW', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DownloadsScreen())))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Download started'.tr), action: SnackBarAction(label: 'VIEW', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DownloadsScreen())))));
     }
   }
 
@@ -211,10 +212,10 @@ class _BrowserScreenState extends State<BrowserScreen> {
           if (v == 'scan' && mounted) _openScanner();
         }, itemBuilder: (_) => [
           PopupMenuItem(value: 'shield', child: Text(_shieldEnabled ? 'Disable pop-up shield' : 'Enable pop-up shield')),
-          const PopupMenuItem(value: 'external', child: Text('Open in phone browser')),
-          const PopupMenuItem(value: 'copy', child: Text('Copy page link')),
-          const PopupMenuItem(value: 'downloads', child: Text('Downloads')),
-          const PopupMenuItem(value: 'scan', child: Text('Scan download options')),
+          const PopupMenuItem(value: 'external', child: Text('Open in phone browser'.tr)),
+          const PopupMenuItem(value: 'copy', child: Text('Copy page link'.tr)),
+          const PopupMenuItem(value: 'downloads', child: Text('Downloads'.tr)),
+          const PopupMenuItem(value: 'scan', child: Text('Scan download options'.tr)),
         ]),
       ],
       bottom: _progress < 100 ? PreferredSize(preferredSize: const Size.fromHeight(2), child: LinearProgressIndicator(value: _progress <= 0 ? null : _progress / 100, minHeight: 2, color: appRed, backgroundColor: appSurface)) : null,
@@ -224,7 +225,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
         Padding(padding: const EdgeInsets.fromLTRB(12, 8, 12, 8), child: SizedBox(width: double.infinity, child: FilledButton.icon(
           onPressed: _openScanner,
           icon: const Icon(Icons.manage_search_rounded),
-          label: const Text('SCAN DOWNLOAD OPTIONS', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: .3)),
+          label: Text('SCAN DOWNLOAD OPTIONS'.tr, style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: .3)),
           style: FilledButton.styleFrom(backgroundColor: appRed, padding: const EdgeInsets.symmetric(vertical: 14)),
         )))
       else
@@ -234,7 +235,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
         ])),
       Expanded(child: Stack(children: [
         WebViewWidget(controller: _controller),
-        if (_errorText != null) Center(child: Container(margin: const EdgeInsets.all(24), padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(18)), child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.wifi_off_rounded, size: 40, color: Colors.white60), const SizedBox(height: 12), Text(_errorText!, textAlign: TextAlign.center), const SizedBox(height: 12), FilledButton.icon(onPressed: () { setState(() => _errorText = null); _controller.reload(); }, icon: const Icon(Icons.refresh), label: const Text('Retry'))]))),
+        if (_errorText != null) Center(child: Container(margin: const EdgeInsets.all(24), padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(18)), child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.wifi_off_rounded, size: 40, color: Colors.white60), const SizedBox(height: 12), Text(_errorText!, textAlign: TextAlign.center), const SizedBox(height: 12), FilledButton.icon(onPressed: () { setState(() => _errorText = null); _controller.reload(); }, icon: const Icon(Icons.refresh), label: Text('Retry'.tr))]))),
       ])),
       Container(height: 54, decoration: const BoxDecoration(color: Color(0xFF0E121A), border: Border(top: BorderSide(color: Colors.white10))), child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
         IconButton(tooltip: 'Back', onPressed: _canBack ? () { _controller.goBack(); _refreshNav(); } : null, icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 19)),
