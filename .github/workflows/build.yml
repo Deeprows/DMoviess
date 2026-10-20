@@ -1,55 +1,132 @@
+
 name: Build DamiMovies APK
+
 on:
   push:
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: subosito/flutter-action@v2
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
+
       - name: Generate Android platform
         run: flutter create . --platforms=android --project-name=damimovies --org com.damimovies
+
       - name: Patch Android native support
         run: |
           python3 tool/patch_main_activity.py
           python3 tool/patch_background_playback.py
           python3 tool/patch_android_manifest.py
           python3 tool/patch_release_signing.py
+
       - name: Get dependencies
         run: flutter pub get
+
       - name: Generate app icon
         run: dart run flutter_launcher_icons
+
+      # Fix corrupted or incomplete Android NDK downloads
+      - name: Install Android NDK with retry
+        shell: bash
+        run: |
+          set -e
+
+          NDK_VERSION="28.2.13676358"
+          SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+
+          echo "Android SDK: $SDK_ROOT"
+          echo "Required NDK: $NDK_VERSION"
+
+          for attempt in 1 2 3; do
+            echo "NDK installation attempt $attempt of 3"
+
+            rm -rf "$SDK_ROOT/ndk/$NDK_VERSION"
+            rm -rf "$SDK_ROOT/.temp"
+
+            if "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+              --sdk_root="$SDK_ROOT" \
+              "ndk;$NDK_VERSION"; then
+
+              if [ -f "$SDK_ROOT/ndk/$NDK_VERSION/source.properties" ]; then
+                echo "NDK installed successfully."
+                cat "$SDK_ROOT/ndk/$NDK_VERSION/source.properties"
+                exit 0
+              fi
+            fi
+
+            echo "NDK installation failed."
+            sleep 20
+          done
+
+          echo "NDK installation failed after 3 attempts."
+          exit 1
+
       - name: Prepare release keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
             echo "RELEASE_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
-            echo "RELEASE_STORE_PASSWORD=${{ secrets.RELEASE_STORE_PASSWORD }}" >> "$GITHUB_ENV"
-            echo "RELEASE_KEY_ALIAS=${{ secrets.RELEASE_KEY_ALIAS }}" >> "$GITHUB_ENV"
-            echo "RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+            echo "RELEASE_STORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "RELEASE_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "RELEASE_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
           else
-            echo "RELEASE_KEYSTORE_BASE64 secret not set: APK will use a temporary key and Google sign-in will fail with error 10."
+            echo "Release keystore not configured."
+            echo "A temporary signing key may cause Google sign-in error 10."
           fi
+
       - name: Show signing SHA-1
+        shell: bash
         run: |
-          if [ -n "$RELEASE_KEYSTORE_PATH" ]; then
-            keytool -list -v -keystore "$RELEASE_KEYSTORE_PATH" -alias "$RELEASE_KEY_ALIAS" -storepass "$RELEASE_STORE_PASSWORD" | grep -E "SHA1|SHA256" || true
+          if [ -n "${RELEASE_KEYSTORE_PATH:-}" ]; then
+            keytool -list -v \
+              -keystore "$RELEASE_KEYSTORE_PATH" \
+              -alias "$RELEASE_KEY_ALIAS" \
+              -storepass "$RELEASE_STORE_PASSWORD" \
+              | grep -E "SHA1|SHA256" || true
           fi
+
       - name: Build release APK
-        run: flutter build apk --release --no-shrink --dart-define=TMDB_API_KEY="${{ secrets.TMDB_API_KEY }}" --dart-define=APP_VERSION="1.0.0" --dart-define=AUTH_API_URL="${{ secrets.AUTH_API_URL }}" --dart-define=GOOGLE_WEB_CLIENT_ID="${{ secrets.GOOGLE_WEB_CLIENT_ID }}" --dart-define=COMMUNITY_API_URL="${{ secrets.COMMUNITY_API_URL }}"
-      - uses: actions/upload-artifact@v4
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          AUTH_API_URL: ${{ secrets.AUTH_API_URL }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          COMMUNITY_API_URL: ${{ secrets.COMMUNITY_API_URL }}
+        run: |
+          flutter build apk \
+            --release \
+            --no-shrink \
+            --dart-define=TMDB_API_KEY="$TMDB_API_KEY" \
+            --dart-define=APP_VERSION="1.0.0" \
+            --dart-define=AUTH_API_URL="$AUTH_API_URL" \
+            --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
+            --dart-define=COMMUNITY_API_URL="$COMMUNITY_API_URL"
+
+      - name: Upload DamiMovies APK
+        uses: actions/upload-artifact@v4
         with:
           name: DamiMovies-APK
           path: build/app/outputs/flutter-apk/app-release.apk
