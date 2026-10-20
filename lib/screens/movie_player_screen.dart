@@ -19,9 +19,33 @@ import '../utils/external_link.dart';
 import '../services/movie_library.dart';
 import '../services/stream_resolver.dart';
 
+/// Lets a parent (the Watch Together theatre) drive an embedded player.
+class PlayerHandle {
+  VoidCallback? exitImmersive;
+  VoidCallback? reload;
+  VoidCallback? switchSource;
+  VoidCallback? toggleLandscape;
+  VoidCallback? fullscreen;
+  VoidCallback? cast;
+}
+
 class MoviePlayerScreen extends StatefulWidget {
   final Movie movie;
-  const MoviePlayerScreen({super.key, required this.movie});
+
+  /// Embedded: only the video surface is built (no Scaffold, no control bar), so
+  /// the Watch Together theatre can place it inside the room.
+  final bool embedded;
+  final PlayerHandle? handle;
+
+  /// Embedded only: called when the player enters/leaves fullscreen or landscape.
+  final ValueChanged<bool>? onImmersiveChanged;
+  const MoviePlayerScreen({
+    super.key,
+    required this.movie,
+    this.embedded = false,
+    this.handle,
+    this.onImmersiveChanged,
+  });
 
   @override
   State<MoviePlayerScreen> createState() => _MoviePlayerScreenState();
@@ -79,6 +103,15 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    final handle = widget.handle;
+    if (handle != null) {
+      handle.exitImmersive = _onBack;
+      handle.reload = _loadSource;
+      handle.switchSource = _switchSource;
+      handle.toggleLandscape = _toggleLandscape;
+      handle.fullscreen = () => _setFullscreen(true);
+      handle.cast = _cast;
+    }
     _sources = _buildSources();
     final nativeSourceIndex = _sources.indexWhere(
       (source) => StreamResolver.resolve(source.url).usesNativePlayer,
@@ -669,6 +702,15 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
 
   @override
   void dispose() {
+    final handle = widget.handle;
+    if (handle != null) {
+      handle.exitImmersive = null;
+      handle.reload = null;
+      handle.switchSource = null;
+      handle.toggleLandscape = null;
+      handle.fullscreen = null;
+      handle.cast = null;
+    }
     WidgetsBinding.instance.removeObserver(this);
     _loadTimeout?.cancel();
     _nativeProgressTimer?.cancel();
@@ -841,8 +883,22 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     );
   }
 
+  bool _reportedImmersive = false;
+
+  void _reportImmersive() {
+    final callback = widget.onImmersiveChanged;
+    if (callback == null) return;
+    final now = _isImmersive;
+    if (now == _reportedImmersive) return;
+    _reportedImmersive = now;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) callback(now);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    _reportImmersive();
     final native = _nativeController;
     final video = ColoredBox(
       color: Colors.black,
@@ -871,6 +927,16 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
         ],
       ),
     );
+
+    if (widget.embedded) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          video,
+          if (_fullscreenWidget != null) Positioned.fill(child: ColoredBox(color: Colors.black, child: _fullscreenWidget)),
+        ],
+      );
+    }
 
     return PopScope(
       canPop: !_isImmersive,
