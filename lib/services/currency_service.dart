@@ -26,21 +26,56 @@ class CurrencyService extends ChangeNotifier {
   static const _ratesUrl = 'https://open.er-api.com/v6/latest/USD';
 
   Map<String, double> _rates = {};
-
-  String get code {
-    String? country;
+  String? _selectedCountry;
+  String? get selectedCountry => _selectedCountry;
+  static const _kCountry = 'damimovies_pricing_country';
+  static const countryNames = <String, String>{
+    'NG':'Nigeria', 'GH':'Ghana', 'KE':'Kenya', 'ZA':'South Africa', 'EG':'Egypt',
+    'US':'United States', 'GB':'United Kingdom', 'FR':'France', 'DE':'Germany',
+    'IN':'India', 'PK':'Pakistan', 'BD':'Bangladesh', 'TR':'Türkiye',
+    'SA':'Saudi Arabia', 'AE':'United Arab Emirates', 'CA':'Canada',
+    'AU':'Australia', 'BR':'Brazil', 'PH':'Philippines', 'ID':'Indonesia',
+    'MY':'Malaysia', 'JP':'Japan', 'CN':'China', 'MX':'Mexico',
+    'TZ':'Tanzania', 'UG':'Uganda', 'RW':'Rwanda', 'ET':'Ethiopia',
+    'MA':'Morocco', 'DZ':'Algeria', 'TN':'Tunisia', 'SN':'Senegal',
+    'CI':'Côte d’Ivoire', 'CM':'Cameroon', 'ZM':'Zambia', 'BW':'Botswana',
+    'NZ':'New Zealand', 'ES':'Spain', 'PT':'Portugal', 'IT':'Italy',
+    'NL':'Netherlands', 'CH':'Switzerland', 'SE':'Sweden', 'NO':'Norway',
+    'DK':'Denmark', 'PL':'Poland', 'AR':'Argentina', 'CO':'Colombia',
+    'CL':'Chile', 'PE':'Peru', 'SG':'Singapore', 'TH':'Thailand',
+    'VN':'Vietnam', 'KR':'South Korea', 'HK':'Hong Kong', 'TW':'Taiwan',
+    'QA':'Qatar', 'KW':'Kuwait', 'OM':'Oman', 'BH':'Bahrain',
+  };
+  String get detectedCountry {
     for (final locale in ui.PlatformDispatcher.instance.locales) {
-      if ((locale.countryCode ?? '').isNotEmpty) {
-        country = locale.countryCode!.toUpperCase();
-        break;
-      }
+      final c = locale.countryCode?.toUpperCase();
+      if (c != null && _countryCurrency.containsKey(c)) return c;
     }
-    return _countryCurrency[country] ?? 'USD';
+    return 'US';
   }
+  String get country => _selectedCountry ?? detectedCountry;
+  Future<void> setCountry(String? value) async {
+    if (value != null && !_countryCurrency.containsKey(value)) return;
+    _selectedCountry = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    if (value == null) { await prefs.remove(_kCountry); }
+    else { await prefs.setString(_kCountry, value); }
+  }
+  String get countryLabel => countryNames[country] ?? country;
+  String currencyForCountry(String c) => _countryCurrency[c] ?? 'USD';
+
+
+  String get code => _countryCurrency[country] ?? 'USD';
 
   Future<void> load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final storedCountry = prefs.getString(_kCountry);
+      if (storedCountry != null && _countryCurrency.containsKey(storedCountry)) {
+        _selectedCountry = storedCountry;
+        notifyListeners();
+      }
       final cached = prefs.getString(_kCache);
       var fresh = false;
       if (cached != null) {
