@@ -61,7 +61,16 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
   @override
   void didUpdateWidget(covariant CommunityProfileScreen old) {
     super.didUpdateWidget(old);
-    if (widget.asTab && widget.active && !old.active) _load();
+    if (widget.asTab && widget.active && !old.active) {
+      _load();
+      _loadEdits();
+    }
+    if (widget.email != old.email) {
+      _nickname = '';
+      _avatarPath = '';
+      _load();
+      _loadEdits();
+    }
   }
 
   Future<void> _loadEdits() async {
@@ -73,43 +82,88 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
     });
   }
 
+  void _editError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   Future<void> _editNickname() async {
-    final controller = TextEditingController(text: _nickname);
+    if (!_mine) return;
+    // The dialog owns its text field. Returning the entered value before
+    // disposing the route avoids using a disposed TextEditingController.
     final result = await showDialog<String>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-              title: Text('Movie nickname'.tr),
-              content: TextField(
-                  controller: controller,
-                  maxLength: 24,
-                  decoration: const InputDecoration(
-                      hintText: 'CinemaKing, MovieBuff...')),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: Text('Cancel'.tr)),
-                FilledButton(
-                    onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-                    child: Text('Save'.tr))
-              ],
-            ));
-    controller.dispose();
+      context: context,
+      builder: (dialogContext) {
+        var draft = _nickname;
+        return AlertDialog(
+          title: Text('Movie nickname'.tr),
+          content: TextFormField(
+            initialValue: _nickname,
+            autofocus: true,
+            maxLength: 24,
+            textCapitalization: TextCapitalization.none,
+            onChanged: (value) => draft = value,
+            decoration: const InputDecoration(
+              hintText: 'CinemaKing, MovieBuff...',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text('Cancel'.tr),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, draft.trim()),
+              child: Text('Save'.tr),
+            ),
+          ],
+        );
+      },
+    );
     if (result == null || !mounted) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('movie_nick_$_key', result);
-    if (mounted) setState(() => _nickname = result);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = await prefs.setString('movie_nick_$_key', result);
+      if (!saved) throw StateError('Could not save nickname');
+      if (mounted) setState(() => _nickname = result);
+    } catch (_) {
+      _editError('Could not save movie nickname. Please try again.');
+    }
   }
 
   Future<void> _changeAvatar() async {
-    final image = await ImagePicker().pickImage(
-        source: ImageSource.gallery, imageQuality: 75, maxWidth: 700);
-    if (image == null) return;
-    final dir = await getApplicationDocumentsDirectory();
-    final destination = File('${dir.path}/avatar_$_key.jpg');
-    await File(image.path).copy(destination.path);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('movie_avatar_$_key', destination.path);
-    if (mounted) setState(() => _avatarPath = destination.path);
+    if (!_mine) return;
+    try {
+      final image = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 900,
+      );
+      if (image == null) return;
+      final dir = await getApplicationDocumentsDirectory();
+      // A unique filename prevents Flutter's FileImage cache from displaying
+      // the old avatar after the user chooses a different photo.
+      final destination = File(
+        '${dir.path}/avatar_${_key}_${DateTime.now().microsecondsSinceEpoch}.jpg',
+      );
+      await File(image.path).copy(destination.path);
+      final prefs = await SharedPreferences.getInstance();
+      final previous = _avatarPath;
+      final saved = await prefs.setString('movie_avatar_$_key', destination.path);
+      if (!saved) throw StateError('Could not save avatar');
+      if (!mounted) return;
+      setState(() => _avatarPath = destination.path);
+      if (previous.isNotEmpty && previous != destination.path) {
+        try {
+          final oldFile = File(previous);
+          if (await oldFile.exists()) await oldFile.delete();
+        } catch (_) {}
+      }
+    } catch (error) {
+      _editError('Could not update profile photo. Please try another image.');
+    }
   }
 
   Future<void> _logout() async {
