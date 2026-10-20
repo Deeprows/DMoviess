@@ -166,6 +166,7 @@ class SettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             _heading('Language'),
+            const Text('Follow your phone language automatically, or select a language manually.', style: TextStyle(color: Colors.white70, fontSize: 12)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               value: prefs.language,
