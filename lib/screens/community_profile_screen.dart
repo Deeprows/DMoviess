@@ -16,8 +16,19 @@ class CommunityProfileScreen extends StatefulWidget {
   final String email;
   final String? name;
   final String? photoUrl;
+  /// True when shown as the bottom-bar Profile tab (no back button).
+  final bool asTab;
+
+  /// For the tab: whether it is the selected one. The profile reloads each
+  /// time it becomes visible so new posts and counts are up to date.
+  final bool active;
   const CommunityProfileScreen(
-      {super.key, required this.email, this.name, this.photoUrl});
+      {super.key,
+      required this.email,
+      this.name,
+      this.photoUrl,
+      this.asTab = false,
+      this.active = true});
 
   @override
   State<CommunityProfileScreen> createState() => _CommunityProfileScreenState();
@@ -31,6 +42,12 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant CommunityProfileScreen old) {
+    super.didUpdateWidget(old);
+    if (widget.asTab && widget.active && !old.active) _load();
   }
 
   Future<void> _load() async {
@@ -54,7 +71,8 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
       backgroundColor: Ui.bg,
       appBar: AppBar(
         backgroundColor: Ui.bg,
-        title: Text((p?.mine ?? false ? 'My posts' : 'Profile').tr,
+        automaticallyImplyLeading: !widget.asTab,
+        title: Text((!widget.asTab && (p?.mine ?? false) ? 'My posts' : 'Profile').tr,
             style: const TextStyle(fontWeight: FontWeight.w900)),
       ),
       body: p == null ? _loading() : _content(p),
