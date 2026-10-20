@@ -8,11 +8,18 @@ import '../models/movie.dart';
 import '../services/auth_service.dart';
 import '../services/community_service.dart';
 import '../theme/app_theme.dart';
-import '../utils/open_movie.dart';
+import 'movie_player_screen.dart';
 
 const _velvet = Color(0xFF7A0F1E);
 const _velvetDark = Color(0xFF2A0509);
 const _gold = Color(0xFFFFC857);
+
+/// Dark halo behind text that floats over the movie, so it reads on any scene.
+const _chatShadow = [
+  Shadow(color: Color(0xE6000000), blurRadius: 3),
+  Shadow(color: Color(0xE6000000), blurRadius: 8),
+  Shadow(color: Color(0x99000000), blurRadius: 14),
+];
 
 /// The movie stored in a Watch Together room (the Worker keeps `title`,
 /// Movie.fromJson reads `name`).
@@ -88,7 +95,11 @@ class _TheatreScreenState extends State<TheatreScreen>
   bool _started = false;
   int _countdown = 0; // 3..1 while counting down, 0 otherwise
   Timer? _countTimer;
-  bool _launching = false;
+  bool _playerOn = false; // the movie plays inside this room
+  bool _immersive = false; // player is fullscreen / landscape
+  final _handle = PlayerHandle();
+  bool _floatChat = false; // floating chat over the fullscreen movie
+  Timer? _floatTimer;
   bool _chatOpen = true;
   bool _busy = false;
   final _rnd = math.Random();
@@ -116,6 +127,7 @@ class _TheatreScreenState extends State<TheatreScreen>
     _roomTimer?.cancel();
     _eventTimer?.cancel();
     _countTimer?.cancel();
+    _floatTimer?.cancel();
     _glow.dispose();
     _input.dispose();
     _scroll.dispose();
@@ -165,10 +177,27 @@ class _TheatreScreenState extends State<TheatreScreen>
       }
       setState(() {});
       if (gotMsg) _scrollDown();
+      // Fullscreen: pop the chat up over the movie when somebody comments.
+      if (gotMsg && !first && _immersive) _showFloatChat();
     } catch (_) {
     } finally {
       _polling = false;
     }
+  }
+
+  void _showFloatChat() {
+    if (!mounted) return;
+    _floatTimer?.cancel();
+    setState(() => _floatChat = true);
+    // Fades away by itself so it never hides the movie for long.
+    _floatTimer = Timer(const Duration(seconds: 12), () {
+      if (mounted) setState(() => _floatChat = false);
+    });
+  }
+
+  void _hideFloatChat() {
+    _floatTimer?.cancel();
+    if (mounted) setState(() => _floatChat = false);
   }
 
   void _scrollDown() {
@@ -226,7 +255,7 @@ class _TheatreScreenState extends State<TheatreScreen>
       await _svc.watchEvent(_id, 'start');
       await _pollEvents();
       // The host's own countdown starts right away.
-      if (!_launching && _countdown == 0) _beginCountdown();
+      if (!_playerOn && _countdown == 0) _beginCountdown();
     } on CommunityException catch (e) {
       _toast(e.message);
     }
@@ -234,7 +263,7 @@ class _TheatreScreenState extends State<TheatreScreen>
   }
 
   void _beginCountdown() {
-    if (_countdown > 0 || _launching) return;
+    if (_countdown > 0 || _playerOn) return;
     _countTimer?.cancel();
     setState(() => _countdown = 3);
     _countTimer = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -252,16 +281,15 @@ class _TheatreScreenState extends State<TheatreScreen>
     });
   }
 
+  /// The movie now plays right here in the room (16:9, edge to edge), so everybody
+  /// still sees the seats, who is watching, the reactions and the room chat.
   void _openPlayer() {
     final m = roomMovie(_room);
     if (m == null) {
       _toast('This movie could not be opened.');
       return;
     }
-    _launching = true;
-    openMoviePlayer(context, m);
-    // Back in the room afterwards: allow "Join the movie" again.
-    Future<void>.delayed(const Duration(seconds: 2), () => _launching = false);
+    setState(() => _playerOn = true);
   }
 
   void _toast(String text) {
@@ -308,49 +336,326 @@ class _TheatreScreenState extends State<TheatreScreen>
     final guests =
         seats.where((s) => s.state == 'accepted' || s.state == 'host').length;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF07030A),
-      body: Stack(
+    return PopScope(
+      canPop: !_immersive,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handle.exitImmersive?.call();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF07030A),
+        body: Stack(
+          children: [
+            // Room: dark hall, curtains, light cone.
+            Positioned.fill(
+              child: AnimatedBuilder(
+                animation: _glow,
+                builder: (_, __) => CustomPaint(
+                  painter: _HallPainter(_glow.value),
+                ),
+              ),
+            ),
+            SafeArea(
+              top: !_immersive,
+              bottom: !_immersive,
+              left: !_immersive,
+              right: !_immersive,
+              child: LayoutBuilder(
+                builder: (context, box) {
+                  final playerH =
+                      _immersive ? box.maxHeight : box.maxWidth * 9 / 16;
+                  return Column(
+                    children: [
+                      Visibility(visible: !_immersive, child: _topBar(title)),
+                      _playerSlot(movie, title, seats, joined, playerH),
+                      Expanded(
+                        child: Visibility(
+                          visible: !_immersive,
+                          child: Column(
+                            children: [
+                              if (_playerOn) _playerStrip(),
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: Column(
+                                    children: [
+                                      SizedBox(height: _playerOn ? 10 : 14),
+                                      _statusLine(joined, guests, seats.length),
+                                      const SizedBox(height: 12),
+                                      _playerOn
+                                          ? _seatStrip(seats)
+                                          : _seatRows(seats),
+                                      const SizedBox(height: 14),
+                                      _controls(joined, mine),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              _chat(joined),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            if (_immersive && _floatChat && _msgs.isNotEmpty) _floatingChat(),
+            // Floating reactions.
+            for (final f in _floats)
+              _FloatingEmoji(key: f.key, emoji: f.emoji, x: f.x),
+            if (_countdown > 0) _countdownOverlay(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The screen of the hall. Full width, drawn over the curtains on both sides.
+  /// Shows the poster until the show starts, then the real player.
+  Widget _playerSlot(Movie? movie, String title, List<_Seat> seats,
+      bool joined, double height) {
+    final on = _playerOn && movie != null;
+    final watching = seats
+        .where((s) => s.state == 'host' || s.state == 'accepted')
+        .toList();
+    return AnimatedBuilder(
+      animation: _glow,
+      builder: (_, child) => Container(
+        height: height,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          border: _immersive
+              ? null
+              : Border.symmetric(
+                  horizontal:
+                      BorderSide(color: _gold.withValues(alpha: .55), width: 1.2)),
+          boxShadow: _immersive
+              ? null
+              : [
+                  BoxShadow(
+                      color: Ui.red.withValues(alpha: .25 + .25 * _glow.value),
+                      blurRadius: 44 + 20 * _glow.value,
+                      spreadRadius: 2),
+                ],
+        ),
+        child: child,
+      ),
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          // Room: dark hall, curtains, light cone.
-          Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _glow,
-              builder: (_, __) => CustomPaint(
-                painter: _HallPainter(_glow.value),
+          if (on)
+            MoviePlayerScreen(
+              movie: movie,
+              embedded: true,
+              handle: _handle,
+              onImmersiveChanged: (v) {
+                if (mounted && v != _immersive) setState(() => _immersive = v);
+              },
+            )
+          else
+            GestureDetector(
+              onTap: (_started && joined) ? _beginCountdown : null,
+              child: _poster(movie, title),
+            ),
+          if (on && !_immersive && watching.isNotEmpty)
+            Positioned(
+              top: 8,
+              right: 10,
+              child: IgnorePointer(child: _watchersChip(watching)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Chat bubble stack floating over the fullscreen movie. Comes up whenever
+  /// somebody comments; the X closes it until the next comment.
+  Widget _floatingChat() {
+    final recent = _msgs.length > 3 ? _msgs.sublist(_msgs.length - 3) : _msgs;
+    final w = MediaQuery.sizeOf(context).width;
+    return Positioned(
+      left: 0,
+      bottom: 0,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 0, 0, 72),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: math.min(240, w * .38)),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(10, 4, 4, 8),
+              // See-through card: no solid background, so the movie shows
+              // through. Text shadows keep every message readable.
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: .08),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.forum_rounded, size: 14, color: _gold, shadows: _chatShadow),
+                      const SizedBox(width: 6),
+                      const Text('Room chat',
+                          style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w900,
+                              shadows: _chatShadow,
+                              color: Colors.white)),
+                      const Spacer(),
+                      InkWell(
+                        onTap: _hideFloatChat,
+                        borderRadius: BorderRadius.circular(14),
+                        child: const Padding(
+                          padding: EdgeInsets.all(5),
+                          child: Icon(Icons.close_rounded,
+                              size: 18, color: Colors.white, shadows: _chatShadow),
+                        ),
+                      ),
+                    ],
+                  ),
+                  for (final m in recent)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Text.rich(maxLines: 2, overflow: TextOverflow.ellipsis, TextSpan(children: [
+                        TextSpan(
+                            text: m.email == _me
+                                ? 'You  '
+                                : '${m.name.split(' ').first}  ',
+                            style: TextStyle(
+                                color: m.email == _me ? _gold : Ui.redSoft,
+                                fontWeight: FontWeight.w900,
+                                shadows: _chatShadow,
+                                fontSize: 11.5)),
+                        TextSpan(
+                            text: m.text,
+                            style: const TextStyle(
+                                shadows: _chatShadow,
+                                fontSize: 12, color: Colors.white)),
+                      ])),
+                    ),
+                ],
               ),
             ),
           ),
-          SafeArea(
-            child: Column(
+        ),
+      ),
+    );
+  }
+
+  /// Small badge on the player so everyone can see it is a shared watch.
+  Widget _watchersChip(List<_Seat> watching) {
+    final shown = watching.take(3).toList();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(5, 4, 10, 4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: .6),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 14.0 * (shown.length - 1) + 20,
+            height: 20,
+            child: Stack(
               children: [
-                _topBar(title),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 6),
-                        _screen(movie, title),
-                        const SizedBox(height: 14),
-                        _statusLine(joined, guests, seats.length),
-                        const SizedBox(height: 16),
-                        _seatRows(seats),
-                        const SizedBox(height: 18),
-                        _controls(joined, mine),
-                      ],
+                for (var i = 0; i < shown.length; i++)
+                  Positioned(
+                    left: i * 14.0,
+                    child: CircleAvatar(
+                      radius: 10,
+                      backgroundColor: const Color(0xFF2B1A33),
+                      foregroundImage: shown[i].photo.startsWith('http')
+                          ? CachedNetworkImageProvider(shown[i].photo)
+                          : null,
+                      child: Text(
+                          shown[i].name.isEmpty
+                              ? '?'
+                              : shown[i].name[0].toUpperCase(),
+                          style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white)),
                     ),
                   ),
-                ),
-                _chat(joined),
               ],
             ),
           ),
-          // Floating reactions.
-          for (final f in _floats)
-            _FloatingEmoji(key: f.key, emoji: f.emoji, x: f.x),
-          if (_countdown > 0) _countdownOverlay(),
+          const SizedBox(width: 6),
+          const Icon(Icons.circle, size: 7, color: Color(0xFF4ADE80)),
+          const SizedBox(width: 5),
+          Text(
+              watching.length > 1
+                  ? '${watching.length} watching together'
+                  : 'Watching',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800)),
         ],
+      ),
+    );
+  }
+
+  /// Reload / Switch / Rotate / Fullscreen / Cast for the embedded player.
+  Widget _playerStrip() {
+    Widget b(IconData icon, String label, VoidCallback? onTap) => InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 19, color: Colors.white),
+                const SizedBox(height: 3),
+                Text(label,
+                    style: const TextStyle(fontSize: 9, color: Colors.white70)),
+              ],
+            ),
+          ),
+        );
+    return Container(
+      color: Colors.black.withValues(alpha: .55),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          b(Icons.refresh_rounded, 'Reload', () => _handle.reload?.call()),
+          b(Icons.swap_horiz_rounded, 'Switch',
+              () => _handle.switchSource?.call()),
+          b(Icons.screen_rotation_alt_rounded, 'Rotate',
+              () => _handle.toggleLandscape?.call()),
+          b(Icons.fullscreen_rounded, 'Fullscreen',
+              () => _handle.fullscreen?.call()),
+          b(Icons.cast_rounded, 'Cast', () => _handle.cast?.call()),
+        ],
+      ),
+    );
+  }
+
+  /// One compact row of everybody in the room (used while the movie plays).
+  Widget _seatStrip(List<_Seat> people) {
+    bool here(_Seat p) => p.state == 'host' || p.state == 'accepted';
+    final ordered = [
+      ...people.where(here),
+      ...people.where((p) => !here(p)),
+    ];
+    return SizedBox(
+      height: 82,
+      child: Center(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [for (final p in ordered) _seatWidget(p, 2)],
+          ),
+        ),
       ),
     );
   }
@@ -407,88 +712,58 @@ class _TheatreScreenState extends State<TheatreScreen>
         ),
       );
 
-  Widget _screen(Movie? movie, String title) {
+  Widget _poster(Movie? movie, String title) {
     final img = movie?.image ?? '';
-    return AnimatedBuilder(
-      animation: _glow,
-      builder: (_, child) => Container(
-        margin: const EdgeInsets.symmetric(horizontal: 34),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-                color: Ui.red.withValues(alpha: .25 + .25 * _glow.value),
-                blurRadius: 44 + 20 * _glow.value,
-                spreadRadius: 2),
-          ],
-        ),
-        child: child,
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: const Color(0xFF15101B),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white24, width: 1.2),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(7),
-          child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (img.startsWith('http'))
-                  CachedNetworkImage(
-                    imageUrl: img,
-                    fit: BoxFit.cover,
-                    errorWidget: (_, __, ___) =>
-                        const ColoredBox(color: Color(0xFF1B1424)),
-                  )
-                else
-                  const ColoredBox(color: Color(0xFF1B1424)),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: .15),
-                        Colors.black.withValues(alpha: .78),
-                      ],
-                    ),
-                  ),
-                ),
-                Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                          _started
-                              ? Icons.play_circle_fill_rounded
-                              : Icons.theaters_rounded,
-                          size: 46,
-                          color: Colors.white.withValues(alpha: .92)),
-                      const SizedBox(height: 6),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        child: Text(title,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white)),
-                      ),
-                    ],
-                  ),
-                ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (img.startsWith('http'))
+          CachedNetworkImage(
+            imageUrl: img,
+            fit: BoxFit.cover,
+            errorWidget: (_, __, ___) =>
+                const ColoredBox(color: Color(0xFF1B1424)),
+          )
+        else
+          const ColoredBox(color: Color(0xFF1B1424)),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: .15),
+                Colors.black.withValues(alpha: .78),
               ],
             ),
           ),
         ),
-      ),
+        Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                  _started
+                      ? Icons.play_circle_fill_rounded
+                      : Icons.theaters_rounded,
+                  size: 46,
+                  color: Colors.white.withValues(alpha: .92)),
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Text(title,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -497,7 +772,9 @@ class _TheatreScreenState extends State<TheatreScreen>
     if (!joined) {
       text = 'You are invited. Take a seat to join.';
     } else if (_started) {
-      text = 'The show has started.';
+      text = _playerOn
+          ? 'Watching together · $here in the room'
+          : 'The show has started.';
     } else if (_isHost) {
       text = here <= 1
           ? 'Waiting for your guest to take a seat…'
@@ -681,6 +958,8 @@ class _TheatreScreenState extends State<TheatreScreen>
       children: [
         if (_isHost && !_started)
           big('Start the movie', Icons.play_arrow_rounded, _start)
+        else if (_playerOn)
+          const SizedBox.shrink()
         else if (_started)
           big(_isHost ? 'Back to the movie' : 'Join the movie',
               Icons.play_arrow_rounded, _beginCountdown)
@@ -727,7 +1006,7 @@ class _TheatreScreenState extends State<TheatreScreen>
           ),
           if (_chatOpen)
             SizedBox(
-              height: 112,
+              height: MediaQuery.of(context).viewInsets.bottom > 0 ? 64 : 112,
               child: _msgs.isEmpty
                   ? Center(
                       child: Text('Say something to the room…',
