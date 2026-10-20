@@ -498,7 +498,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
             onSubmitted: (value) => _runRemoteSearch(value),
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
-              hintText: 'Search movies on TMDB...'.tr,
+              hintText: 'Search movies on DamiMovies...'.tr,
               suffixIcon: _query.isEmpty
                   ? null
                   : IconButton(tooltip: 'Clear search', onPressed: _clearSearch, icon: const Icon(Icons.close)),
