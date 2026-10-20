@@ -1,3 +1,8 @@
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/auth_service.dart';
 import 'package:flutter/material.dart';
 
 import '../services/community_service.dart';
@@ -37,17 +42,68 @@ class CommunityProfileScreen extends StatefulWidget {
 class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
   CommunityProfile? _profile;
   String? _error;
+  String _nickname = '';
+  String _avatarPath = '';
+  String get _key => widget.email.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+  bool get _mine => AuthService.instance.user?.email.toLowerCase() == widget.email.toLowerCase();
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadEdits();
   }
 
   @override
   void didUpdateWidget(covariant CommunityProfileScreen old) {
     super.didUpdateWidget(old);
     if (widget.asTab && widget.active && !old.active) _load();
+  }
+
+  Future<void> _loadEdits() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _nickname = prefs.getString('movie_nick_$_key') ?? '';
+      _avatarPath = prefs.getString('movie_avatar_$_key') ?? '';
+    });
+  }
+
+  Future<void> _editNickname() async {
+    final controller = TextEditingController(text: _nickname);
+    final result = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Movie nickname'),
+      content: TextField(controller: controller, maxLength: 24,
+        decoration: const InputDecoration(hintText: 'CinemaKing, MovieBuff...')),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Save'))],
+    ));
+    controller.dispose();
+    if (result == null || !mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('movie_nick_$_key', result);
+    if (mounted) setState(() => _nickname = result);
+  }
+
+  Future<void> _changeAvatar() async {
+    final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 75, maxWidth: 700);
+    if (image == null) return;
+    final dir = await getApplicationDocumentsDirectory();
+    final destination = File('${dir.path}/avatar_$_key.jpg');
+    await File(image.path).copy(destination.path);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('movie_avatar_$_key', destination.path);
+    if (mounted) setState(() => _avatarPath = destination.path);
+  }
+
+  Future<void> _logout() async {
+    final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Log out?'),
+      content: const Text('You will need to sign in again.'),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Log out'))],
+    ));
+    if (yes == true) await AuthService.instance.signOut();
   }
 
   Future<void> _load() async {
@@ -75,7 +131,7 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
         title: Text((!widget.asTab && (p?.mine ?? false) ? 'My profile' : 'Profile').tr,
             style: const TextStyle(fontWeight: FontWeight.w900)),
       ),
-      body: p == null ? _loading() : _content(p),
+      body: SafeArea(top: false, bottom: true, child: p == null ? _loading() : _content(p)),
     );
   }
 
@@ -116,7 +172,17 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
         children: [
           Row(
             children: [
-              CommunityAvatar(url: photo, name: name, radius: 34),
+              GestureDetector(
+                onTap: _mine ? _changeAvatar : null,
+                child: Stack(alignment: Alignment.bottomRight, children: [
+                  if (_mine && _avatarPath.isNotEmpty && File(_avatarPath).existsSync())
+                    CircleAvatar(radius: 36, backgroundImage: FileImage(File(_avatarPath)))
+                  else
+                    CommunityAvatar(url: _mine ? '' : photo, name: name, radius: 34),
+                  if (_mine) const CircleAvatar(radius: 12, backgroundColor: Ui.red,
+                    child: Icon(Icons.edit, size: 13, color: Colors.white)),
+                ]),
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -129,12 +195,14 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
                             fontSize: 21,
                             fontWeight: FontWeight.w900,
                             letterSpacing: -.3)),
-                    if (email != null && email.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(email,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: Ui.muted, fontSize: 13)),
+                    if (_mine) ...[
+                      const SizedBox(height: 5),
+                      InkWell(onTap: _editNickname, child: Row(children: [
+                        Flexible(child: Text(_nickname.isEmpty ? 'Add movie nickname' : '@$_nickname',
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: Ui.redSoft, fontSize: 13))),
+                        const SizedBox(width: 5), const Icon(Icons.edit_rounded, size: 14, color: Ui.redSoft),
+                      ])),
                     ],
                     if (badges)
                       ListenableBuilder(
@@ -319,14 +387,19 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 32),
+        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 48),
         children: [
           _header(p.name, p.photoUrl, p.bio,
               posts: p.postCount,
               likes: p.likeCount,
-              email: p.mine ? p.email : null,
+              email: null,
               badges: p.mine),
           if (p.mine) _statGrid(),
+          if (p.mine) Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: OutlinedButton.icon(onPressed: _logout,
+              icon: const Icon(Icons.logout_rounded), label: const Text('Log out')),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: SizedBox(
