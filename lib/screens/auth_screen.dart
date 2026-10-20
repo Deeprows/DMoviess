@@ -1,3 +1,4 @@
+import '../utils/l10n.dart';
 import 'dart:convert';
 import 'dart:ui';
 
@@ -146,10 +147,10 @@ class _AuthScreenState extends State<AuthScreen> {
               child: Image.asset('assets/icon/icon.png', width: 84, height: 84, fit: BoxFit.cover),
             ),
             const SizedBox(height: 12),
-            const Text('DamiMovies',
+            Text('DamiMovies'.tr,
                 style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: -.8)),
             const SizedBox(height: 3),
-            const Text('YOUR WORLD OF ENTERTAINMENT',
+            Text('YOUR WORLD OF ENTERTAINMENT'.tr,
                 style: TextStyle(color: Colors.white60, fontSize: 9, letterSpacing: 1.6)),
           ],
         ),
@@ -199,7 +200,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       Icon(Icons.lock_outline_rounded, color: Colors.white54, size: 16),
                       SizedBox(width: 8),
                       Flexible(
-                        child: Text('Gmail accounts only. No password needed.',
+                        child: Text('Gmail accounts only. No password needed.'.tr,
                             style: TextStyle(color: Colors.white54, fontSize: 12)),
                       ),
                     ],
@@ -274,7 +275,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       children: const [
                         _GoogleG(),
                         SizedBox(width: 12),
-                        Text('Continue with Gmail',
+                        Text('Continue with Gmail'.tr,
                             style: TextStyle(color: Color(0xFF1B1B1F), fontSize: 18, fontWeight: FontWeight.w800)),
                       ],
                     ),
@@ -322,7 +323,7 @@ class _GoogleG extends StatelessWidget {
           ],
           stops: [0, .25, .5, .75, 1],
         ).createShader(rect),
-        child: const Text('G',
+        child: Text('G'.tr,
             style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, height: 1)),
       );
 }
