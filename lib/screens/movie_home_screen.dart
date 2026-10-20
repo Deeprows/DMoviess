@@ -481,7 +481,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
             child: _circleIcon(Icons.menu_rounded),
           ),
         const SizedBox(width: 12),
-        Container(width: 44, height: 44, decoration: BoxDecoration(gradient: LinearGradient(colors: [appAccentSoft, appRed]), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.movie_filter_rounded, color: Colors.white, size: 26)),
+        Image.asset('assets/icon/home_logo.png', width: 44, height: 44, fit: BoxFit.contain),
         const SizedBox(width: 11),
         const Expanded(child: Text('DamiMovies', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: -.7))),
         InkWell(customBorder: const CircleBorder(), onTap: _openSearch, child: _circleIcon(Icons.search_rounded)),
