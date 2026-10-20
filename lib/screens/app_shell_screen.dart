@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import '../main.dart';
 import 'community_screen.dart';
 import 'movie_home_screen.dart';
-import 'browser_screen.dart';
-import 'downloads_screen.dart';
 import 'library_screen.dart';
+import 'community_profile_screen.dart';
+import '../services/auth_service.dart';
 import '../services/app_preferences.dart';
 
 class AppShellScreen extends StatefulWidget {
@@ -18,9 +18,14 @@ class _AppShellScreenState extends State<AppShellScreen> {
     body: IndexedStack(index: _index, children: [
       const MovieHomeScreen(),
       CommunityScreen(active: _index == 1),
-      const BrowserScreen(),
-      const DownloadsScreen(),
       const LibraryScreen(),
+      CommunityProfileScreen(
+        asTab: true,
+        active: _index == 3,
+        email: AuthService.instance.user?.email ?? '',
+        name: AuthService.instance.user?.name,
+        photoUrl: AuthService.instance.user?.photoUrl,
+      ),
     ]),
     bottomNavigationBar: NavigationBar(
       height: 66,
@@ -31,9 +36,8 @@ class _AppShellScreenState extends State<AppShellScreen> {
       destinations: [
         NavigationDestination(icon: const Icon(Icons.movie_outlined), selectedIcon: const Icon(Icons.movie_filter_rounded), label: 'Movies'.tr),
         NavigationDestination(icon: const Icon(Icons.forum_outlined), selectedIcon: const Icon(Icons.forum_rounded), label: 'Community'.tr),
-        NavigationDestination(icon: const Icon(Icons.language_rounded), selectedIcon: const Icon(Icons.travel_explore_rounded), label: 'Browser'.tr),
-        NavigationDestination(icon: const Icon(Icons.download_outlined), selectedIcon: const Icon(Icons.download_rounded), label: 'Downloads'.tr),
         NavigationDestination(icon: const Icon(Icons.video_library_outlined), selectedIcon: const Icon(Icons.video_library_rounded), label: 'Library'.tr),
+        NavigationDestination(icon: const Icon(Icons.person_outline_rounded), selectedIcon: const Icon(Icons.person_rounded), label: 'Profile'.tr),
       ],
     ),
   );
