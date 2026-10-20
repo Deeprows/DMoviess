@@ -17,7 +17,7 @@ class RedeemResult {
   const RedeemResult(this.ok, this.message, [this.days = 0]);
 }
 
-/// Ad-free time bought with a token. Tokens are signed by you (tool/token-admin.html)
+/// Ad-free time bought with a token. Tokens are signed by you (the worker's /admin page)
 /// for one phone's Device ID and checked offline against the public key in
 /// app_config.json, so the APK never contains tokens or a signing secret.
 class PremiumService extends ChangeNotifier {
@@ -47,15 +47,27 @@ class PremiumService extends ChangeNotifier {
   DateTime? get until => active ? DateTime.fromMillisecondsSinceEpoch(_untilMs) : null;
   int get daysLeft => active ? ((_untilMs - _nowMs) / _day).ceil() : 0;
 
+  Future<void>? _loading;
+
+  /// Makes sure the Device ID exists. Safe to call from anywhere, any number of times.
+  Future<void> ensureLoaded() {
+    if (_installId.isNotEmpty) return Future.value();
+    return _loading ??= load().whenComplete(() => _loading = null);
+  }
+
+  String _newInstallId() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(6, (_) => random.nextInt(256));
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join().toUpperCase();
+    return '${hex.substring(0, 4)}-${hex.substring(4, 8)}-${hex.substring(8, 12)}';
+  }
+
   Future<void> load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       _installId = prefs.getString(_kId) ?? '';
       if (_installId.isEmpty) {
-        final random = Random.secure();
-        final bytes = List<int>.generate(6, (_) => random.nextInt(256));
-        final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join().toUpperCase();
-        _installId = '${hex.substring(0, 4)}-${hex.substring(4, 8)}-${hex.substring(8, 12)}';
+        _installId = _newInstallId();
         await prefs.setString(_kId, _installId);
       }
       _untilMs = prefs.getInt(_kUntil) ?? 0;
@@ -66,6 +78,14 @@ class PremiumService extends ChangeNotifier {
       await touch();
     } catch (error) {
       debugPrint('DamiMovies: premium state not loaded: $error');
+    }
+    if (_installId.isEmpty) {
+      // Storage was not readable: still give this install an ID, and try to keep it.
+      _installId = _newInstallId();
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_kId, _installId);
+      } catch (_) {}
     }
     notifyListeners();
   }
@@ -106,6 +126,10 @@ class PremiumService extends ChangeNotifier {
     if (digits.length < 8 || digits.length > 15) {
       return const RedeemResult(false, 'Enter a valid WhatsApp number with country code.');
     }
+    await ensureLoaded();
+    if (_installId.isEmpty) {
+      return const RedeemResult(false, 'Your Device ID is not ready yet. Please try again in a moment.');
+    }
     final idToken = await AuthService.instance.freshIdToken();
     if (idToken == null) {
       return const RedeemResult(false, 'Please sign out and sign in again, then retry.');
@@ -141,6 +165,7 @@ class PremiumService extends ChangeNotifier {
   }
 
   Future<RedeemResult> redeem(String input) async {
+    await ensureLoaded();
     final publicKey = RemoteConfig.instance.removeAds.publicKey;
     if (publicKey.isEmpty) {
       return const RedeemResult(false, 'Ad removal is not set up yet. Please contact support.');
