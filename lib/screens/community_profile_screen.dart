@@ -72,11 +72,11 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
   Future<void> _editNickname() async {
     final controller = TextEditingController(text: _nickname);
     final result = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
-      title: const Text('Movie nickname'),
+      title: Text('Movie nickname'.tr),
       content: TextField(controller: controller, maxLength: 24,
         decoration: const InputDecoration(hintText: 'CinemaKing, MovieBuff...')),
-      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: const Text('Save'))],
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel'.tr)),
+        FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: Text('Save'.tr))],
     ));
     controller.dispose();
     if (result == null || !mounted) return;
@@ -98,10 +98,10 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
 
   Future<void> _logout() async {
     final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-      title: const Text('Log out?'),
-      content: const Text('You will need to sign in again.'),
-      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Log out'))],
+      title: Text('Log out?'.tr),
+      content: Text('You will need to sign in again.'.tr),
+      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel'.tr)),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Log out'.tr))],
     ));
     if (yes == true) await AuthService.instance.signOut();
   }
@@ -398,7 +398,7 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
           if (p.mine) Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: OutlinedButton.icon(onPressed: _logout,
-              icon: const Icon(Icons.logout_rounded), label: const Text('Log out')),
+              icon: const Icon(Icons.logout_rounded), label: Text('Log out'.tr)),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -410,7 +410,7 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
                       inviteEmail: p.mine ? null : p.email),
                 )),
                 icon: const Icon(Icons.groups_rounded),
-                label: const Text('Watch Together'),
+                label: Text('Watch Together'.tr),
                 style: FilledButton.styleFrom(
                   backgroundColor: Ui.red,
                   foregroundColor: Colors.white,
