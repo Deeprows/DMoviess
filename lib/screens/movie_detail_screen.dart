@@ -13,8 +13,7 @@ import 'community_composer.dart';
 import 'profile_collections_screen.dart';
 import 'movie_player_screen.dart';
 import 'watch_together_screen.dart';
-import 'browser_screen.dart';
-import 'movie_download_screen.dart';
+import '../utils/external_link.dart';
 import 'trailer_player_screen.dart';
 
 class MovieDetailScreen extends StatefulWidget {
@@ -99,7 +98,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No download link is available for this title.')));
       return;
     }
-    Navigator.push(context, MaterialPageRoute(builder: (_) => MovieDownloadScreen(movie: _movie)));
+    // In-app downloading is disabled: hand the link to the user's browser.
+    openInExternalBrowser(context, _movie.downloadUrl);
   }
 
   @override void dispose() { _tabs.dispose(); super.dispose(); }
