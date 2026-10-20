@@ -15,10 +15,9 @@ import '../models/movie.dart';
 import '../services/ad_shield.dart';
 import '../services/app_preferences.dart';
 import '../services/background_playback.dart';
-import '../services/download_manager.dart';
+import '../utils/external_link.dart';
 import '../services/movie_library.dart';
 import '../services/stream_resolver.dart';
-import 'browser_screen.dart';
 
 class MoviePlayerScreen extends StatefulWidget {
   final Movie movie;
@@ -342,7 +341,7 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       return NavigationDecision.prevent;
     }
     if (request.isMainFrame && isDirectMovieDownload(request.url)) {
-      unawaited(_startDownload(request.url));
+      unawaited(openInExternalBrowser(context, request.url));
       return NavigationDecision.prevent;
     }
     // Embedded providers sometimes wire the Play button to a redirect/ad page.
@@ -609,11 +608,12 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     }
   }
 
-  Future<void> _startDownload(String url) async {
-    final error = await DownloadManager.instance.enqueue(url, referer: _currentReferer.isNotEmpty ? _currentReferer : _currentUrl);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error ?? 'Download started'), duration: const Duration(seconds: 6)));
-  }
+  // In-app download disabled: downloads now open in the external browser.
+  // Future<void> _startDownload(String url) async {
+  // final error = await DownloadManager.instance.enqueue(url, referer: _currentReferer.isNotEmpty ? _currentReferer : _currentUrl);
+  // if (!mounted) return;
+  // ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error ?? 'Download started'), duration: const Duration(seconds: 6)));
+  // }
 
   Future<void> _saveWatchLater() async {
     final added = await MovieLibrary.instance.toggleSaved(widget.movie);
@@ -623,23 +623,21 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
 
   Future<void> _downloadPage() async {
     final url = widget.movie.downloadUrl.trim();
-    // If the current stream is already a direct video URL, start it directly.
-    // Otherwise open the real provider page in the browser. The browser's
-    // navigation handler intercepts direct file links wherever they appear,
-    // without showing the separate 'Looking for download links' screen.
+    // A direct video file opens straight in the user's browser, otherwise the
+    // provider's download page does. Nothing is downloaded inside the app.
     if (_stream.kind == StreamKind.video && isDirectMovieDownload(_stream.url)) {
-      await _startDownload(_stream.url);
+      await openInExternalBrowser(context, _stream.url);
       return;
     }
     if (url.isEmpty) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No download page is available for this title.')));
       return;
     }
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => BrowserScreen(initialUrl: url)));
+    await openInExternalBrowser(context, url);
   }
 
   Future<void> _openBrowser() async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => BrowserScreen(initialUrl: _currentUrl)));
+    await openInExternalBrowser(context, _currentUrl);
   }
 
   Future<void> _toggleQuality() async {
