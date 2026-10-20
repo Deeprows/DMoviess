@@ -96,7 +96,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
     final url = _movie.downloadUrl.trim();
     if (!url.startsWith('http')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No download link is available for this title.')),
+        const SnackBar(content: Text('No download link is available for this title.'.tr)),
       );
       return;
     }
@@ -143,8 +143,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
           Padding(padding: const EdgeInsets.fromLTRB(18, 17, 18, 10), child: Wrap(spacing: 7, runSpacing: 7, children: _movie.genres.take(5).map(_tag).toList())),
           if (_movie.tagline.isNotEmpty) Padding(padding: const EdgeInsets.fromLTRB(18, 0, 18, 9), child: Text('“${_movie.tagline}”', style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.white60))),
           Padding(padding: const EdgeInsets.fromLTRB(18, 4, 18, 18), child: Row(children: [
-            Expanded(child: SizedBox(height: 51, child: FilledButton.icon(style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: _play, icon: const Icon(Icons.play_arrow_rounded, size: 25), label: const Text('Play', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15))))),
-            const SizedBox(width: 10), Expanded(child: SizedBox(height: 51, child: OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: _download, icon: const Icon(Icons.download_rounded), label: const Text('Download', style: TextStyle(fontWeight: FontWeight.w800))))),
+            Expanded(child: SizedBox(height: 51, child: FilledButton.icon(style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: _play, icon: const Icon(Icons.play_arrow_rounded, size: 25), label: Text('Play'.tr, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15))))),
+            const SizedBox(width: 10), Expanded(child: SizedBox(height: 51, child: OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: _download, icon: const Icon(Icons.download_rounded), label: Text('Download'.tr, style: TextStyle(fontWeight: FontWeight.w800))))),
           ])),
           Padding(padding: const EdgeInsets.fromLTRB(18, 0, 18, 18), child: Row(children: [
             Expanded(child: SizedBox(height: 46, child: OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white24), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))), onPressed: () => showCommunityComposer(context, movie: _movie), icon: const Icon(Icons.chat_bubble_outline_rounded, size: 20), label: Text('Tweet'.tr, style: const TextStyle(fontWeight: FontWeight.w800))))),
@@ -153,7 +153,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
           _profileActions(),
           _trailerSection(),
           Padding(padding: const EdgeInsets.symmetric(horizontal: 18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('OVERVIEW', style: TextStyle(fontSize: 11, color: appRed, letterSpacing: 1.4, fontWeight: FontWeight.w900)),
+            Text('OVERVIEW'.tr, style: TextStyle(fontSize: 11, color: appRed, letterSpacing: 1.4, fontWeight: FontWeight.w900)),
             const SizedBox(height: 8),
             Text(_movie.overview.isNotEmpty ? _movie.overview : (_loadingDetails ? 'Loading story and movie information…' : 'No synopsis is available from TMDB for this title.'), style: const TextStyle(color: Colors.white70, height: 1.55, fontSize: 14)),
             if (_loadingDetails) Padding(padding: const EdgeInsets.only(top: 8), child: LinearProgressIndicator(minHeight: 2, color: appRed, backgroundColor: Colors.white10)),
@@ -227,10 +227,10 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
         children: [
           Row(
             children: [
-              Text('TRAILER', style: TextStyle(color: appRed, fontSize: 11, letterSpacing: 1.4, fontWeight: FontWeight.w900)),
+              Text('TRAILER'.tr, style: TextStyle(color: appRed, fontSize: 11, letterSpacing: 1.4, fontWeight: FontWeight.w900)),
               const Spacer(),
-              if (_loadingTrailer) const Text('SEARCHING TMDB…', style: TextStyle(color: Colors.white38, fontSize: 9, letterSpacing: .8)),
-              if (!_loadingTrailer && trailer != null) const Text('PLAY IN APP', style: TextStyle(color: Colors.white54, fontSize: 9, letterSpacing: .8)),
+              if (_loadingTrailer) Text('SEARCHING TMDB…'.tr, style: TextStyle(color: Colors.white38, fontSize: 9, letterSpacing: .8)),
+              if (!_loadingTrailer && trailer != null) Text('PLAY IN APP'.tr, style: TextStyle(color: Colors.white54, fontSize: 9, letterSpacing: .8)),
             ],
           ),
           const SizedBox(height: 10),
@@ -298,8 +298,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
                 children: [
                   const Icon(Icons.movie_filter_outlined, color: Colors.white54, size: 30),
                   const SizedBox(width: 12),
-                  const Expanded(child: Text('No YouTube trailer is listed on TMDB for this title yet.', style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.35))),
-                  TextButton(onPressed: () => _loadTrailer(_movie), child: const Text('Retry')),
+                  const Expanded(child: Text('No YouTube trailer is listed on TMDB for this title yet.'.tr, style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.35))),
+                  TextButton(onPressed: () => _loadTrailer(_movie), child: Text('Retry'.tr)),
                 ],
               ),
             ),
@@ -327,7 +327,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
     return ListView(padding: const EdgeInsets.all(18), children: [
       for (final row in metadata) Padding(padding: const EdgeInsets.symmetric(vertical: 7), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [SizedBox(width: 115, child: Text(row.$1, style: const TextStyle(color: Colors.white54, fontSize: 12))), Expanded(child: Text(row.$2, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)))])),
       if (_movie.cast.isNotEmpty) ...[
-        const SizedBox(height: 12), Text('CAST', style: TextStyle(color: appRed, fontWeight: FontWeight.w900, letterSpacing: 1.2, fontSize: 11)), const SizedBox(height: 12),
+        const SizedBox(height: 12), Text('CAST'.tr, style: TextStyle(color: appRed, fontWeight: FontWeight.w900, letterSpacing: 1.2, fontSize: 11)), const SizedBox(height: 12),
         SizedBox(height: 124, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: _movie.cast.length, separatorBuilder: (_, __) => const SizedBox(width: 12), itemBuilder: (_, i) { final person = _movie.cast[i]; return GestureDetector(onTap: () => _toggleFavoritePerson(person), child: SizedBox(width: 78, child: Column(children: [ClipRRect(borderRadius: BorderRadius.circular(38), child: SizedBox(width: 66, height: 66, child: person.photo.startsWith('http') ? CachedNetworkImage(imageUrl: person.photo, fit: BoxFit.cover, errorWidget: (_, __, ___) => const Icon(Icons.person)) : Container(color: appSurface, child: const Icon(Icons.person, color: Colors.white54)))), const SizedBox(height: 6), Text(ProfileData.instance.isFavoritePerson(person.name) ? '♥ ${person.name}' : person.name, maxLines: 2, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: ProfileData.instance.isFavoritePerson(person.name) ? appRed : null)), Text(person.character, maxLines: 1, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9, color: Colors.white54))]))); })),
       ],
     ]);
