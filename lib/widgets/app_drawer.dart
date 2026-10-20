@@ -6,7 +6,6 @@ import '../config.dart';
 import '../main.dart';
 import '../screens/community_profile_screen.dart';
 import '../screens/community_screen.dart';
-import '../screens/downloads_screen.dart';
 import '../screens/library_screen.dart';
 import '../screens/remove_ads_screen.dart';
 import '../screens/settings_screen.dart';
@@ -58,8 +57,6 @@ class AppDrawer extends StatelessWidget {
           () => _go(context, const WatchTogetherScreen())),
       _Item(Icons.video_library_rounded, 'My Library',
           () => _go(context, const LibraryScreen())),
-      _Item(Icons.download_rounded, 'Downloads',
-          () => _go(context, const DownloadsScreen())),
       _Item(Icons.settings_rounded, 'Settings & Themes',
           () => _go(context, const SettingsScreen())),
       _Item(Icons.notifications_rounded, 'Notice',
