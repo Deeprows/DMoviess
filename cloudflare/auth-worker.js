@@ -49,14 +49,23 @@ async function notifyAdmin(env, r) {
   }
 }
 
+// Static Device ID for a Gmail address. MUST match PremiumService in the app.
+async function accountId(email) {
+  let e = String(email || '').trim().toLowerCase();
+  if (e.endsWith('@googlemail.com')) e = e.slice(0, -15) + '@gmail.com';
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('damimovies|acct|' + e)));
+  const hex = [...h.slice(0, 6)].map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+  return hex.slice(0, 4) + '-' + hex.slice(4, 8) + '-' + hex.slice(8, 12);
+}
+
 async function handleTokenRequest(body, info, env) {
   if (!(await env.USERS.get('user:' + info.email))) return json({ error: 'not_registered' }, 403);
   const whatsapp = String(body.whatsapp || '').replace(/\D/g, '');
   if (whatsapp.length < 8 || whatsapp.length > 15) return json({ error: 'bad_whatsapp' }, 400);
   const days = parseInt(body.days, 10);
   if (!(days >= 1 && days <= 3650)) return json({ error: 'bad_days' }, 400);
-  const deviceId = String(body.deviceId || '').toUpperCase();
-  if (!/^[A-Z0-9-]{8,20}$/.test(deviceId)) return json({ error: 'bad_device' }, 400);
+  // The ID is made here from the verified Gmail, so it cannot be spoofed by the client.
+  const deviceId = await accountId(info.email);
   const price = String(body.price || '').slice(0, 40);
 
   // At most 5 requests per Gmail per day.
