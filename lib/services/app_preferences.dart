@@ -20,8 +20,13 @@ class DamiPalette {
 }
 
 /// Persisted movie-app preferences shared by the UI and player.
-class AppPreferences extends ChangeNotifier {
-  AppPreferences._();
+class AppPreferences extends ChangeNotifier with WidgetsBindingObserver {
+  AppPreferences._() { WidgetsBinding.instance.addObserver(this); }
+
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    if (_language == systemLanguage) notifyListeners();
+  }
   static final AppPreferences instance = AppPreferences._();
 
   static const List<DamiPalette> palettes = [
@@ -99,12 +104,14 @@ class AppPreferences extends ChangeNotifier {
     ),
   ];
 
+  static const String systemLanguage = 'System Default (Automatic)';
   static const List<String> languages = [
+    systemLanguage,
     'English', 'Arabic', 'French', 'Spanish', 'Portuguese', 'Hindi', 'Turkish', 'Hausa', 'Yoruba'
   ];
 
   int _themeIndex = 1;
-  String _language = 'English';
+  String _language = systemLanguage;
   bool _adShield = true;
   bool _lowQuality = false;
   bool _keepScreenAwake = true;
@@ -114,10 +121,23 @@ class AppPreferences extends ChangeNotifier {
   DamiPalette get palette => palettes[_themeIndex.clamp(0, palettes.length - 1).toInt()];
   int get themeIndex => _themeIndex;
   String get language => _language;
-  String get languageCode => const {
+  String get languageCode => _language == systemLanguage
+      ? _deviceLanguageCode
+      : (const {
     'English': 'en', 'Arabic': 'ar', 'French': 'fr', 'Spanish': 'es',
     'Portuguese': 'pt', 'Hindi': 'hi', 'Turkish': 'tr', 'Hausa': 'ha', 'Yoruba': 'yo'
-  }[_language] ?? 'en';
+  }[_language] ?? 'en');
+
+  String get _deviceLanguageCode {
+    const supported = {'en', 'ar', 'fr', 'es', 'pt', 'hi', 'tr', 'ha', 'yo'};
+    final locales = WidgetsBinding.instance.platformDispatcher.locales;
+    for (final locale in locales) {
+      if (supported.contains(locale.languageCode.toLowerCase())) {
+        return locale.languageCode.toLowerCase();
+      }
+    }
+    return 'en';
+  }
   bool get adShield => _adShield;
   bool get lowQuality => _lowQuality;
   bool get keepScreenAwake => _keepScreenAwake;
@@ -130,7 +150,7 @@ class AppPreferences extends ChangeNotifier {
     _themeIndex = (prefs.getInt('damimovies_theme_index') ?? _themeIndex)
         .clamp(0, palettes.length - 1).toInt();
     final lang = prefs.getString('damimovies_language') ?? _language;
-    _language = languages.contains(lang) ? lang : 'English';
+    _language = languages.contains(lang) ? lang : systemLanguage;
     _adShield = prefs.getBool('damimovies_ad_shield') ?? _adShield;
     _lowQuality = prefs.getBool('damimovies_low_quality') ?? _lowQuality;
     _keepScreenAwake = prefs.getBool('damimovies_keep_awake') ?? _keepScreenAwake;
