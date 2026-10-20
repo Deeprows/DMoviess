@@ -40,7 +40,10 @@ String _date(int ms) {
 }
 
 Future<String?> _askText(BuildContext context, String title,
-    {String initial = '', String hint = '', int lines = 1, bool allowEmpty = false}) {
+    {String initial = '',
+    String hint = '',
+    int lines = 1,
+    bool allowEmpty = false}) {
   final c = TextEditingController(text: initial);
   return showDialog<String>(
     context: context,
@@ -56,7 +59,8 @@ Future<String?> _askText(BuildContext context, String title,
         decoration: InputDecoration(hintText: hint.tr),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel'.tr)),
+        TextButton(
+            onPressed: () => Navigator.pop(ctx), child: Text('Cancel'.tr)),
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: Ui.red),
           onPressed: () {
@@ -87,10 +91,11 @@ Future<void> showRatingSheet(BuildContext context, Movie movie) async {
               maxLines: 2,
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 6),
+              style:
+                  const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+          SizedBox(height: 6),
           Text('Tap a star to rate'.tr, style: TextStyle(color: Ui.muted)),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             for (var i = 1; i <= 5; i++)
               IconButton(
@@ -100,7 +105,10 @@ Future<void> showRatingSheet(BuildContext context, Movie movie) async {
                   setSheet(() {});
                   if (ctx.mounted) Navigator.pop(ctx);
                 },
-                icon: Icon(i <= current ? Icons.star_rounded : Icons.star_border_rounded,
+                icon: Icon(
+                    i <= current
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
                     color: i <= current ? Colors.amber : Ui.dim),
               ),
           ]),
@@ -150,32 +158,39 @@ Future<void> showAddToListSheet(BuildContext context, Movie movie) async {
       listenable: data,
       builder: (ctx, _) => SafeArea(
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * .7),
-          child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(8, 16, 8, 16), children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Text('Add to list'.tr,
-                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-            ),
-            ListTile(
-              leading: Icon(Icons.add_circle_outline_rounded, color: Ui.redSoft),
-              title: Text('New list'.tr),
-              onTap: () async {
-                final name = await _askText(ctx, 'New list', hint: 'List name');
-                if (name == null) return;
-                final l = await data.createList(name);
-                await data.toggleInList(l, movie);
-              },
-            ),
-            for (final l in data.lists)
-              CheckboxListTile(
-                activeColor: Ui.red,
-                value: data.listHas(l, movie),
-                title: Text(l.name),
-                subtitle: Text('${l.movies.length} ${'titles'.tr}'),
-                onChanged: (_) => data.toggleInList(l, movie),
-              ),
-          ]),
+          constraints:
+              BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * .7),
+          child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(8, 16, 8, 16),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Text('Add to list'.tr,
+                      style: const TextStyle(
+                          fontSize: 17, fontWeight: FontWeight.w900)),
+                ),
+                ListTile(
+                  leading:
+                      Icon(Icons.add_circle_outline_rounded, color: Ui.redSoft),
+                  title: Text('New list'.tr),
+                  onTap: () async {
+                    final name =
+                        await _askText(ctx, 'New list', hint: 'List name');
+                    if (name == null) return;
+                    final l = await data.createList(name);
+                    await data.toggleInList(l, movie);
+                  },
+                ),
+                for (final l in data.lists)
+                  CheckboxListTile(
+                    activeColor: Ui.red,
+                    value: data.listHas(l, movie),
+                    title: Text(l.name),
+                    subtitle: Text('${l.movies.length} ${'titles'.tr}'),
+                    onChanged: (_) => data.toggleInList(l, movie),
+                  ),
+              ]),
         ),
       ),
     ),
@@ -195,11 +210,14 @@ Widget _poster(String url, {double w = 52, double h = 76}) => ClipRRect(
                 imageUrl: url,
                 fit: BoxFit.cover,
                 errorWidget: (_, __, ___) => Container(color: Ui.cardDeep))
-            : Container(color: Ui.cardDeep, child: Icon(Icons.movie_rounded, color: Ui.dim)),
+            : Container(
+                color: Ui.cardDeep,
+                child: Icon(Icons.movie_rounded, color: Ui.dim)),
       ),
     );
 
-Widget _stars(int n, {double size = 16}) => Row(mainAxisSize: MainAxisSize.min, children: [
+Widget _stars(int n, {double size = 16}) =>
+    Row(mainAxisSize: MainAxisSize.min, children: [
       for (var i = 1; i <= 5; i++)
         Icon(i <= n ? Icons.star_rounded : Icons.star_border_rounded,
             size: size, color: i <= n ? Colors.amber : Ui.dim),
@@ -215,8 +233,9 @@ class _Empty extends StatelessWidget {
           padding: const EdgeInsets.all(32),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Icon(icon, size: 54, color: Colors.white24),
-            const SizedBox(height: 12),
-            Text(text.tr, textAlign: TextAlign.center, style: TextStyle(color: Ui.muted)),
+            SizedBox(height: 12),
+            Text(text.tr,
+                textAlign: TextAlign.center, style: TextStyle(color: Ui.muted)),
           ]),
         ),
       );
@@ -244,10 +263,12 @@ class _Page extends StatelessWidget {
       backgroundColor: Ui.bg,
       appBar: AppBar(
         backgroundColor: Ui.bg,
-        title: Text(title.tr, style: const TextStyle(fontWeight: FontWeight.w900)),
+        title:
+            Text(title.tr, style: const TextStyle(fontWeight: FontWeight.w900)),
         actions: actions,
       ),
-      body: ListenableBuilder(listenable: ProfileData.instance, builder: (ctx, __) => body(ctx)),
+      body: ListenableBuilder(
+          listenable: ProfileData.instance, builder: (ctx, __) => body(ctx)),
       floatingActionButton: fabLabel == null
           ? null
           : FloatingActionButton.extended(
@@ -262,7 +283,10 @@ class _Page extends StatelessWidget {
 }
 
 Widget _row(BuildContext context,
-    {required Movie movie, Widget? subtitle, Widget? trailing, VoidCallback? onTap}) {
+    {required Movie movie,
+    Widget? subtitle,
+    Widget? trailing,
+    VoidCallback? onTap}) {
   return Container(
     margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
     decoration: BoxDecoration(
@@ -277,16 +301,19 @@ Widget _row(BuildContext context,
         padding: const EdgeInsets.all(10),
         child: Row(children: [
           _poster(movie.image),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(movie.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 15)),
               if (movie.year.isNotEmpty)
-                Text(movie.year, style: TextStyle(color: Ui.muted, fontSize: 12)),
-              if (subtitle != null) ...[const SizedBox(height: 6), subtitle],
+                Text(movie.year,
+                    style: TextStyle(color: Ui.muted, fontSize: 12)),
+              if (subtitle != null) ...[SizedBox(height: 6), subtitle],
             ]),
           ),
           if (trailing != null) trailing,
@@ -351,7 +378,8 @@ class _MoviePickerScreenState extends State<MoviePickerScreen> {
       backgroundColor: Ui.bg,
       appBar: AppBar(
         backgroundColor: Ui.bg,
-        title: Text('Pick a movie'.tr, style: const TextStyle(fontWeight: FontWeight.w900)),
+        title: Text('Pick a movie'.tr,
+            style: const TextStyle(fontWeight: FontWeight.w900)),
       ),
       body: Column(children: [
         Padding(
@@ -362,11 +390,12 @@ class _MoviePickerScreenState extends State<MoviePickerScreen> {
             onSubmitted: _search,
             decoration: InputDecoration(
               hintText: 'Search movies and series'.tr,
-              prefixIcon: const Icon(Icons.search_rounded),
+              prefixIcon: Icon(Icons.search_rounded),
               filled: true,
               fillColor: Colors.white.withValues(alpha: .06),
               border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none),
             ),
           ),
         ),
@@ -423,11 +452,13 @@ class RatingsScreen extends StatelessWidget {
                   IconButton(
                       tooltip: 'Change rating'.tr,
                       onPressed: () => showRatingSheet(ctx, r.movie),
-                      icon: Icon(Icons.edit_rounded, color: Ui.muted, size: 20)),
+                      icon:
+                          Icon(Icons.edit_rounded, color: Ui.muted, size: 20)),
                   IconButton(
                       tooltip: 'Remove'.tr,
                       onPressed: () => data.removeRating(r.movie),
-                      icon: Icon(Icons.delete_outline_rounded, color: Ui.muted, size: 20)),
+                      icon: Icon(Icons.delete_outline_rounded,
+                          color: Ui.muted, size: 20)),
                 ]));
           },
         );
@@ -466,23 +497,31 @@ class ReviewsScreen extends StatelessWidget {
             final r = list[i];
             return _row(ctx,
                 movie: r.movie,
-                subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(r.text,
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Colors.white70, height: 1.35, fontSize: 13)),
-                  const SizedBox(height: 4),
-                  Text(_date(r.at), style: TextStyle(color: Ui.dim, fontSize: 11)),
-                ]),
+                subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(r.text,
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Colors.white70,
+                              height: 1.35,
+                              fontSize: 13)),
+                      SizedBox(height: 4),
+                      Text(_date(r.at),
+                          style: TextStyle(color: Ui.dim, fontSize: 11)),
+                    ]),
                 trailing: Column(mainAxisSize: MainAxisSize.min, children: [
                   IconButton(
                       tooltip: 'Edit'.tr,
                       onPressed: () => showReviewDialog(ctx, r.movie),
-                      icon: Icon(Icons.edit_rounded, color: Ui.muted, size: 20)),
+                      icon:
+                          Icon(Icons.edit_rounded, color: Ui.muted, size: 20)),
                   IconButton(
                       tooltip: 'Remove'.tr,
                       onPressed: () => data.removeReview(r.movie),
-                      icon: Icon(Icons.delete_outline_rounded, color: Ui.muted, size: 20)),
+                      icon: Icon(Icons.delete_outline_rounded,
+                          color: Ui.muted, size: 20)),
                 ]));
           },
         );
@@ -498,9 +537,24 @@ class ReviewsScreen extends StatelessWidget {
 class InterestsScreen extends StatelessWidget {
   const InterestsScreen({super.key});
   static const genres = [
-    'Action', 'Adventure', 'Animation', 'Comedy', 'Crime', 'Documentary', 'Drama',
-    'Family', 'Fantasy', 'History', 'Horror', 'Music', 'Mystery', 'Romance',
-    'Sci-Fi', 'Thriller', 'War', 'Western',
+    'Action',
+    'Adventure',
+    'Animation',
+    'Comedy',
+    'Crime',
+    'Documentary',
+    'Drama',
+    'Family',
+    'Fantasy',
+    'History',
+    'Horror',
+    'Music',
+    'Mystery',
+    'Romance',
+    'Sci-Fi',
+    'Thriller',
+    'War',
+    'Western',
   ];
 
   @override
@@ -510,8 +564,9 @@ class InterestsScreen extends StatelessWidget {
       title: 'Interests',
       body: (context) {
         return ListView(padding: const EdgeInsets.all(18), children: [
-          Text('Pick the genres you love.'.tr, style: TextStyle(color: Ui.muted)),
-          const SizedBox(height: 16),
+          Text('Pick the genres you love.'.tr,
+              style: TextStyle(color: Ui.muted)),
+          SizedBox(height: 16),
           Wrap(spacing: 10, runSpacing: 10, children: [
             for (final g in genres)
               FilterChip(
@@ -521,7 +576,9 @@ class InterestsScreen extends StatelessWidget {
                 selectedColor: Ui.red,
                 labelStyle: TextStyle(
                     fontWeight: FontWeight.w700,
-                    color: data.hasInterest(g) ? Ui.palette.onAccent : Colors.white),
+                    color: data.hasInterest(g)
+                        ? Ui.palette.onAccent
+                        : Colors.white),
                 backgroundColor: Ui.card,
                 side: BorderSide(color: Ui.glassLine),
                 onSelected: (_) => data.toggleInterest(g),
@@ -568,9 +625,12 @@ class ListsScreen extends StatelessWidget {
                 border: Border.all(color: Ui.glassLine),
               ),
               child: ListTile(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                leading: Icon(Icons.format_list_bulleted_rounded, color: Ui.redSoft),
-                title: Text(l.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18)),
+                leading:
+                    Icon(Icons.format_list_bulleted_rounded, color: Ui.redSoft),
+                title: Text(l.name,
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
                 subtitle: Text('${l.movies.length} ${'titles'.tr}',
                     style: TextStyle(color: Ui.muted)),
                 onTap: () => Navigator.of(ctx).push(MaterialPageRoute<void>(
@@ -578,7 +638,8 @@ class ListsScreen extends StatelessWidget {
                 trailing: PopupMenuButton<String>(
                   onSelected: (v) async {
                     if (v == 'rename') {
-                      final n = await _askText(ctx, 'Rename list', initial: l.name);
+                      final n =
+                          await _askText(ctx, 'Rename list', initial: l.name);
                       if (n != null) await data.renameList(l, n);
                     } else if (v == 'delete') {
                       final ok = await showDialog<bool>(
@@ -592,7 +653,8 @@ class ListsScreen extends StatelessWidget {
                                 onPressed: () => Navigator.pop(d, false),
                                 child: Text('Cancel'.tr)),
                             FilledButton(
-                                style: FilledButton.styleFrom(backgroundColor: Ui.red),
+                                style: FilledButton.styleFrom(
+                                    backgroundColor: Ui.red),
                                 onPressed: () => Navigator.pop(d, true),
                                 child: Text('Delete'.tr)),
                           ],
@@ -628,10 +690,12 @@ class ListDetailScreen extends StatelessWidget {
         fabLabel: 'Add movie',
         onFab: () async {
           final m = await pickMovie(context);
-          if (m != null && !data.listHas(list, m)) await data.toggleInList(list, m);
+          if (m != null && !data.listHas(list, m))
+            await data.toggleInList(list, m);
         },
         body: (_) => list.movies.isEmpty
-            ? const _Empty(Icons.movie_creation_outlined, 'This list is empty. Add a movie.')
+            ? const _Empty(Icons.movie_creation_outlined,
+                'This list is empty. Add a movie.')
             : ListView.builder(
                 padding: const EdgeInsets.fromLTRB(0, 8, 0, 96),
                 itemCount: list.movies.length,
@@ -639,7 +703,8 @@ class ListDetailScreen extends StatelessWidget {
                     movie: list.movies[i],
                     trailing: IconButton(
                         tooltip: 'Remove'.tr,
-                        onPressed: () => data.toggleInList(list, list.movies[i]),
+                        onPressed: () =>
+                            data.toggleInList(list, list.movies[i]),
                         icon: Icon(Icons.close_rounded, color: Ui.muted))),
               ),
       ),
@@ -677,11 +742,13 @@ class CheckInsScreen extends StatelessWidget {
             final c = list[i];
             return _row(ctx,
                 movie: c.movie,
-                subtitle: Text(_date(c.at), style: TextStyle(color: Ui.muted, fontSize: 12)),
+                subtitle: Text(_date(c.at),
+                    style: TextStyle(color: Ui.muted, fontSize: 12)),
                 trailing: IconButton(
                     tooltip: 'Remove'.tr,
                     onPressed: () => data.removeCheckIn(c),
-                    icon: Icon(Icons.delete_outline_rounded, color: Ui.muted, size: 20)));
+                    icon: Icon(Icons.delete_outline_rounded,
+                        color: Ui.muted, size: 20)));
           },
         );
       },
@@ -696,7 +763,8 @@ class CheckInsScreen extends StatelessWidget {
 Widget _avatar(String photo, String name, double radius) => CircleAvatar(
       radius: radius,
       backgroundColor: Ui.cardDeep,
-      backgroundImage: photo.startsWith('http') ? CachedNetworkImageProvider(photo) : null,
+      backgroundImage:
+          photo.startsWith('http') ? CachedNetworkImageProvider(photo) : null,
       child: photo.startsWith('http')
           ? null
           : Text(name.isEmpty ? '?' : name[0].toUpperCase(),
@@ -739,7 +807,8 @@ class FavoritePeopleScreen extends StatelessWidget {
               ),
               child: ListTile(
                 leading: _avatar(p.photo, p.name, 26),
-                title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                title: Text(p.name,
+                    style: const TextStyle(fontWeight: FontWeight.w800)),
                 trailing: IconButton(
                     tooltip: 'Remove'.tr,
                     onPressed: () => data.toggleFavoritePerson(p.name),
@@ -804,7 +873,8 @@ class _PersonPickerScreenState extends State<PersonPickerScreen> {
       backgroundColor: Ui.bg,
       appBar: AppBar(
         backgroundColor: Ui.bg,
-        title: Text('Find a person'.tr, style: const TextStyle(fontWeight: FontWeight.w900)),
+        title: Text('Find a person'.tr,
+            style: const TextStyle(fontWeight: FontWeight.w900)),
       ),
       body: Column(children: [
         Padding(
@@ -815,11 +885,12 @@ class _PersonPickerScreenState extends State<PersonPickerScreen> {
             onSubmitted: _search,
             decoration: InputDecoration(
               hintText: 'Search actors and directors'.tr,
-              prefixIcon: const Icon(Icons.search_rounded),
+              prefixIcon: Icon(Icons.search_rounded),
               filled: true,
               fillColor: Colors.white.withValues(alpha: .06),
               border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none),
             ),
           ),
         ),
@@ -834,7 +905,8 @@ class _PersonPickerScreenState extends State<PersonPickerScreen> {
                     final p = _results[i];
                     return ListTile(
                       leading: _avatar(p.photo, p.name, 24),
-                      title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                      title: Text(p.name,
+                          style: const TextStyle(fontWeight: FontWeight.w800)),
                       subtitle: p.known.isEmpty
                           ? null
                           : Text(p.known, style: TextStyle(color: Ui.muted)),
@@ -889,43 +961,53 @@ class BadgesScreen extends StatelessWidget {
         body: (context) {
           final badges = ProfileData.instance.badges;
           final earned = badges.where((b) => b.earned).length;
-          return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 0, 4, 14),
-              child: Text('$earned / ${badges.length} ${'earned'.tr}',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-            ),
-            for (final b in badges)
-              Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Ui.card,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: b.earned ? Ui.red : Ui.glassLine),
+          return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 14),
+                  child: Text('$earned / ${badges.length} ${'earned'.tr}',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w900)),
                 ),
-                child: Row(children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: b.earned ? Ui.red : Ui.cardDeep,
-                    child: Icon(_badgeIcon(b.iconKey),
-                        color: b.earned ? Ui.palette.onAccent : Ui.dim),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(b.title.tr,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                      const SizedBox(height: 2),
-                      Text(b.description.tr, style: TextStyle(color: Ui.muted, fontSize: 12.5)),
+                for (final b in badges)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Ui.card,
+                      borderRadius: BorderRadius.circular(18),
+                      border:
+                          Border.all(color: b.earned ? Ui.red : Ui.glassLine),
+                    ),
+                    child: Row(children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: b.earned ? Ui.red : Ui.cardDeep,
+                        child: Icon(_badgeIcon(b.iconKey),
+                            color: b.earned ? Ui.palette.onAccent : Ui.dim),
+                      ),
+                      SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(b.title.tr,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 15)),
+                              SizedBox(height: 2),
+                              Text(b.description.tr,
+                                  style: TextStyle(
+                                      color: Ui.muted, fontSize: 12.5)),
+                            ]),
+                      ),
+                      b.earned
+                          ? Icon(Icons.check_circle_rounded, color: Ui.red)
+                          : Text(b.progress, style: TextStyle(color: Ui.muted)),
                     ]),
                   ),
-                  b.earned
-                      ? Icon(Icons.check_circle_rounded, color: Ui.red)
-                      : Text(b.progress, style: TextStyle(color: Ui.muted)),
-                ]),
-              ),
-          ]);
+              ]);
         },
       ),
     );

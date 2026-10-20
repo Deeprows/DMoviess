@@ -269,7 +269,8 @@ class _SupportAdScreenState extends State<SupportAdScreen> {
       }
     }
     final target = web == null ? null : Uri.tryParse(web);
-    if (target != null && (target.scheme == 'http' || target.scheme == 'https')) {
+    if (target != null &&
+        (target.scheme == 'http' || target.scheme == 'https')) {
       _wc.loadRequest(target);
     }
     return NavigationDecision.prevent;
@@ -314,8 +315,8 @@ class _SupportAdScreenState extends State<SupportAdScreen> {
                                       child: CircularProgressIndicator(
                                           strokeWidth: 3, color: appRed),
                                     ),
-                                    const SizedBox(height: 14),
-                                    const Text(_waitText,
+                                    SizedBox(height: 14),
+                                    Text(_waitText,
                                         style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w800)),
@@ -326,7 +327,8 @@ class _SupportAdScreenState extends State<SupportAdScreen> {
                           ),
                         ),
                         if (_phase == _Phase.ready)
-                          Positioned(right: 0, bottom: 22, child: _skipButton()),
+                          Positioned(
+                              right: 0, bottom: 22, child: _skipButton()),
                       ]),
               ),
             ]),
@@ -362,8 +364,8 @@ class _SupportAdScreenState extends State<SupportAdScreen> {
                     ),
                   ),
                   if (ready) ...[
-                    const SizedBox(width: 6),
-                    const Icon(Icons.skip_next_rounded,
+                    SizedBox(width: 6),
+                    Icon(Icons.skip_next_rounded,
                         size: 22, color: Colors.white),
                   ],
                 ]),
@@ -393,14 +395,14 @@ class _SupportAdScreenState extends State<SupportAdScreen> {
                       fontSize: 12,
                       fontWeight: FontWeight.w900)),
             ),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             Expanded(
               child: loading
-                  ? const Text(_waitText,
+                  ? Text(_waitText,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style:
-                          TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800))
+                      style: TextStyle(
+                          fontSize: 13.5, fontWeight: FontWeight.w800))
                   : ValueListenableBuilder<double>(
                       valueListenable: _elapsed,
                       builder: (_, e, __) => Text(
@@ -418,7 +420,7 @@ class _SupportAdScreenState extends State<SupportAdScreen> {
             ),
             TextButton.icon(
               onPressed: _removeAds,
-              icon: const Icon(Icons.block_rounded, size: 16),
+              icon: Icon(Icons.block_rounded, size: 16),
               label: Text('Remove ads'.tr),
             ),
           ]),
@@ -457,15 +459,15 @@ class _SupportAdScreenState extends State<SupportAdScreen> {
         child: Padding(
           padding: const EdgeInsets.all(28),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.wifi_off_rounded, size: 44, color: Colors.white54),
-            const SizedBox(height: 12),
+            Icon(Icons.wifi_off_rounded, size: 44, color: Colors.white54),
+            SizedBox(height: 12),
             Text('The ad page could not load'.tr,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Text('Check your internet connection, or continue without it.'.tr,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white60, fontSize: 13)),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Wrap(spacing: 10, children: [
               FilledButton(onPressed: _retry, child: Text('Retry'.tr)),
               OutlinedButton(

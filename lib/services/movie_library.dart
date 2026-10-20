@@ -26,7 +26,9 @@ class MovieLibrary extends ChangeNotifier {
     if (_loaded) return Future<void>.value();
     final pending = _loading;
     if (pending != null) return pending;
-    _loading = _read().whenComplete(() { _loading = null; });
+    _loading = _read().whenComplete(() {
+      _loading = null;
+    });
     return _loading!;
   }
 
@@ -41,13 +43,21 @@ class MovieLibrary extends ChangeNotifier {
           if (raw == null) return [];
           final value = jsonDecode(raw);
           if (value is! List) return [];
-          return value.whereType<Map>()
+          return value
+              .whereType<Map>()
               .map((e) => Movie.fromJson(Map<String, dynamic>.from(e)))
               .toList();
-        } catch (_) { return []; }
+        } catch (_) {
+          return [];
+        }
       }
-      _saved..clear()..addAll(decode(_savedKey));
-      _history..clear()..addAll(decode(_historyKey));
+
+      _saved
+        ..clear()
+        ..addAll(decode(_savedKey));
+      _history
+        ..clear()
+        ..addAll(decode(_historyKey));
       _progress.clear();
       try {
         final rawProgress = prefs.getString(_progressKey);
@@ -78,14 +88,21 @@ class MovieLibrary extends ChangeNotifier {
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance()
         .timeout(const Duration(seconds: 4));
-    await prefs.setString(_savedKey, jsonEncode(_saved.map((m) => m.toJson()).toList()))
+    await prefs
+        .setString(
+            _savedKey, jsonEncode(_saved.map((m) => m.toJson()).toList()))
         .timeout(const Duration(seconds: 3));
-    await prefs.setString(_historyKey, jsonEncode(_history.map((m) => m.toJson()).toList()))
+    await prefs
+        .setString(
+            _historyKey, jsonEncode(_history.map((m) => m.toJson()).toList()))
         .timeout(const Duration(seconds: 3));
-    await prefs.setString(_progressKey, jsonEncode(_progress))
+    await prefs
+        .setString(_progressKey, jsonEncode(_progress))
         .timeout(const Duration(seconds: 3));
     // Keep compatibility with the first DamiMovies build's watchlist key list.
-    await prefs.setStringList('damimovies_watchlist', _saved.map((m) => m.key).toList())
+    await prefs
+        .setStringList(
+            'damimovies_watchlist', _saved.map((m) => m.key).toList())
         .timeout(const Duration(seconds: 3));
   }
 
@@ -93,7 +110,11 @@ class MovieLibrary extends ChangeNotifier {
     await load();
     final index = _saved.indexWhere((m) => m.key == movie.key);
     final result = index < 0;
-    if (result) { _saved.insert(0, movie); } else { _saved.removeAt(index); }
+    if (result) {
+      _saved.insert(0, movie);
+    } else {
+      _saved.removeAt(index);
+    }
     notifyListeners();
     await _save();
     return result;
@@ -110,7 +131,8 @@ class MovieLibrary extends ChangeNotifier {
 
   /// Records a video's latest playback position as a fraction from 0 to 1.
   /// Near-complete videos are removed from Continue Watching.
-  Future<void> setProgress(Movie movie, double position, double duration) async {
+  Future<void> setProgress(
+      Movie movie, double position, double duration) async {
     await load();
     if (duration <= 0 || position < 0) return;
     final fraction = (position / duration).clamp(0.0, 1.0).toDouble();
@@ -164,11 +186,17 @@ class MovieLibrary extends ChangeNotifier {
     if (oldKeys.isEmpty) return;
     var changed = false;
     for (final movie in catalogue) {
-      if ((oldKeys.contains(movie.key) || oldKeys.contains(movie.url) || oldKeys.contains(movie.name)) && !_saved.any((m) => m.key == movie.key)) {
+      if ((oldKeys.contains(movie.key) ||
+              oldKeys.contains(movie.url) ||
+              oldKeys.contains(movie.name)) &&
+          !_saved.any((m) => m.key == movie.key)) {
         _saved.add(movie);
         changed = true;
       }
     }
-    if (changed) { notifyListeners(); await _save(); }
+    if (changed) {
+      notifyListeners();
+      await _save();
+    }
   }
 }

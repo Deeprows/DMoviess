@@ -2,12 +2,14 @@
 /// Dart defines in a release build rather than hard-coded into UI code.
 class AppConfig {
   static const String appName = 'DamiMovies';
-  static const String appVersion = String.fromEnvironment('APP_VERSION', defaultValue: '1.0.0');
+  static const String appVersion =
+      String.fromEnvironment('APP_VERSION', defaultValue: '1.0.0');
   static const String appUrl = 'https://github.com/Deeprows/SB';
 
   static const String userAgent = String.fromEnvironment(
     'PLAYER_USER_AGENT',
-    defaultValue: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
+    defaultValue:
+        'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
   );
   static const String playerOrigin = String.fromEnvironment(
     'PLAYER_ORIGIN',
@@ -47,14 +49,18 @@ class AppConfig {
   /// profiles, Watch Together rooms). Pass it at build time with
   /// --dart-define=COMMUNITY_API_URL=... Blank = the Community screens say it
   /// is not set up yet. See COMMUNITY_SETUP.md.
-  static const String communityUrl = String.fromEnvironment('COMMUNITY_API_URL');
+  static const String communityUrl =
+      String.fromEnvironment('COMMUNITY_API_URL');
 
   static const String configUrl = String.fromEnvironment(
     'CONFIG_URL',
     defaultValue: '',
   );
 
-  static const String supportUrl = String.fromEnvironment('SUPPORT_URL', defaultValue: '');
-  static const String updateUrl = String.fromEnvironment('UPDATE_URL', defaultValue: '');
-  static const String noticeUrl = String.fromEnvironment('NOTICE_URL', defaultValue: '');
+  static const String supportUrl =
+      String.fromEnvironment('SUPPORT_URL', defaultValue: '');
+  static const String updateUrl =
+      String.fromEnvironment('UPDATE_URL', defaultValue: '');
+  static const String noticeUrl =
+      String.fromEnvironment('NOTICE_URL', defaultValue: '');
 }

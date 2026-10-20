@@ -81,7 +81,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
     }
     setState(() => _searchingMovies = true);
     _movieDebounce = Timer(const Duration(milliseconds: 400), () async {
-      List<Movie> res = const [];
+      List<Movie> res = [];
       try {
         res = await _tmdb.search(q);
       } catch (_) {}
@@ -179,8 +179,8 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
   Future<void> _createRoom() async {
     final movie = _selectedMovie;
     if (movie == null || _selectedPeople.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Pick a movie and at least one person.'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Pick a movie and at least one person.'.tr)));
       return;
     }
     setState(() => _busy = true);
@@ -249,12 +249,11 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
         title: Text('Watch Together'.tr,
             style: TextStyle(fontWeight: FontWeight.w900)),
         actions: [
-          IconButton(
-              onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
+          IconButton(onPressed: _load, icon: Icon(Icons.refresh_rounded)),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               color: _gold,
               onRefresh: _load,
@@ -273,9 +272,9 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
                   ],
                   _heading('1  Choose the movie', Icons.movie_creation_rounded),
                   _search('Search movies and series', _onMovieQuery),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   if (_searchingMovies && movies.isEmpty)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
                       child: Center(child: CircularProgressIndicator()),
                     )
@@ -287,14 +286,14 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: movies.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 10),
+                        separatorBuilder: (_, __) => SizedBox(width: 10),
                         itemBuilder: (_, i) => _poster(movies[i]),
                       ),
                     ),
                   _heading('2  Who is coming?', Icons.people_alt_rounded),
-                  _search('Search people',
-                      (v) => setState(() => _personQuery = v)),
-                  const SizedBox(height: 12),
+                  _search(
+                      'Search people', (v) => setState(() => _personQuery = v)),
+                  SizedBox(height: 12),
                   if (_people.isEmpty)
                     _note('No other community members yet.')
                   else
@@ -303,17 +302,17 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
                       runSpacing: 14,
                       children: [for (final p in people) _person(p)],
                     ),
-                  const SizedBox(height: 22),
+                  SizedBox(height: 22),
                   _summary(),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   FilledButton.icon(
                     onPressed: _busy ? null : _createRoom,
                     icon: _busy
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.theaters_rounded),
+                        : Icon(Icons.theaters_rounded),
                     label: Text(_busy ? 'Opening…' : 'Open the theatre'),
                     style: FilledButton.styleFrom(
                       backgroundColor: _gold,
@@ -345,8 +344,8 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.theater_comedy_rounded, size: 44, color: _gold),
-            const SizedBox(width: 14),
+            Icon(Icons.theater_comedy_rounded, size: 44, color: _gold),
+            SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,7 +355,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
                           fontSize: 19,
                           fontWeight: FontWeight.w900,
                           color: Colors.white)),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                       'Pick a movie and a friend. You both take a seat, the host starts the show, and you react and chat while it plays.',
                       style: TextStyle(
@@ -375,7 +374,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
         child: Row(
           children: [
             Icon(icon, color: _gold, size: 20),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Expanded(
               child: Text(title,
                   style: const TextStyle(
@@ -391,7 +390,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: const TextStyle(color: Colors.white38),
-          prefixIcon: const Icon(Icons.search_rounded),
+          prefixIcon: Icon(Icons.search_rounded),
           filled: true,
           fillColor: Colors.white.withValues(alpha: .07),
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -440,8 +439,8 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
                           fit: BoxFit.cover,
                           memCacheWidth: 300,
                           errorWidget: (_, __, ___) =>
-                              const Icon(Icons.movie_rounded))
-                      : const Icon(Icons.movie_rounded, size: 38),
+                              Icon(Icons.movie_rounded))
+                      : Icon(Icons.movie_rounded, size: 38),
                   if (chosen)
                     Positioned(
                       top: 6,
@@ -450,7 +449,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
                         padding: const EdgeInsets.all(3),
                         decoration: const BoxDecoration(
                             color: _gold, shape: BoxShape.circle),
-                        child: const Icon(Icons.check_rounded,
+                        child: Icon(Icons.check_rounded,
                             size: 16, color: Colors.black),
                       ),
                     ),
@@ -506,8 +505,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
                     foregroundImage: p.photoUrl.startsWith('https://')
                         ? CachedNetworkImageProvider(p.photoUrl)
                         : null,
-                    child: Text(
-                        p.name.isEmpty ? '?' : p.name[0].toUpperCase(),
+                    child: Text(p.name.isEmpty ? '?' : p.name[0].toUpperCase(),
                         style: const TextStyle(
                             fontWeight: FontWeight.w900, fontSize: 18)),
                   ),
@@ -520,13 +518,13 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
                       padding: const EdgeInsets.all(2),
                       decoration: const BoxDecoration(
                           color: _gold, shape: BoxShape.circle),
-                      child: const Icon(Icons.check_rounded,
+                      child: Icon(Icons.check_rounded,
                           size: 14, color: Colors.black),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Text(p.name.split(' ').first,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -552,8 +550,8 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.confirmation_number_rounded, color: _gold),
-          const SizedBox(width: 12),
+          Icon(Icons.confirmation_number_rounded, color: _gold),
+          SizedBox(width: 12),
           Expanded(
             child: Text(
               m == null
@@ -584,11 +582,11 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
         children: [
           Text('${invite['hostName'] ?? 'A movie fan'} invited you to watch',
               style: TextStyle(color: Colors.white.withValues(alpha: .8))),
-          const SizedBox(height: 3),
+          SizedBox(height: 3),
           Text(roomTitle(invite),
-              style: const TextStyle(
-                  fontSize: 17, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 12),
+              style:
+                  const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+          SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -597,12 +595,12 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
                   child: Text('Decline'.tr),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 flex: 2,
                 child: FilledButton.icon(
                   onPressed: _busy ? null : () => _takeSeat(invite, true),
-                  icon: const Icon(Icons.event_seat_rounded),
+                  icon: Icon(Icons.event_seat_rounded),
                   label: Text('Take a seat'.tr),
                   style: FilledButton.styleFrom(
                       backgroundColor: _gold, foregroundColor: Colors.black),
@@ -634,7 +632,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
             height: 56,
             child: (m?.image.startsWith('http') ?? false)
                 ? CachedNetworkImage(imageUrl: m!.image, fit: BoxFit.cover)
-                : const Icon(Icons.theaters_rounded),
+                : Icon(Icons.theaters_rounded),
           ),
         ),
         title: Text(roomTitle(room),
@@ -644,7 +642,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
         subtitle: Text(
             '$people ${people == 1 ? 'seat' : 'seats'} · ${room['status'] == 'playing' ? 'show started' : 'waiting to start'}',
             style: TextStyle(color: Ui.muted, fontSize: 12)),
-        trailing: const Icon(Icons.chevron_right_rounded, color: _gold),
+        trailing: Icon(Icons.chevron_right_rounded, color: _gold),
       ),
     );
   }

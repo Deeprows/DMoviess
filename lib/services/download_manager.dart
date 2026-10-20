@@ -41,8 +41,9 @@ String fileNameFromUrl(String url) {
 
 String? fileNameFromDisposition(String? header) {
   if (header == null || header.isEmpty) return null;
-  final star = RegExp(r"filename\*\s*=\s*[^']*'[^']*'([^;]+)", caseSensitive: false)
-      .firstMatch(header);
+  final star =
+      RegExp(r"filename\*\s*=\s*[^']*'[^']*'([^;]+)", caseSensitive: false)
+          .firstMatch(header);
   if (star != null) {
     try {
       return sanitizeFileName(Uri.decodeComponent(star.group(1)!.trim()));
@@ -101,7 +102,8 @@ class LinkInfo {
   final bool isPage;
   final String? fileName;
   final int? total;
-  const LinkInfo({this.isFile = false, this.isPage = false, this.fileName, this.total});
+  const LinkInfo(
+      {this.isFile = false, this.isPage = false, this.fileName, this.total});
 }
 
 // ------------------------------------------------------------------ manager
@@ -340,7 +342,8 @@ class DownloadManager extends ChangeNotifier {
   }
 
   /// Checks what a link is (file or web page) without downloading it.
-  Future<LinkInfo> checkLink(String url, {String referer = '', String cookie = ''}) async {
+  Future<LinkInfo> checkLink(String url,
+      {String referer = '', String cookie = ''}) async {
     final p = await _probe(url, referer, cookie);
     if (p.isPage) return const LinkInfo(isPage: true);
     if (p.error != null) return const LinkInfo();
@@ -498,4 +501,3 @@ class DownloadManager extends ChangeNotifier {
     }
   }
 }
-

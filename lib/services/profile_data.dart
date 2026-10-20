@@ -44,8 +44,9 @@ class ProfileBadge {
   final String iconKey;
   final bool earned;
   final String progress;
-  const ProfileBadge(this.iconKey, this.title, this.description, this.earned,
-      this.progress, [this.icon = 0]);
+  const ProfileBadge(
+      this.iconKey, this.title, this.description, this.earned, this.progress,
+      [this.icon = 0]);
 }
 
 /// Device-local ratings, reviews, interests, lists, check-ins and favourite
@@ -84,19 +85,24 @@ class ProfileData extends ChangeNotifier {
       final raw = prefs.getString(_key);
       if (raw != null && raw.isNotEmpty) {
         final j = jsonDecode(raw) as Map<String, dynamic>;
-        Movie mv(dynamic m) => Movie.fromJson(Map<String, dynamic>.from(m as Map));
+        Movie mv(dynamic m) =>
+            Movie.fromJson(Map<String, dynamic>.from(m as Map));
         for (final e in (j['ratings'] as List? ?? [])) {
           final m = mv(e['movie']);
-          _ratings[m.key] = RatedMovie(m, (e['stars'] as num).toInt(), (e['at'] as num).toInt());
+          _ratings[m.key] = RatedMovie(
+              m, (e['stars'] as num).toInt(), (e['at'] as num).toInt());
         }
         for (final e in (j['reviews'] as List? ?? [])) {
           final m = mv(e['movie']);
-          _reviews[m.key] = MovieReview(m, '${e['text']}', (e['at'] as num).toInt());
+          _reviews[m.key] =
+              MovieReview(m, '${e['text']}', (e['at'] as num).toInt());
         }
         _interests.addAll((j['interests'] as List? ?? []).map((e) => '$e'));
         for (final e in (j['people'] as List? ?? [])) {
           _people.add(FavoritePerson(
-              id: (e['id'] as num?)?.toInt(), name: '${e['name']}', photo: '${e['photo'] ?? ''}'));
+              id: (e['id'] as num?)?.toInt(),
+              name: '${e['name']}',
+              photo: '${e['photo'] ?? ''}'));
         }
         for (final e in (j['lists'] as List? ?? [])) {
           _lists.add(MovieList('${e['id']}', '${e['name']}',
@@ -120,12 +126,30 @@ class ProfileData extends ChangeNotifier {
       await prefs.setString(
           _key,
           jsonEncode({
-            'ratings': [for (final r in _ratings.values) {'movie': r.movie.toJson(), 'stars': r.stars, 'at': r.at}],
-            'reviews': [for (final r in _reviews.values) {'movie': r.movie.toJson(), 'text': r.text, 'at': r.at}],
+            'ratings': [
+              for (final r in _ratings.values)
+                {'movie': r.movie.toJson(), 'stars': r.stars, 'at': r.at}
+            ],
+            'reviews': [
+              for (final r in _reviews.values)
+                {'movie': r.movie.toJson(), 'text': r.text, 'at': r.at}
+            ],
             'interests': _interests.toList(),
-            'people': [for (final p in _people) {'id': p.id, 'name': p.name, 'photo': p.photo}],
-            'lists': [for (final l in _lists) {'id': l.id, 'name': l.name, 'movies': l.movies.map((m) => m.toJson()).toList()}],
-            'checkIns': [for (final c in _checkIns) {'movie': c.movie.toJson(), 'at': c.at}],
+            'people': [
+              for (final p in _people)
+                {'id': p.id, 'name': p.name, 'photo': p.photo}
+            ],
+            'lists': [
+              for (final l in _lists)
+                {
+                  'id': l.id,
+                  'name': l.name,
+                  'movies': l.movies.map((m) => m.toJson()).toList()
+                }
+            ],
+            'checkIns': [
+              for (final c in _checkIns) {'movie': c.movie.toJson(), 'at': c.at}
+            ],
           }));
     } catch (_) {}
   }
@@ -172,7 +196,8 @@ class ProfileData extends ChangeNotifier {
   bool isFavoritePerson(String name) =>
       _people.any((p) => p.name.toLowerCase() == name.toLowerCase());
   Future<void> toggleFavoritePerson(String name, {int? id, String photo = ''}) {
-    final i = _people.indexWhere((p) => p.name.toLowerCase() == name.toLowerCase());
+    final i =
+        _people.indexWhere((p) => p.name.toLowerCase() == name.toLowerCase());
     if (i >= 0) {
       _people.removeAt(i);
     } else {
@@ -224,15 +249,18 @@ class ProfileData extends ChangeNotifier {
   // Badges
   List<ProfileBadge> get badges {
     final lib = MovieLibrary.instance;
-    ProfileBadge b(String icon, String title, String desc, int have, int need) =>
-        ProfileBadge(icon, title, desc, have >= need, '${have > need ? need : have}/$need');
+    ProfileBadge b(
+            String icon, String title, String desc, int have, int need) =>
+        ProfileBadge(icon, title, desc, have >= need,
+            '${have > need ? need : have}/$need');
     return [
       b('star', 'First Rating', 'Rate your first title', _ratings.length, 1),
       b('stars', 'Critic', 'Rate 10 titles', _ratings.length, 10),
       b('review', 'Reviewer', 'Write your first review', _reviews.length, 1),
       b('edit', 'Storyteller', 'Write 5 reviews', _reviews.length, 5),
       b('history', 'Binge Watcher', 'Open 10 titles', lib.history.length, 10),
-      b('bookmark', 'Collector', 'Save 10 titles to your watchlist', lib.saved.length, 10),
+      b('bookmark', 'Collector', 'Save 10 titles to your watchlist',
+          lib.saved.length, 10),
       b('list', 'List Maker', 'Create your first list', _lists.length, 1),
       b('check', 'Regular', 'Check in 3 times', _checkIns.length, 3),
       b('people', 'Fan', 'Add 3 favorite people', _people.length, 3),

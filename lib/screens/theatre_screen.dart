@@ -113,14 +113,13 @@ class _TheatreScreenState extends State<TheatreScreen>
   void initState() {
     super.initState();
     _room = Map<String, dynamic>.from(widget.room);
-    _glow = AnimationController(
-        vsync: this, duration: const Duration(seconds: 4))
-      ..repeat(reverse: true);
+    _glow =
+        AnimationController(vsync: this, duration: const Duration(seconds: 4))
+          ..repeat(reverse: true);
     _pollEvents(first: true);
-    _roomTimer =
-        Timer.periodic(const Duration(seconds: 4), (_) => _pollRoom());
-    _eventTimer =
-        Timer.periodic(const Duration(milliseconds: 2500), (_) => _pollEvents());
+    _roomTimer = Timer.periodic(const Duration(seconds: 4), (_) => _pollRoom());
+    _eventTimer = Timer.periodic(
+        const Duration(milliseconds: 2500), (_) => _pollEvents());
   }
 
   @override
@@ -152,7 +151,7 @@ class _TheatreScreenState extends State<TheatreScreen>
     try {
       final d = await _svc.watchEvents(_id, _since);
       if (!mounted) return;
-      final list = d['events'] is List ? d['events'] as List : const [];
+      final list = d['events'] is List ? d['events'] as List : [];
       final startedAt = (d['startedAt'] as num?)?.toInt();
       final now = (d['now'] as num?)?.toInt() ?? 0;
       var gotMsg = false;
@@ -381,11 +380,11 @@ class _TheatreScreenState extends State<TheatreScreen>
                                     children: [
                                       SizedBox(height: _playerOn ? 10 : 14),
                                       _statusLine(joined, guests, seats.length),
-                                      const SizedBox(height: 12),
+                                      SizedBox(height: 12),
                                       _playerOn
                                           ? _seatStrip(seats)
                                           : _seatRows(seats),
-                                      const SizedBox(height: 14),
+                                      SizedBox(height: 14),
                                       _controls(joined, mine),
                                     ],
                                   ),
@@ -414,12 +413,11 @@ class _TheatreScreenState extends State<TheatreScreen>
 
   /// The screen of the hall. Full width, drawn over the curtains on both sides.
   /// Shows the poster until the show starts, then the real player.
-  Widget _playerSlot(Movie? movie, String title, List<_Seat> seats,
-      bool joined, double height) {
+  Widget _playerSlot(Movie? movie, String title, List<_Seat> seats, bool joined,
+      double height) {
     final on = _playerOn && movie != null;
-    final watching = seats
-        .where((s) => s.state == 'host' || s.state == 'accepted')
-        .toList();
+    final watching =
+        seats.where((s) => s.state == 'host' || s.state == 'accepted').toList();
     return AnimatedBuilder(
       animation: _glow,
       builder: (_, child) => Container(
@@ -430,8 +428,8 @@ class _TheatreScreenState extends State<TheatreScreen>
           border: _immersive
               ? null
               : Border.symmetric(
-                  horizontal:
-                      BorderSide(color: _gold.withValues(alpha: .55), width: 1.2)),
+                  horizontal: BorderSide(
+                      color: _gold.withValues(alpha: .55), width: 1.2)),
           boxShadow: _immersive
               ? null
               : [
@@ -498,8 +496,9 @@ class _TheatreScreenState extends State<TheatreScreen>
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.forum_rounded, size: 14, color: _gold, shadows: _chatShadow),
-                      const SizedBox(width: 6),
+                      Icon(Icons.forum_rounded,
+                          size: 14, color: _gold, shadows: _chatShadow),
+                      SizedBox(width: 6),
                       Text('Room chat'.tr,
                           style: TextStyle(
                               fontSize: 11.5,
@@ -510,10 +509,12 @@ class _TheatreScreenState extends State<TheatreScreen>
                       InkWell(
                         onTap: _hideFloatChat,
                         borderRadius: BorderRadius.circular(14),
-                        child: const Padding(
+                        child: Padding(
                           padding: EdgeInsets.all(5),
                           child: Icon(Icons.close_rounded,
-                              size: 18, color: Colors.white, shadows: _chatShadow),
+                              size: 18,
+                              color: Colors.white,
+                              shadows: _chatShadow),
                         ),
                       ),
                     ],
@@ -521,22 +522,26 @@ class _TheatreScreenState extends State<TheatreScreen>
                   for (final m in recent)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Text.rich(maxLines: 2, overflow: TextOverflow.ellipsis, TextSpan(children: [
-                        TextSpan(
-                            text: m.email == _me
-                                ? 'You  '
-                                : '${m.name.split(' ').first}  ',
-                            style: TextStyle(
-                                color: m.email == _me ? _gold : Ui.redSoft,
-                                fontWeight: FontWeight.w900,
-                                shadows: _chatShadow,
-                                fontSize: 11.5)),
-                        TextSpan(
-                            text: m.text,
-                            style: const TextStyle(
-                                shadows: _chatShadow,
-                                fontSize: 12, color: Colors.white)),
-                      ])),
+                      child: Text.rich(
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          TextSpan(children: [
+                            TextSpan(
+                                text: m.email == _me
+                                    ? 'You  '
+                                    : '${m.name.split(' ').first}  ',
+                                style: TextStyle(
+                                    color: m.email == _me ? _gold : Ui.redSoft,
+                                    fontWeight: FontWeight.w900,
+                                    shadows: _chatShadow,
+                                    fontSize: 11.5)),
+                            TextSpan(
+                                text: m.text,
+                                style: const TextStyle(
+                                    shadows: _chatShadow,
+                                    fontSize: 12,
+                                    color: Colors.white)),
+                          ])),
                     ),
                 ],
               ),
@@ -587,9 +592,9 @@ class _TheatreScreenState extends State<TheatreScreen>
               ],
             ),
           ),
-          const SizedBox(width: 6),
-          const Icon(Icons.circle, size: 7, color: Color(0xFF4ADE80)),
-          const SizedBox(width: 5),
+          SizedBox(width: 6),
+          Icon(Icons.circle, size: 7, color: Color(0xFF4ADE80)),
+          SizedBox(width: 5),
           Text(
               watching.length > 1
                   ? '${watching.length} watching together'
@@ -614,7 +619,7 @@ class _TheatreScreenState extends State<TheatreScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(icon, size: 19, color: Colors.white),
-                const SizedBox(height: 3),
+                SizedBox(height: 3),
                 Text(label,
                     style: const TextStyle(fontSize: 9, color: Colors.white70)),
               ],
@@ -667,7 +672,7 @@ class _TheatreScreenState extends State<TheatreScreen>
           children: [
             IconButton(
               onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+              icon: Icon(Icons.arrow_back_rounded, color: Colors.white),
             ),
             Expanded(
               child: Column(
@@ -698,8 +703,8 @@ class _TheatreScreenState extends State<TheatreScreen>
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.circle, size: 8, color: Color(0xFF4ADE80)),
-                  const SizedBox(width: 6),
+                  Icon(Icons.circle, size: 8, color: Color(0xFF4ADE80)),
+                  SizedBox(width: 6),
                   Text('LIVE ROOM'.tr,
                       style: TextStyle(
                           color: Colors.white.withValues(alpha: .85),
@@ -749,7 +754,7 @@ class _TheatreScreenState extends State<TheatreScreen>
                       : Icons.theaters_rounded,
                   size: 46,
                   color: Colors.white.withValues(alpha: .92)),
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Text(title,
@@ -803,13 +808,12 @@ class _TheatreScreenState extends State<TheatreScreen>
         children: [
           for (var r = 0; r < count ~/ 5; r++)
             Padding(
-              padding: EdgeInsets.only(
-                  bottom: 8, left: r.isOdd ? 0 : 0, right: 0),
+              padding:
+                  EdgeInsets.only(bottom: 8, left: r.isOdd ? 0 : 0, right: 0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  for (var c = 0; c < 5; c++)
-                    _seatWidget(seats[r * 5 + c], r),
+                  for (var c = 0; c < 5; c++) _seatWidget(seats[r * 5 + c], r),
                 ],
               ),
             ),
@@ -883,10 +887,7 @@ class _TheatreScreenState extends State<TheatreScreen>
               ),
             ],
           ),
-          Text(
-              p.email.toLowerCase() == _me
-                  ? 'You'
-                  : p.name.split(' ').first,
+          Text(p.email.toLowerCase() == _me ? 'You' : p.name.split(' ').first,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -918,7 +919,7 @@ class _TheatreScreenState extends State<TheatreScreen>
           child: FilledButton.icon(
             onPressed: _busy ? null : onTap,
             icon: _busy
-                ? const SizedBox(
+                ? SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2))
@@ -944,7 +945,7 @@ class _TheatreScreenState extends State<TheatreScreen>
     final reactions = Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        for (final e in const ['🍿', '😂', '😮', '😢', '❤️', '👏'])
+        for (final e in ['🍿', '😂', '😮', '😢', '❤️', '👏'])
           InkWell(
             borderRadius: BorderRadius.circular(22),
             onTap: () => _react(e),
@@ -967,7 +968,7 @@ class _TheatreScreenState extends State<TheatreScreen>
         else
           big('Waiting for the host…', Icons.hourglass_top_rounded, null,
               gold: false),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         reactions,
       ],
     );
@@ -990,8 +991,8 @@ class _TheatreScreenState extends State<TheatreScreen>
               padding: const EdgeInsets.fromLTRB(16, 8, 12, 4),
               child: Row(
                 children: [
-                  const Icon(Icons.forum_rounded, size: 16, color: _gold),
-                  const SizedBox(width: 8),
+                  Icon(Icons.forum_rounded, size: 16, color: _gold),
+                  SizedBox(width: 8),
                   Text('Room chat'.tr,
                       style: TextStyle(
                           fontWeight: FontWeight.w900, fontSize: 13.5)),
@@ -1025,7 +1026,9 @@ class _TheatreScreenState extends State<TheatreScreen>
                           padding: const EdgeInsets.symmetric(vertical: 2),
                           child: Text.rich(TextSpan(children: [
                             TextSpan(
-                                text: mine ? 'You  ' : '${m.name.split(' ').first}  ',
+                                text: mine
+                                    ? 'You  '
+                                    : '${m.name.split(' ').first}  ',
                                 style: TextStyle(
                                     color: mine ? _gold : Ui.redSoft,
                                     fontWeight: FontWeight.w900,
@@ -1054,7 +1057,8 @@ class _TheatreScreenState extends State<TheatreScreen>
                     decoration: InputDecoration(
                       counterText: '',
                       isDense: true,
-                      hintText: joined ? 'Message the room' : 'Take a seat to chat',
+                      hintText:
+                          joined ? 'Message the room' : 'Take a seat to chat',
                       hintStyle: const TextStyle(color: Colors.white38),
                       filled: true,
                       fillColor: Colors.white.withValues(alpha: .08),
@@ -1066,12 +1070,12 @@ class _TheatreScreenState extends State<TheatreScreen>
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 IconButton.filled(
                   onPressed: joined ? _send : null,
                   style: IconButton.styleFrom(
                       backgroundColor: _gold, foregroundColor: Colors.black),
-                  icon: const Icon(Icons.send_rounded, size: 20),
+                  icon: Icon(Icons.send_rounded, size: 20),
                 ),
               ],
             ),
@@ -1094,7 +1098,7 @@ class _TheatreScreenState extends State<TheatreScreen>
                         letterSpacing: 3,
                         fontSize: 12,
                         fontWeight: FontWeight.w900)),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
                 TweenAnimationBuilder<double>(
                   key: ValueKey(_countdown),
                   tween: Tween(begin: 1.6, end: 1),
@@ -1109,7 +1113,7 @@ class _TheatreScreenState extends State<TheatreScreen>
                           color: Colors.white,
                           decoration: TextDecoration.none)),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Text('Press play together when the movie opens'.tr,
                     style: TextStyle(color: Colors.white60, fontSize: 12.5)),
               ],
@@ -1138,7 +1142,8 @@ class _FloatingEmoji extends StatelessWidget {
           curve: Curves.easeOut,
           builder: (_, t, child) => Transform.translate(
             offset: Offset(math.sin(t * 6) * 14, -size.height * .5 * t - 120),
-            child: Opacity(opacity: (1 - t).clamp(0.0, 1.0).toDouble(), child: child),
+            child: Opacity(
+                opacity: (1 - t).clamp(0.0, 1.0).toDouble(), child: child),
           ),
           child: Text(emoji,
               style: const TextStyle(
@@ -1198,8 +1203,12 @@ class _HallPainter extends CustomPainter {
             ..shader = LinearGradient(
               begin: left ? Alignment.centerLeft : Alignment.centerRight,
               end: left ? Alignment.centerRight : Alignment.centerLeft,
-              colors: [_velvetDark, _velvet.withValues(alpha: .85), _velvetDark.withValues(alpha: 0)],
-              stops: const [0, .6, 1],
+              colors: [
+                _velvetDark,
+                _velvet.withValues(alpha: .85),
+                _velvetDark.withValues(alpha: 0)
+              ],
+              stops: [0, .6, 1],
             ).createShader(rect));
       // Folds.
       final fold = Paint()
@@ -1215,7 +1224,10 @@ class _HallPainter extends CustomPainter {
     curtain(false);
 
     // Valance on top.
-    final valance = Path()..moveTo(0, 0)..lineTo(w, 0)..lineTo(w, h * .045);
+    final valance = Path()
+      ..moveTo(0, 0)
+      ..lineTo(w, 0)
+      ..lineTo(w, h * .045);
     const scallops = 7;
     for (var i = scallops; i > 0; i--) {
       final x1 = w * (i - .5) / scallops;

@@ -26,7 +26,8 @@ import '../widgets/app_drawer.dart';
 
 class MovieHomeScreen extends StatefulWidget {
   const MovieHomeScreen({super.key});
-  @override State<MovieHomeScreen> createState() => _MovieHomeScreenState();
+  @override
+  State<MovieHomeScreen> createState() => _MovieHomeScreenState();
 }
 
 class _MovieHomeScreenState extends State<MovieHomeScreen> {
@@ -57,7 +58,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   static const String _cachedTrendingKey = 'damimovies_tmdb_trending_cache_v2';
   static const String _cachedTopKey = 'damimovies_tmdb_top_cache_v2';
 
-  @override void initState() {
+  @override
+  void initState() {
     super.initState();
     MovieLibrary.instance.addListener(_syncLibrary);
     _loadHome();
@@ -76,7 +78,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
     });
   }
 
-  @override void dispose() {
+  @override
+  void dispose() {
     _heroAutoTimer?.cancel();
     _searchDebounce?.cancel();
     _searchRequestId++;
@@ -103,7 +106,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
       if (raw == null || raw.isEmpty) return [];
       final decoded = jsonDecode(raw);
       if (decoded is! List) return [];
-      return decoded.whereType<Map>()
+      return decoded
+          .whereType<Map>()
           .map((item) => Movie.fromJson(Map<String, dynamic>.from(item)))
           .toList();
     } catch (_) {
@@ -116,7 +120,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
     try {
       final prefs = await SharedPreferences.getInstance()
           .timeout(const Duration(seconds: 3));
-      await prefs.setString(key, jsonEncode(movies.map((m) => m.toJson()).toList()))
+      await prefs
+          .setString(key, jsonEncode(movies.map((m) => m.toJson()).toList()))
           .timeout(const Duration(seconds: 3));
     } catch (_) {}
   }
@@ -147,26 +152,30 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
     _searchDebounce?.cancel();
     if (query.isEmpty) return;
     final requestId = ++_searchRequestId;
-    if (mounted) setState(() {
-      _searchLoading = true;
-      _searchError = '';
-    });
+    if (mounted)
+      setState(() {
+        _searchLoading = true;
+        _searchError = '';
+      });
     try {
       final remote = await _tmdb.search(query).timeout(
-        const Duration(seconds: 20),
-        onTimeout: () => <Movie>[],
-      );
-      if (!mounted || requestId != _searchRequestId || query != _query.trim()) return;
+            const Duration(seconds: 20),
+            onTimeout: () => <Movie>[],
+          );
+      if (!mounted || requestId != _searchRequestId || query != _query.trim())
+        return;
       setState(() {
         _remoteSearchResults = remote;
         _searchLoading = false;
         _searchError = remote.isEmpty ? (_tmdb.lastError ?? '') : '';
       });
     } catch (_) {
-      if (!mounted || requestId != _searchRequestId || query != _query.trim()) return;
+      if (!mounted || requestId != _searchRequestId || query != _query.trim())
+        return;
       setState(() {
         _searchLoading = false;
-        _searchError = _tmdb.lastError ?? 'Could not search TMDB. Check your internet connection and retry.';
+        _searchError = _tmdb.lastError ??
+            'Could not search TMDB. Check your internet connection and retry.';
       });
     }
   }
@@ -187,7 +196,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   Future<void> _refreshLocalLibrary() async {
     try {
       await MovieLibrary.instance.load().timeout(const Duration(seconds: 5));
-      await MovieLibrary.instance.seedFromCatalogue(_local)
+      await MovieLibrary.instance
+          .seedFromCatalogue(_local)
           .timeout(const Duration(seconds: 4));
       final prefs = await SharedPreferences.getInstance()
           .timeout(const Duration(seconds: 3));
@@ -196,14 +206,19 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
             try {
               return Movie.fromJson(
                   Map<String, dynamic>.from(jsonDecode(value) as Map));
-            } catch (_) { return null; }
-          }).whereType<Movie>().toList();
-      if (mounted) setState(() {
-        _saved = MovieLibrary.instance.saved.map((m) => m.key).toSet();
-        _continueWatching = MovieLibrary.instance.history.isNotEmpty
-            ? MovieLibrary.instance.history
-            : legacyContinue;
-      });
+            } catch (_) {
+              return null;
+            }
+          })
+          .whereType<Movie>()
+          .toList();
+      if (mounted)
+        setState(() {
+          _saved = MovieLibrary.instance.saved.map((m) => m.key).toSet();
+          _continueWatching = MovieLibrary.instance.history.isNotEmpty
+              ? MovieLibrary.instance.history
+              : legacyContinue;
+        });
     } catch (_) {
       // History/watchlist are optional and never block movie opening.
     }
@@ -212,14 +227,16 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   Future<void> _loadHome() async {
     if (_homeRequestInFlight) return;
     _homeRequestInFlight = true;
-    if (mounted) setState(() {
-      _tmdbLoading = true;
-      _tmdbError = '';
-    });
+    if (mounted)
+      setState(() {
+        _tmdbLoading = true;
+        _tmdbError = '';
+      });
     try {
       // Read the packaged movie catalogue first, independent of TMDB.
       try {
-        final raw = await rootBundle.loadString('assets/data/movies.json')
+        final raw = await rootBundle
+            .loadString('assets/data/movies.json')
             .timeout(const Duration(seconds: 5));
         final decoded = jsonDecode(raw);
         final list = decoded is List
@@ -227,10 +244,16 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
             : (decoded is Map && decoded['movies'] is List
                 ? decoded['movies'] as List
                 : <dynamic>[]);
-        final localMovies = list.whereType<Map>()
+        final localMovies = list
+            .whereType<Map>()
             .map((e) => Movie.fromJson(Map<String, dynamic>.from(e)))
-            .where((movie) => movie.name.isNotEmpty).toList();
-        if (mounted) setState(() { _local = localMovies; _loading = false; });
+            .where((movie) => movie.name.isNotEmpty)
+            .toList();
+        if (mounted)
+          setState(() {
+            _local = localMovies;
+            _loading = false;
+          });
       } catch (_) {
         if (mounted) setState(() => _loading = false);
       }
@@ -239,15 +262,17 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
       final cached = await Future.wait<List<Movie>>([
         _readMovieCache(_cachedTrendingKey),
         _readMovieCache(_cachedTopKey),
-      ]).timeout(const Duration(seconds: 4), onTimeout: () => <List<Movie>>[[], []]);
+      ]).timeout(const Duration(seconds: 4),
+          onTimeout: () => <List<Movie>>[[], []]);
       final cachedTrending = cached[0];
       final cachedTop = cached[1];
       if (mounted && (cachedTrending.isNotEmpty || cachedTop.isNotEmpty)) {
         setState(() {
           if (_trending.isEmpty) _trending = cachedTrending;
-          if (_top10.isEmpty) _top10 = cachedTop.isNotEmpty
-              ? cachedTop.take(10).toList()
-              : cachedTrending.take(10).toList();
+          if (_top10.isEmpty)
+            _top10 = cachedTop.isNotEmpty
+                ? cachedTop.take(10).toList()
+                : cachedTrending.take(10).toList();
         });
         _resetHeroCarousel();
       }
@@ -262,8 +287,9 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
       // row as soon as it arrives, then enrich the other rows afterward.
       List<Movie> trending = [];
       try {
-        trending = await _tmdb.trending().timeout(
-          const Duration(seconds: 17), onTimeout: () => <Movie>[]);
+        trending = await _tmdb
+            .trending()
+            .timeout(const Duration(seconds: 17), onTimeout: () => <Movie>[]);
       } catch (_) {}
 
       if (!mounted) return;
@@ -271,7 +297,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
         setState(() {
           _tmdbLoading = false;
           _tmdbAvailable = false;
-          _tmdbError = _tmdb.lastError ?? 'TMDB did not return any movies. Tap Retry.';
+          _tmdbError =
+              _tmdb.lastError ?? 'TMDB did not return any movies. Tap Retry.';
           if (_top10.isEmpty) _top10 = _local.take(10).toList();
         });
         return;
@@ -292,26 +319,34 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
       // Top-rated movies and trailer metadata are secondary loads. A failure
       // here must not hide already-visible trending results or disable taps.
       try {
-        final topRated = await _tmdb.topRated().timeout(
-          const Duration(seconds: 16), onTimeout: () => <Movie>[]);
+        final topRated = await _tmdb
+            .topRated()
+            .timeout(const Duration(seconds: 16), onTimeout: () => <Movie>[]);
         if (mounted && topRated.isNotEmpty) {
           final top = topRated.take(10).toList();
-          setState(() { _top10 = top; _tmdbAvailable = true; });
+          setState(() {
+            _top10 = top;
+            _tmdbAvailable = true;
+          });
           unawaited(_writeMovieCache(_cachedTopKey, top));
         }
       } catch (_) {}
 
       try {
         final trailers = await _tmdb.latestTrailers().timeout(
-          const Duration(seconds: 16), onTimeout: () => <TmdbTrailer>[]);
-        if (mounted && trailers.isNotEmpty) setState(() => _trailers = trailers);
+            const Duration(seconds: 16),
+            onTimeout: () => <TmdbTrailer>[]);
+        if (mounted && trailers.isNotEmpty)
+          setState(() => _trailers = trailers);
       } catch (_) {}
     } catch (error) {
-      if (mounted) setState(() {
-        _tmdbLoading = false;
-        _tmdbAvailable = _trending.isNotEmpty || _top10.isNotEmpty;
-        _tmdbError = _tmdb.lastError ?? 'Could not connect to TMDB. Tap Retry.';
-      });
+      if (mounted)
+        setState(() {
+          _tmdbLoading = false;
+          _tmdbAvailable = _trending.isNotEmpty || _top10.isNotEmpty;
+          _tmdbError =
+              _tmdb.lastError ?? 'Could not connect to TMDB. Tap Retry.';
+        });
     } finally {
       _homeRequestInFlight = false;
     }
@@ -320,28 +355,36 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   Future<void> _toggleSaved(Movie movie) async {
     // Update the icon immediately; disk persistence is best-effort background work.
     final shouldSave = !_saved.contains(movie.key);
-    if (mounted) setState(() {
-      if (shouldSave) { _saved.add(movie.key); } else { _saved.remove(movie.key); }
-    });
+    if (mounted)
+      setState(() {
+        if (shouldSave) {
+          _saved.add(movie.key);
+        } else {
+          _saved.remove(movie.key);
+        }
+      });
     try {
       await MovieLibrary.instance.load().timeout(const Duration(seconds: 4));
       final alreadySaved = MovieLibrary.instance.isSaved(movie);
       if (alreadySaved != shouldSave) {
-        await MovieLibrary.instance.toggleSaved(movie)
+        await MovieLibrary.instance
+            .toggleSaved(movie)
             .timeout(const Duration(seconds: 4));
       }
     } catch (_) {}
     try {
       final prefs = await SharedPreferences.getInstance()
           .timeout(const Duration(seconds: 3));
-      await prefs.setStringList('damimovies_watchlist', _saved.toList())
+      await prefs
+          .setStringList('damimovies_watchlist', _saved.toList())
           .timeout(const Duration(seconds: 3));
     } catch (_) {}
   }
 
   Future<void> _seedCatalogueSafely(Iterable<Movie> movies) async {
     try {
-      await MovieLibrary.instance.seedFromCatalogue(movies)
+      await MovieLibrary.instance
+          .seedFromCatalogue(movies)
           .timeout(const Duration(seconds: 4));
     } catch (_) {}
   }
@@ -354,9 +397,10 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
 
   Future<void> _openNow(Movie movie) async {
     if (!mounted) return;
-    final recent = <Movie>[movie,
-      ..._continueWatching.where((m) => m.key != movie.key)]
-        .take(12).toList();
+    final recent = <Movie>[
+      movie,
+      ..._continueWatching.where((m) => m.key != movie.key)
+    ].take(12).toList();
     setState(() => _continueWatching = recent);
     // Push first; shared-preference or history storage must never make a tap
     // look dead when opening a title.
@@ -365,21 +409,25 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
       builder: (_) => MovieDetailScreen(
         movie: movie,
         saved: _saved.contains(movie.key),
-        onToggleSaved: () async { await _toggleSaved(movie); },
+        onToggleSaved: () async {
+          await _toggleSaved(movie);
+        },
       ),
     ));
   }
 
   Future<void> _persistOpenedMovie(Movie movie, List<Movie> recent) async {
     try {
-      await MovieLibrary.instance.recordOpened(movie)
+      await MovieLibrary.instance
+          .recordOpened(movie)
           .timeout(const Duration(seconds: 4));
     } catch (_) {}
     try {
       final prefs = await SharedPreferences.getInstance()
           .timeout(const Duration(seconds: 3));
-      await prefs.setStringList('damimovies_continue',
-        recent.map((m) => jsonEncode(m.toJson())).toList())
+      await prefs
+          .setStringList('damimovies_continue',
+              recent.map((m) => jsonEncode(m.toJson())).toList())
           .timeout(const Duration(seconds: 3));
     } catch (_) {}
   }
@@ -391,9 +439,10 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
 
   void _playNowAfterAd(Movie movie) {
     if (!mounted) return;
-    final recent = <Movie>[movie,
-      ..._continueWatching.where((m) => m.key != movie.key)]
-        .take(12).toList();
+    final recent = <Movie>[
+      movie,
+      ..._continueWatching.where((m) => m.key != movie.key)
+    ].take(12).toList();
     setState(() => _continueWatching = recent);
     unawaited(_persistOpenedMovie(movie, recent));
     Navigator.of(context).push(MaterialPageRoute(
@@ -420,6 +469,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
       }
     });
   }
+
   List<Movie> get _searchResults {
     final query = _query.trim().toLowerCase();
     final remoteKeys = _remoteSearchResults.map((movie) => movie.key).toSet();
@@ -437,23 +487,46 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
         // TMDB relevance matches may include alternative/original titles that
         // are not visible in the display title, so don't filter remote matches
         // a second time using local substring matching.
-        .where((movie) => query.isEmpty || remoteKeys.contains(movie.key) ||
+        .where((movie) =>
+            query.isEmpty ||
+            remoteKeys.contains(movie.key) ||
             '${movie.title} ${movie.genre}'.toLowerCase().contains(query))
-        .where((movie) => _typeFilter == 'All' ||
+        .where((movie) =>
+            _typeFilter == 'All' ||
             (_typeFilter == 'Series' ? movie.isSeries : !movie.isSeries))
-        .where((movie) => _genreFilter == null || movie.genres.any(
-            (genre) => genre.toLowerCase() == _genreFilter!.toLowerCase()))
+        .where((movie) =>
+            _genreFilter == null ||
+            movie.genres.any(
+                (genre) => genre.toLowerCase() == _genreFilter!.toLowerCase()))
         .where((movie) => !_watchlistOnly || _saved.contains(movie.key))
         .toList();
   }
 
   Future<void> _selectGenre(String? genre) async {
-    setState(() { _genreFilter = genre; _genreLoading = genre != null; });
-    if (genre == null) { if (mounted) setState(() { _genreResults = []; _genreLoading = false; }); return; }
+    setState(() {
+      _genreFilter = genre;
+      _genreLoading = genre != null;
+    });
+    if (genre == null) {
+      if (mounted)
+        setState(() {
+          _genreResults = [];
+          _genreLoading = false;
+        });
+      return;
+    }
     try {
-      final rows = await _tmdb.discover(genre).timeout(const Duration(seconds: 10), onTimeout: () => <Movie>[]);
-      if (mounted && _genreFilter == genre) setState(() { _genreResults = rows; _genreLoading = false; });
-    } catch (_) { if (mounted) setState(() => _genreLoading = false); }
+      final rows = await _tmdb
+          .discover(genre)
+          .timeout(const Duration(seconds: 10), onTimeout: () => <Movie>[]);
+      if (mounted && _genreFilter == genre)
+        setState(() {
+          _genreResults = rows;
+          _genreLoading = false;
+        });
+    } catch (_) {
+      if (mounted) setState(() => _genreLoading = false);
+    }
   }
 
   void _openSearch() => setState(() => _searchOpen = true);
@@ -475,21 +548,35 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
       );
 
   Widget _brandHeader() => Row(children: [
-          InkWell(
+        InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => _scaffoldKey.currentState?.openDrawer(),
+          child: _circleIcon(Icons.menu_rounded),
+        ),
+        SizedBox(width: 12),
+        Image.asset('assets/icon/home_logo.png',
+            width: 44, height: 44, fit: BoxFit.contain),
+        SizedBox(width: 11),
+        Expanded(
+            child: Text('DamiMovies'.tr,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 23,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -.7))),
+        InkWell(
             customBorder: const CircleBorder(),
-            onTap: () => _scaffoldKey.currentState?.openDrawer(),
-            child: _circleIcon(Icons.menu_rounded),
-          ),
-        const SizedBox(width: 12),
-        Image.asset('assets/icon/home_logo.png', width: 44, height: 44, fit: BoxFit.contain),
-        const SizedBox(width: 11),
-        const Expanded(child: Text('DamiMovies'.tr, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: -.7))),
-        InkWell(customBorder: const CircleBorder(), onTap: _openSearch, child: _circleIcon(Icons.search_rounded)),
+            onTap: _openSearch,
+            child: _circleIcon(Icons.search_rounded)),
       ]);
 
   Widget _searchHeader() => Row(children: [
-        InkWell(customBorder: const CircleBorder(), onTap: _closeSearch, child: _circleIcon(Icons.arrow_back_rounded)),
-        const SizedBox(width: 12),
+        InkWell(
+            customBorder: const CircleBorder(),
+            onTap: _closeSearch,
+            child: _circleIcon(Icons.arrow_back_rounded)),
+        SizedBox(width: 12),
         Expanded(
           child: TextField(
             controller: _search,
@@ -501,30 +588,101 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
               hintText: 'Search movies on DamiMovies...'.tr,
               suffixIcon: _query.isEmpty
                   ? null
-                  : IconButton(tooltip: 'Clear search', onPressed: _clearSearch, icon: const Icon(Icons.close)),
+                  : IconButton(
+                      tooltip: 'Clear search',
+                      onPressed: _clearSearch,
+                      icon: Icon(Icons.close)),
               filled: true,
               fillColor: appSurface,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide.none),
             ),
           ),
         ),
       ]);
 
-  @override Widget build(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     final searching = _query.trim().isNotEmpty || _watchlistOnly;
     final results = _searchResults;
     return Scaffold(
       key: _scaffoldKey,
       drawer: const AppDrawer(),
-      body: SafeArea(child: CustomScrollView(slivers: [
-        SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 14), child: _searchOpen ? _searchHeader() : _brandHeader())),
-        SliverToBoxAdapter(child: SizedBox(height: 42, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 17), children: [
-          for (final type in ['All', 'Movies', 'Series']) Padding(padding: const EdgeInsets.only(right: 7), child: ChoiceChip(label: Text(type.tr), selected: _typeFilter == (type == 'Movies' ? 'Movies' : type), onSelected: (_) => setState(() => _typeFilter = type), selectedColor: appRed.withValues(alpha: .2), side: BorderSide(color: _typeFilter == type ? appRed : Colors.white12), labelStyle: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: _typeFilter == type ? Colors.white : Colors.white60))),
-          const SizedBox(width: 3),
-          for (final genre in ['Action','Adventure','Animation','Comedy','Crime','Drama','Fantasy','Horror','Mystery','Romance','Sci-Fi','Thriller']) Padding(padding: const EdgeInsets.only(right: 7), child: ChoiceChip(label: Text(genre), selected: _genreFilter == genre, onSelected: (_) => _selectGenre(_genreFilter == genre ? null : genre), selectedColor: appRed.withValues(alpha: .2), side: BorderSide(color: _genreFilter == genre ? appRed : Colors.white12), labelStyle: TextStyle(fontSize: 11, color: _genreFilter == genre ? Colors.white : Colors.white60))),
-        ]))),
-        if (_genreLoading) SliverToBoxAdapter(child: LinearProgressIndicator(minHeight: 2, color: appRed, backgroundColor: Colors.white10)),
+      body: SafeArea(
+          child: CustomScrollView(slivers: [
+        SliverToBoxAdapter(
+            child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                child: _searchOpen ? _searchHeader() : _brandHeader())),
+        SliverToBoxAdapter(
+            child: SizedBox(
+                height: 42,
+                child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 17),
+                    children: [
+                      for (final type in ['All', 'Movies', 'Series'])
+                        Padding(
+                            padding: const EdgeInsets.only(right: 7),
+                            child: ChoiceChip(
+                                label: Text(type.tr),
+                                selected: _typeFilter ==
+                                    (type == 'Movies' ? 'Movies' : type),
+                                onSelected: (_) =>
+                                    setState(() => _typeFilter = type),
+                                selectedColor: appRed.withValues(alpha: .2),
+                                side: BorderSide(
+                                    color: _typeFilter == type
+                                        ? appRed
+                                        : Colors.white12),
+                                labelStyle: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 11,
+                                    color: _typeFilter == type
+                                        ? Colors.white
+                                        : Colors.white60))),
+                      SizedBox(width: 3),
+                      for (final genre in [
+                        'Action',
+                        'Adventure',
+                        'Animation',
+                        'Comedy',
+                        'Crime',
+                        'Drama',
+                        'Fantasy',
+                        'Horror',
+                        'Mystery',
+                        'Romance',
+                        'Sci-Fi',
+                        'Thriller'
+                      ])
+                        Padding(
+                            padding: const EdgeInsets.only(right: 7),
+                            child: ChoiceChip(
+                                label: Text(genre),
+                                selected: _genreFilter == genre,
+                                onSelected: (_) => _selectGenre(
+                                    _genreFilter == genre ? null : genre),
+                                selectedColor: appRed.withValues(alpha: .2),
+                                side: BorderSide(
+                                    color: _genreFilter == genre
+                                        ? appRed
+                                        : Colors.white12),
+                                labelStyle: TextStyle(
+                                    fontSize: 11,
+                                    color: _genreFilter == genre
+                                        ? Colors.white
+                                        : Colors.white60))),
+                    ]))),
+        if (_genreLoading)
+          SliverToBoxAdapter(
+              child: LinearProgressIndicator(
+                  minHeight: 2,
+                  color: appRed,
+                  backgroundColor: Colors.white10)),
         if (searching || _genreFilter != null || _typeFilter != 'All') ...[
           SliverToBoxAdapter(
             child: _sectionTitle(
@@ -554,7 +712,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                   child: Column(
                     children: [
                       const CircularProgressIndicator(),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
                       Text('Searching TMDB for “${_query.trim()}”…',
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: Colors.white60)),
@@ -575,16 +733,16 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                   ),
                   child: Column(
                     children: [
-                      const Icon(Icons.cloud_off_rounded,
+                      Icon(Icons.cloud_off_rounded,
                           size: 34, color: Colors.white54),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       Text('TMDB search failed: $_searchError',
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: Colors.white70)),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       FilledButton.icon(
                         onPressed: () => _runRemoteSearch(_query),
-                        icon: const Icon(Icons.refresh_rounded),
+                        icon: Icon(Icons.refresh_rounded),
                         label: Text('Retry search'.tr),
                       ),
                     ],
@@ -612,8 +770,10 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-                  child: Text('TMDB unavailable: $_searchError. Showing matching saved titles.',
-                      style: const TextStyle(color: Colors.orangeAccent, fontSize: 11)),
+                  child: Text(
+                      'TMDB unavailable: $_searchError. Showing matching saved titles.',
+                      style: const TextStyle(
+                          color: Colors.orangeAccent, fontSize: 11)),
                 ),
               ),
             SliverPadding(
@@ -633,26 +793,40 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
             ),
           ],
         ] else ...[
-          if (_heroMovies.isNotEmpty) SliverToBoxAdapter(child: _heroCarousel(_heroMovies)),
+          if (_heroMovies.isNotEmpty)
+            SliverToBoxAdapter(child: _heroCarousel(_heroMovies)),
           if (_top10.isNotEmpty)
             SliverToBoxAdapter(child: _topTenRail())
           else if (_local.isNotEmpty)
-            SliverToBoxAdapter(child: _movieRail(_tmdbLoading ? 'Popular Movies' : 'Movie Picks', _local.take(10).toList())),
-          if (_continueWatching.isNotEmpty) SliverToBoxAdapter(child: _movieRail('Continue Watching', _continueWatching, showProgress: true)),
-          if (_trending.isNotEmpty) SliverToBoxAdapter(child: _movieRail('Trending Movies', _trending)),
+            SliverToBoxAdapter(
+                child: _movieRail(
+                    _tmdbLoading ? 'Popular Movies' : 'Movie Picks',
+                    _local.take(10).toList())),
+          if (_continueWatching.isNotEmpty)
+            SliverToBoxAdapter(
+                child: _movieRail('Continue Watching', _continueWatching,
+                    showProgress: true)),
+          if (_trending.isNotEmpty)
+            SliverToBoxAdapter(child: _movieRail('Trending Movies', _trending)),
           if (_trailers.isNotEmpty) SliverToBoxAdapter(child: _trailerRail()),
           if (_loading && _local.isEmpty)
-            SliverToBoxAdapter(child: const Padding(padding: EdgeInsets.all(30), child: Center(child: CircularProgressIndicator()))),
+            SliverToBoxAdapter(
+                child: Padding(
+                    padding: EdgeInsets.all(30),
+                    child: Center(child: CircularProgressIndicator()))),
           if (!_tmdbLoading && !_tmdbAvailable)
-            SliverToBoxAdapter(child: Padding(
+            SliverToBoxAdapter(
+                child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
               child: Container(
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(16)),
+                decoration: BoxDecoration(
+                    color: appSurface, borderRadius: BorderRadius.circular(16)),
                 child: Row(children: [
-                  const Icon(Icons.cloud_off_rounded, color: Colors.white60),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(
+                  Icon(Icons.cloud_off_rounded, color: Colors.white60),
+                  SizedBox(width: 10),
+                  Expanded(
+                      child: Text(
                     _tmdbError.isEmpty
                         ? 'TMDB is unavailable. Showing your saved movie catalogue.'
                         : 'TMDB unavailable: $_tmdbError Showing your saved catalogue.',
@@ -663,13 +837,17 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
               ),
             )),
           if (!_loading && _local.isEmpty && !_tmdbLoading && !_tmdbAvailable)
-            SliverToBoxAdapter(child: Padding(
+            SliverToBoxAdapter(
+                child: Padding(
               padding: const EdgeInsets.all(28),
-              child: Center(child: Column(children: [
-                const Icon(Icons.movie_filter_outlined, size: 42, color: Colors.white54),
-                const SizedBox(height: 10),
-                Text('No movies could be loaded.'.tr, style: TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
+              child: Center(
+                  child: Column(children: [
+                Icon(Icons.movie_filter_outlined,
+                    size: 42, color: Colors.white54),
+                SizedBox(height: 10),
+                Text('No movies could be loaded.'.tr,
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+                SizedBox(height: 8),
                 FilledButton(onPressed: _loadHome, child: Text('Try again'.tr)),
               ])),
             )),
@@ -679,7 +857,19 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
     );
   }
 
-  Widget _sectionTitle(String title, [String? subtitle]) => Padding(padding: const EdgeInsets.fromLTRB(18, 8, 18, 13), child: Row(children: [Expanded(child: Text(title.tr, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -.3))), if (subtitle != null) Text(subtitle.tr, style: const TextStyle(color: Colors.white54, fontSize: 11))]));
+  Widget _sectionTitle(String title, [String? subtitle]) => Padding(
+      padding: const EdgeInsets.fromLTRB(18, 8, 18, 13),
+      child: Row(children: [
+        Expanded(
+            child: Text(title.tr,
+                style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -.3))),
+        if (subtitle != null)
+          Text(subtitle.tr,
+              style: const TextStyle(color: Colors.white54, fontSize: 11))
+      ]));
 
   Widget _heroCarousel(List<Movie> movies) {
     return Padding(
@@ -695,11 +885,12 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
               onPageChanged: (index) {
                 if (mounted) setState(() => _heroPage = index);
               },
-              itemBuilder: (context, index) => _heroSlide(movies[index], index, movies.length),
+              itemBuilder: (context, index) =>
+                  _heroSlide(movies[index], index, movies.length),
             ),
           ),
           if (movies.length > 1) ...[
-            const SizedBox(height: 13),
+            SizedBox(height: 13),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(movies.length, (index) {
@@ -730,7 +921,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   }
 
   Widget _heroSlide(Movie movie, int index, int total) {
-    final backdrop = movie.backdrop.startsWith('http') ? movie.backdrop : movie.image;
+    final backdrop =
+        movie.backdrop.startsWith('http') ? movie.backdrop : movie.image;
     return GestureDetector(
       onTap: () => _open(movie),
       child: Container(
@@ -756,7 +948,11 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0x11000000), Color(0x44000000), Color(0xF2080B10)],
+                  colors: [
+                    Color(0x11000000),
+                    Color(0x44000000),
+                    Color(0xF2080B10)
+                  ],
                   stops: [0, .35, 1],
                 ),
               ),
@@ -765,14 +961,22 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
               top: 16,
               left: 16,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-                decoration: BoxDecoration(color: appRed, borderRadius: BorderRadius.circular(9)),
-                child: const Row(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+                decoration: BoxDecoration(
+                    color: appRed, borderRadius: BorderRadius.circular(9)),
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.local_fire_department_rounded, size: 15, color: Colors.white),
+                    Icon(Icons.local_fire_department_rounded,
+                        size: 15, color: Colors.white),
                     SizedBox(width: 5),
-                    Text('TRENDING NOW'.tr, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: .8, color: Colors.white)),
+                    Text('TRENDING NOW'.tr,
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: .8,
+                            color: Colors.white)),
                   ],
                 ),
               ),
@@ -782,10 +986,15 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
               right: 16,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-                decoration: BoxDecoration(color: Colors.black.withValues(alpha: .55), borderRadius: BorderRadius.circular(20)),
+                decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: .55),
+                    borderRadius: BorderRadius.circular(20)),
                 child: Text(
                   '${index + 1} / $total',
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
+                  style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white),
                 ),
               ),
             ),
@@ -800,40 +1009,71 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                     movie.genres.take(3).join('  •  ').toUpperCase(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Color(0xFFFFB8C5), fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1),
+                    style: const TextStyle(
+                        color: Color(0xFFFFB8C5),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1),
                   ),
-                  const SizedBox(height: 9),
+                  SizedBox(height: 9),
                   Text(
                     movie.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 31, height: 1.02, fontWeight: FontWeight.w900, letterSpacing: -.7),
+                    style: const TextStyle(
+                        fontSize: 31,
+                        height: 1.02,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -.7),
                   ),
-                  const SizedBox(height: 9),
+                  SizedBox(height: 9),
                   Row(
                     children: [
-                      const Icon(Icons.star_rounded, color: Color(0xFFFFC857), size: 18),
-                      const SizedBox(width: 4),
-                      Text(movie.rating.isEmpty ? 'Trending on TMDB' : '${movie.rating} / 10', style: const TextStyle(fontSize: 12, color: Colors.white70)),
-                      const SizedBox(width: 9),
-                      if (movie.year.isNotEmpty) Text(movie.year, style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                      Icon(Icons.star_rounded,
+                          color: Color(0xFFFFC857), size: 18),
+                      SizedBox(width: 4),
+                      Text(
+                          movie.rating.isEmpty
+                              ? 'Trending on TMDB'
+                              : '${movie.rating} / 10',
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.white70)),
+                      SizedBox(width: 9),
+                      if (movie.year.isNotEmpty)
+                        Text(movie.year,
+                            style: const TextStyle(
+                                color: Colors.white60, fontSize: 12)),
                     ],
                   ),
-                  const SizedBox(height: 15),
+                  SizedBox(height: 15),
                   Row(
                     children: [
                       FilledButton.icon(
-                        style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 19, vertical: 12)),
+                        style: FilledButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 19, vertical: 12)),
                         onPressed: () => _playNow(movie),
-                        icon: const Icon(Icons.play_arrow_rounded),
-                        label: Text('Play'.tr, style: const TextStyle(fontWeight: FontWeight.w900)),
+                        icon: Icon(Icons.play_arrow_rounded),
+                        label: Text('Play'.tr,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w900)),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10),
                       OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white54), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                        style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white54),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 12)),
                         onPressed: () => _toggleSaved(movie),
-                        icon: Icon(_saved.contains(movie.key) ? Icons.bookmark : Icons.add),
-                        label: Text(_saved.contains(movie.key) ? 'Saved' : 'My List'.tr),
+                        icon: Icon(_saved.contains(movie.key)
+                            ? Icons.bookmark
+                            : Icons.add),
+                        label: Text(_saved.contains(movie.key)
+                            ? 'Saved'
+                            : 'My List'.tr),
                       ),
                     ],
                   ),
@@ -846,22 +1086,121 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
     );
   }
 
-  Widget _movieRail(String title, List<Movie> movies, {bool showProgress = false}) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    _sectionTitle(title.tr, title == 'Continue Watching' ? 'Pick up again'.tr : null),
-    SizedBox(height: showProgress ? 202 : 220, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 17), scrollDirection: Axis.horizontal, itemCount: movies.length, separatorBuilder: (_, __) => const SizedBox(width: 12), itemBuilder: (_, i) => SizedBox(width: 128, child: GestureDetector(onTap: () => _open(movies[i]), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Expanded(child: Stack(fit: StackFit.expand, children: [ClipRRect(borderRadius: BorderRadius.circular(15), child: _image(movies[i].image)), Positioned(right: 7, top: 7, child: _bookmarkButton(movies[i])), if (showProgress && MovieLibrary.instance.progressFor(movies[i]) > 0) Positioned(left: 0, right: 0, bottom: 0, child: LinearProgressIndicator(value: MovieLibrary.instance.progressFor(movies[i]), minHeight: 4, backgroundColor: Colors.white24, color: appRed))])),
-      const SizedBox(height: 8), Text(movies[i].title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, height: 1.2)),
-      if (showProgress) const Padding(padding: EdgeInsets.only(top: 4), child: Text('Continue watching'.tr, style: TextStyle(color: Colors.white54, fontSize: 10))),
-    ]))))), const SizedBox(height: 7)]);
+  Widget _movieRail(String title, List<Movie> movies,
+          {bool showProgress = false}) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _sectionTitle(
+            title.tr, title == 'Continue Watching' ? 'Pick up again'.tr : null),
+        SizedBox(
+            height: showProgress ? 202 : 220,
+            child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 17),
+                scrollDirection: Axis.horizontal,
+                itemCount: movies.length,
+                separatorBuilder: (_, __) => SizedBox(width: 12),
+                itemBuilder: (_, i) => SizedBox(
+                    width: 128,
+                    child: GestureDetector(
+                        onTap: () => _open(movies[i]),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                  child: Stack(fit: StackFit.expand, children: [
+                                ClipRRect(
+                                    borderRadius: BorderRadius.circular(15),
+                                    child: _image(movies[i].image)),
+                                Positioned(
+                                    right: 7,
+                                    top: 7,
+                                    child: _bookmarkButton(movies[i])),
+                                if (showProgress &&
+                                    MovieLibrary.instance
+                                            .progressFor(movies[i]) >
+                                        0)
+                                  Positioned(
+                                      left: 0,
+                                      right: 0,
+                                      bottom: 0,
+                                      child: LinearProgressIndicator(
+                                          value: MovieLibrary.instance
+                                              .progressFor(movies[i]),
+                                          minHeight: 4,
+                                          backgroundColor: Colors.white24,
+                                          color: appRed))
+                              ])),
+                              SizedBox(height: 8),
+                              Text(movies[i].title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.2)),
+                              if (showProgress)
+                                Padding(
+                                    padding: EdgeInsets.only(top: 4),
+                                    child: Text('Continue watching'.tr,
+                                        style: TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 10))),
+                            ]))))),
+        SizedBox(height: 7)
+      ]);
 
-  Widget _topTenRail() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    _sectionTitle('Top 10 Today'),
-    SizedBox(height: 218, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 15), scrollDirection: Axis.horizontal, itemCount: _top10.length, separatorBuilder: (_, __) => const SizedBox(width: 5), itemBuilder: (_, i) => SizedBox(width: 142, child: GestureDetector(onTap: () => _open(_top10[i]), child: Stack(clipBehavior: Clip.none, children: [
-      Positioned(left: 28, right: 0, top: 2, bottom: 0, child: ClipRRect(borderRadius: BorderRadius.circular(14), child: _image(_top10[i].image))),
-      Positioned(left: 0, bottom: -7, child: Text('${i + 1}', style: TextStyle(fontSize: 96, height: 1, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 3..color = appBg))),
-      Positioned(left: 0, bottom: -7, child: Text('${i + 1}', style: const TextStyle(fontSize: 96, height: 1, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, color: Colors.white))),
-      Positioned(top: 9, right: 7, child: _bookmarkButton(_top10[i])),
-    ]))))), const SizedBox(height: 17)]);
+  Widget _topTenRail() =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _sectionTitle('Top 10 Today'),
+        SizedBox(
+            height: 218,
+            child: ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 15),
+                scrollDirection: Axis.horizontal,
+                itemCount: _top10.length,
+                separatorBuilder: (_, __) => SizedBox(width: 5),
+                itemBuilder: (_, i) => SizedBox(
+                    width: 142,
+                    child: GestureDetector(
+                        onTap: () => _open(_top10[i]),
+                        child: Stack(clipBehavior: Clip.none, children: [
+                          Positioned(
+                              left: 28,
+                              right: 0,
+                              top: 2,
+                              bottom: 0,
+                              child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: _image(_top10[i].image))),
+                          Positioned(
+                              left: 0,
+                              bottom: -7,
+                              child: Text('${i + 1}',
+                                  style: TextStyle(
+                                      fontSize: 96,
+                                      height: 1,
+                                      fontWeight: FontWeight.w900,
+                                      fontStyle: FontStyle.italic,
+                                      foreground: Paint()
+                                        ..style = PaintingStyle.stroke
+                                        ..strokeWidth = 3
+                                        ..color = appBg))),
+                          Positioned(
+                              left: 0,
+                              bottom: -7,
+                              child: Text('${i + 1}',
+                                  style: const TextStyle(
+                                      fontSize: 96,
+                                      height: 1,
+                                      fontWeight: FontWeight.w900,
+                                      fontStyle: FontStyle.italic,
+                                      color: Colors.white))),
+                          Positioned(
+                              top: 9,
+                              right: 7,
+                              child: _bookmarkButton(_top10[i])),
+                        ]))))),
+        SizedBox(height: 17)
+      ]);
 
   Widget _trailerRail() => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -873,7 +1212,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 17),
               scrollDirection: Axis.horizontal,
               itemCount: _trailers.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              separatorBuilder: (_, __) => SizedBox(width: 12),
               itemBuilder: (_, i) {
                 final trailer = _trailers[i];
                 return SizedBox(
@@ -908,7 +1247,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                                     ),
                                   ),
                                 ),
-                                const Center(
+                                Center(
                                   child: Icon(
                                     Icons.play_circle_fill_rounded,
                                     color: Colors.white,
@@ -927,7 +1266,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                                       color: appRed,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Text(
+                                    child: Text(
                                       'TRAILER',
                                       style: TextStyle(
                                         fontSize: 9,
@@ -940,7 +1279,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 7),
+                        SizedBox(height: 7),
                         Text(
                           trailer.title,
                           maxLines: 1,
@@ -957,12 +1296,68 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
               },
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
         ],
       );
 
-  Widget _poster(Movie movie) => GestureDetector(onTap: () => _open(movie), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: Stack(fit: StackFit.expand, children: [ClipRRect(borderRadius: BorderRadius.circular(14), child: _image(movie.image)), Positioned(top: 6, right: 6, child: _bookmarkButton(movie)), if (movie.rating.isNotEmpty) Positioned(left: 6, bottom: 6, child: Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4), decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(6)), child: Text('★ ${movie.rating}', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))))])), const SizedBox(height: 7), Text(movie.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)), const SizedBox(height: 3), Text('${movie.year}${movie.genres.isNotEmpty ? ' • ${movie.genres.first}' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white54, fontSize: 10))]));
+  Widget _poster(Movie movie) => GestureDetector(
+      onTap: () => _open(movie),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(
+            child: Stack(fit: StackFit.expand, children: [
+          ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: _image(movie.image)),
+          Positioned(top: 6, right: 6, child: _bookmarkButton(movie)),
+          if (movie.rating.isNotEmpty)
+            Positioned(
+                left: 6,
+                bottom: 6,
+                child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(6)),
+                    child: Text('★ ${movie.rating}',
+                        style: const TextStyle(
+                            fontSize: 9, fontWeight: FontWeight.bold))))
+        ])),
+        SizedBox(height: 7),
+        Text(movie.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+        SizedBox(height: 3),
+        Text(
+            '${movie.year}${movie.genres.isNotEmpty ? ' • ${movie.genres.first}' : ''}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white54, fontSize: 10))
+      ]));
 
-  Widget _image(String url) => url.startsWith('http') ? CachedNetworkImage(imageUrl: url, fit: BoxFit.cover, placeholder: (_, __) => Container(color: appSurface), errorWidget: (_, __, ___) => Container(color: appSurface, child: const Icon(Icons.movie_outlined, color: Colors.white24))) : Container(color: appSurface, child: const Icon(Icons.movie_outlined, color: Colors.white24));
-  Widget _bookmarkButton(Movie movie) => GestureDetector(onTap: () => _toggleSaved(movie), child: Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: Colors.black.withValues(alpha: .75), shape: BoxShape.circle), child: Icon(_saved.contains(movie.key) ? Icons.bookmark : Icons.bookmark_border, size: 16, color: _saved.contains(movie.key) ? appRed : Colors.white)));
+  Widget _image(String url) => url.startsWith('http')
+      ? CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => Container(color: appSurface),
+          errorWidget: (_, __, ___) => Container(
+              color: appSurface,
+              child: Icon(Icons.movie_outlined, color: Colors.white24)))
+      : Container(
+          color: appSurface,
+          child: Icon(Icons.movie_outlined, color: Colors.white24));
+  Widget _bookmarkButton(Movie movie) => GestureDetector(
+      onTap: () => _toggleSaved(movie),
+      child: Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: .75),
+              shape: BoxShape.circle),
+          child: Icon(
+              _saved.contains(movie.key)
+                  ? Icons.bookmark
+                  : Icons.bookmark_border,
+              size: 16,
+              color: _saved.contains(movie.key) ? appRed : Colors.white)));
 }

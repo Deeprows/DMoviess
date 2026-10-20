@@ -24,7 +24,9 @@ class AdsConfig {
     this.skipAfterSeconds = 6,
   });
 
-  bool get hasAd => enabled && (supportUrl.startsWith('http://') || supportUrl.startsWith('https://'));
+  bool get hasAd =>
+      enabled &&
+      (supportUrl.startsWith('http://') || supportUrl.startsWith('https://'));
 
   /// A key that is missing falls back to the built-in default, so a bad edit
   /// can never break the app.
@@ -34,6 +36,7 @@ class AdsConfig {
       final n = v is num ? v.toInt() : int.tryParse('${v ?? ''}');
       return (n ?? fallback).clamp(min, max).toInt();
     }
+
     return AdsConfig(
       enabled: raw['enabled'] is bool ? raw['enabled'] as bool : true,
       supportUrl: ('${raw['supportUrl'] ?? ''}').trim(),
@@ -54,7 +57,8 @@ class RemovePlan {
 class RemoveAdsConfig {
   final bool enabled;
   final String whatsapp; // digits with country code, e.g. 2348012345678
-  final String publicKey; // base64url Ed25519 public key made by tool/token-admin.html
+  final String
+      publicKey; // base64url Ed25519 public key made by tool/token-admin.html
   final List<RemovePlan> plans;
   final Map<String, Map<String, double>> localPrices; // {"NGN": {"30": 1500}}
 
@@ -62,7 +66,11 @@ class RemoveAdsConfig {
     this.enabled = true,
     this.whatsapp = '',
     this.publicKey = '',
-    this.plans = const [RemovePlan(7, 0.5), RemovePlan(30, 1.5), RemovePlan(90, 4)],
+    this.plans = const [
+      RemovePlan(7, 0.5),
+      RemovePlan(30, 1.5),
+      RemovePlan(90, 4)
+    ],
     this.localPrices = const {},
   });
 
@@ -73,9 +81,14 @@ class RemoveAdsConfig {
     if (rawPlans is List) {
       for (final item in rawPlans) {
         if (item is! Map) continue;
-        final days = item['days'] is num ? (item['days'] as num).toInt() : int.tryParse('${item['days']}');
-        final usd = item['usd'] is num ? (item['usd'] as num).toDouble() : double.tryParse('${item['usd']}');
-        if (days != null && days > 0 && usd != null && usd > 0) plans.add(RemovePlan(days, usd));
+        final days = item['days'] is num
+            ? (item['days'] as num).toInt()
+            : int.tryParse('${item['days']}');
+        final usd = item['usd'] is num
+            ? (item['usd'] as num).toDouble()
+            : double.tryParse('${item['usd']}');
+        if (days != null && days > 0 && usd != null && usd > 0)
+          plans.add(RemovePlan(days, usd));
       }
     }
     final local = <String, Map<String, double>>{};
@@ -85,7 +98,8 @@ class RemoveAdsConfig {
         if (value is! Map) return;
         final inner = <String, double>{};
         value.forEach((days, amount) {
-          final n = amount is num ? amount.toDouble() : double.tryParse('$amount');
+          final n =
+              amount is num ? amount.toDouble() : double.tryParse('$amount');
           if (n != null && n > 0) inner['$days'] = n;
         });
         if (inner.isNotEmpty) local['$code'.toUpperCase()] = inner;
@@ -137,7 +151,9 @@ class RemoteConfig extends ChangeNotifier {
   Future<void> refresh() async {
     if (!AppConfig.configUrl.startsWith('http')) return;
     try {
-      final response = await http.get(Uri.parse(AppConfig.configUrl)).timeout(const Duration(seconds: 8));
+      final response = await http
+          .get(Uri.parse(AppConfig.configUrl))
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode != 200) return;
       final body = utf8.decode(response.bodyBytes);
       _apply(body);

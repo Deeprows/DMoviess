@@ -51,7 +51,8 @@ class PremiumService extends ChangeNotifier {
   }
 
   bool get active => _untilMs > _nowMs;
-  DateTime? get until => active ? DateTime.fromMillisecondsSinceEpoch(_untilMs) : null;
+  DateTime? get until =>
+      active ? DateTime.fromMillisecondsSinceEpoch(_untilMs) : null;
   int get daysLeft => active ? ((_untilMs - _nowMs) / _day).ceil() : 0;
 
   Future<void>? _loading;
@@ -63,7 +64,11 @@ class PremiumService extends ChangeNotifier {
   }
 
   String _formatId(List<int> bytes) {
-    final hex = bytes.take(6).map((b) => b.toRadixString(16).padLeft(2, '0')).join().toUpperCase();
+    final hex = bytes
+        .take(6)
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join()
+        .toUpperCase();
     return '${hex.substring(0, 4)}-${hex.substring(4, 8)}-${hex.substring(8, 12)}';
   }
 
@@ -75,7 +80,8 @@ class PremiumService extends ChangeNotifier {
   /// Must match accountId() in cloudflare/auth-worker.js exactly.
   String _normEmail(String email) {
     var e = email.trim().toLowerCase();
-    if (e.endsWith('@googlemail.com')) e = '${e.substring(0, e.length - 15)}@gmail.com';
+    if (e.endsWith('@googlemail.com'))
+      e = '${e.substring(0, e.length - 15)}@gmail.com';
     return e;
   }
 
@@ -93,7 +99,8 @@ class PremiumService extends ChangeNotifier {
   }
 
   /// Loads the saved state. Concurrent calls share one run.
-  Future<void> load() => _loading ??= _load().whenComplete(() => _loading = null);
+  Future<void> load() =>
+      _loading ??= _load().whenComplete(() => _loading = null);
 
   Future<void> _load() async {
     SharedPreferences? prefs;
@@ -120,7 +127,7 @@ class PremiumService extends ChangeNotifier {
       _lastSeenMs = prefs?.getInt(_kSeen) ?? 0;
       _used
         ..clear()
-        ..addAll(prefs?.getStringList(_kUsed) ?? const []);
+        ..addAll(prefs?.getStringList(_kUsed) ?? []);
       await touch();
     } catch (error) {
       debugPrint('DamiMovies: premium state not loaded: $error');
@@ -139,7 +146,8 @@ class PremiumService extends ChangeNotifier {
     } catch (_) {}
   }
 
-  String _normId(String id) => id.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+  String _normId(String id) =>
+      id.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
 
   List<int>? _b64(String value) {
     try {
@@ -156,14 +164,17 @@ class PremiumService extends ChangeNotifier {
     required String priceText,
   }) async {
     if (!AppConfig.authUrl.startsWith('http')) {
-      return const RedeemResult(false, 'Token requests are not set up yet. Please contact support.');
+      return const RedeemResult(
+          false, 'Token requests are not set up yet. Please contact support.');
     }
     final digits = whatsapp.replaceAll(RegExp(r'\D'), '');
     if (digits.startsWith('0')) {
-      return const RedeemResult(false, 'Start with your country code, not 0. Example: 2348012345678');
+      return const RedeemResult(
+          false, 'Start with your country code, not 0. Example: 2348012345678');
     }
     if (digits.length < 8 || digits.length > 15) {
-      return const RedeemResult(false, 'Enter a valid WhatsApp number with country code.');
+      return const RedeemResult(
+          false, 'Enter a valid WhatsApp number with country code.');
     }
     await ensureLoaded();
     await _refreshAccountId();
@@ -172,7 +183,8 @@ class PremiumService extends ChangeNotifier {
     }
     final idToken = await AuthService.instance.freshIdToken();
     if (idToken == null) {
-      return const RedeemResult(false, 'Please sign out and sign in again, then retry.');
+      return const RedeemResult(
+          false, 'Please sign out and sign in again, then retry.');
     }
     try {
       final response = await http
@@ -190,17 +202,22 @@ class PremiumService extends ChangeNotifier {
           )
           .timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
-        return RedeemResult(true, 'Request sent. We will send your token to +$digits on WhatsApp.');
+        return RedeemResult(true,
+            'Request sent. We will send your token to +$digits on WhatsApp.');
       }
       if (response.statusCode == 429) {
-        return const RedeemResult(false, 'Too many requests today. Please try again tomorrow.');
+        return const RedeemResult(
+            false, 'Too many requests today. Please try again tomorrow.');
       }
       if (response.statusCode == 401 || response.statusCode == 403) {
-        return const RedeemResult(false, 'Please sign out and sign in again, then retry.');
+        return const RedeemResult(
+            false, 'Please sign out and sign in again, then retry.');
       }
-      return const RedeemResult(false, 'Could not send your request. Please try again.');
+      return const RedeemResult(
+          false, 'Could not send your request. Please try again.');
     } catch (_) {
-      return const RedeemResult(false, 'Could not reach the server. Check your internet and try again.');
+      return const RedeemResult(false,
+          'Could not reach the server. Check your internet and try again.');
     }
   }
 
@@ -209,11 +226,13 @@ class PremiumService extends ChangeNotifier {
     await _refreshAccountId();
     final publicKey = RemoteConfig.instance.removeAds.publicKey;
     if (publicKey.isEmpty) {
-      return const RedeemResult(false, 'Ad removal is not set up yet. Please contact support.');
+      return const RedeemResult(
+          false, 'Ad removal is not set up yet. Please contact support.');
     }
     final token = input.replaceAll(RegExp(r'\s'), '');
     final parts = token.split('.');
-    if (parts.length != 2) return const RedeemResult(false, 'That token is not valid.');
+    if (parts.length != 2)
+      return const RedeemResult(false, 'That token is not valid.');
     final payloadBytes = _b64(parts[0]);
     final sigBytes = _b64(parts[1]);
     final keyBytes = _b64(publicKey);
@@ -223,22 +242,27 @@ class PremiumService extends ChangeNotifier {
     try {
       final ok = await Ed25519().verify(
         payloadBytes,
-        signature: Signature(sigBytes, publicKey: SimplePublicKey(keyBytes, type: KeyPairType.ed25519)),
+        signature: Signature(sigBytes,
+            publicKey: SimplePublicKey(keyBytes, type: KeyPairType.ed25519)),
       );
       if (!ok) return const RedeemResult(false, 'That token is not valid.');
     } catch (_) {
       return const RedeemResult(false, 'That token is not valid.');
     }
     final fields = utf8.decode(payloadBytes, allowMalformed: true).split('|');
-    if (fields.length != 4 || fields[0] != 'v1') return const RedeemResult(false, 'That token is not valid.');
+    if (fields.length != 4 || fields[0] != 'v1')
+      return const RedeemResult(false, 'That token is not valid.');
     final tokenId = _normId(fields[1]);
     if (tokenId != _normId(installId) && tokenId != _normId(_installId)) {
-      return const RedeemResult(false, 'This token was made for a different Gmail account.');
+      return const RedeemResult(
+          false, 'This token was made for a different Gmail account.');
     }
     final days = int.tryParse(fields[2]) ?? 0;
-    if (days < 1 || days > 3650) return const RedeemResult(false, 'That token is not valid.');
+    if (days < 1 || days > 3650)
+      return const RedeemResult(false, 'That token is not valid.');
     final nonce = fields[3];
-    if (_used.contains(nonce)) return const RedeemResult(false, 'This token has already been used.');
+    if (_used.contains(nonce))
+      return const RedeemResult(false, 'This token has already been used.');
 
     final now = _nowMs;
     final base = _untilMs > now ? _untilMs : now;

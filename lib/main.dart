@@ -27,18 +27,17 @@ Future<void> _initializeServices() async {
   // must never hold the user on the native launch screen.
   try {
     await SystemChrome.setPreferredOrientations(
-      const [DeviceOrientation.portraitUp],
+      [DeviceOrientation.portraitUp],
     ).timeout(const Duration(seconds: 4));
   } catch (error) {
     debugPrint('DamiMovies: orientation setup skipped: $error');
   }
 
   try {
-    await AppPreferences.instance
-        .load()
-        .timeout(const Duration(seconds: 5));
+    await AppPreferences.instance.load().timeout(const Duration(seconds: 5));
   } catch (error) {
-    debugPrint('DamiMovies: preferences could not be loaded at startup: $error');
+    debugPrint(
+        'DamiMovies: preferences could not be loaded at startup: $error');
   }
 
   try {
@@ -81,15 +80,16 @@ class DamiMoviesApp extends StatelessWidget {
               navigationBarTheme: NavigationBarThemeData(
                 backgroundColor: palette.deepSurface,
                 indicatorColor: palette.accent.withValues(alpha: .18),
-                labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
-                  color: states.contains(WidgetState.selected)
-                      ? Colors.white
-                      : Colors.white60,
-                  fontWeight: states.contains(WidgetState.selected)
-                      ? FontWeight.w800
-                      : FontWeight.w500,
-                  fontSize: 11,
-                )),
+                labelTextStyle:
+                    WidgetStateProperty.resolveWith((states) => TextStyle(
+                          color: states.contains(WidgetState.selected)
+                              ? Colors.white
+                              : Colors.white60,
+                          fontWeight: states.contains(WidgetState.selected)
+                              ? FontWeight.w800
+                              : FontWeight.w500,
+                          fontSize: 11,
+                        )),
               ),
               inputDecorationTheme: InputDecorationTheme(
                 filled: true,
@@ -119,7 +119,6 @@ class DamiMoviesApp extends StatelessWidget {
       );
 }
 
-
 class _DamiSplash extends StatefulWidget {
   const _DamiSplash();
 
@@ -141,13 +140,13 @@ class _DamiSplashState extends State<_DamiSplash> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: const Color(0xFF080B10),
-    body: Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
-        child: Image.asset('assets/splash/splash.png',
-          width: 300, height: 300, fit: BoxFit.contain),
-      ),
-    ),
-  );
+        backgroundColor: const Color(0xFF080B10),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Image.asset('assets/splash/splash.png',
+                width: 300, height: 300, fit: BoxFit.contain),
+          ),
+        ),
+      );
 }

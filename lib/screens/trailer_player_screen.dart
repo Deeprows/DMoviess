@@ -52,7 +52,8 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
             });
           },
           onProgress: (progress) {
-            if (mounted) setState(() => _progress = progress.clamp(0, 100).toInt());
+            if (mounted)
+              setState(() => _progress = progress.clamp(0, 100).toInt());
           },
           onPageFinished: (_) {
             if (!mounted) return;
@@ -78,7 +79,8 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
             // Convert ordinary YouTube watch links to the embedded player rather
             // than allowing a browser/app hand-off.
             final scheme0 = uri.scheme.toLowerCase();
-            if (scheme0 == 'about' || scheme0 == 'data') return NavigationDecision.navigate;
+            if (scheme0 == 'about' || scheme0 == 'data')
+              return NavigationDecision.navigate;
             if (!request.isMainFrame) {
               return scheme0 == 'https' || scheme0 == 'http'
                   ? NavigationDecision.navigate
@@ -92,7 +94,8 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
             if (isYouTube && !uri.path.startsWith('/embed/')) {
               String? videoId;
               if (host == 'youtu.be' || host.endsWith('.youtu.be')) {
-                videoId = uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
+                videoId =
+                    uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
               } else {
                 videoId = uri.queryParameters['v'];
               }
@@ -134,16 +137,18 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
   Future<void> _loadTrailer() async {
     final key = widget.youtubeKey.trim();
     if (key.isEmpty) {
-      if (mounted) setState(() {
-        _loading = false;
-        _failed = true;
-      });
+      if (mounted)
+        setState(() {
+          _loading = false;
+          _failed = true;
+        });
       return;
     }
-    if (mounted) setState(() {
-      _loading = true;
-      _failed = false;
-    });
+    if (mounted)
+      setState(() {
+        _loading = true;
+        _failed = false;
+      });
     final safeKey = key.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '');
     try {
       await _controller.loadHtmlString(
@@ -151,10 +156,11 @@ class _TrailerPlayerScreenState extends State<TrailerPlayerScreen> {
         baseUrl: 'https://www.youtube-nocookie.com',
       );
     } catch (_) {
-      if (mounted) setState(() {
-        _loading = false;
-        _failed = true;
-      });
+      if (mounted)
+        setState(() {
+          _loading = false;
+          _failed = true;
+        });
     }
   }
 
@@ -205,11 +211,12 @@ function nudge() {
       _fullscreenWidget = child;
       _fullscreenHidden = onHidden;
     });
-    unawaited(SystemChrome.setPreferredOrientations(const [
+    unawaited(SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]));
-    unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky));
+    unawaited(
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky));
   }
 
   void _hideFullscreen() {
@@ -218,7 +225,8 @@ function nudge() {
       _fullscreenWidget = null;
       _fullscreenHidden = null;
     });
-    unawaited(SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]));
+    unawaited(
+        SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]));
     unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
   }
 
@@ -236,14 +244,15 @@ function nudge() {
       _hideFullscreen();
       return;
     }
-    await SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     if (mounted) Navigator.of(context).maybePop();
   }
 
   @override
   void dispose() {
-    unawaited(SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]));
+    unawaited(
+        SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]));
     unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
     super.dispose();
   }
@@ -261,11 +270,18 @@ function nudge() {
             ? null
             : AppBar(
                 backgroundColor: appBg,
-                title: Text(widget.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                leading: IconButton(onPressed: _back, icon: const Icon(Icons.arrow_back_rounded)),
+                title: Text(widget.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w800, fontSize: 16)),
+                leading: IconButton(
+                    onPressed: _back, icon: Icon(Icons.arrow_back_rounded)),
                 actions: [
-                  IconButton(tooltip: 'Reload trailer', onPressed: _reload, icon: const Icon(Icons.refresh_rounded)),
+                  IconButton(
+                      tooltip: 'Reload trailer',
+                      onPressed: _reload,
+                      icon: Icon(Icons.refresh_rounded)),
                 ],
               ),
         body: Stack(
@@ -287,9 +303,11 @@ function nudge() {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 CircularProgressIndicator(color: appRed),
-                                const SizedBox(height: 12),
-                                Text('Loading trailer… ${_progress.clamp(0, 100)}%',
-                                    style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                SizedBox(height: 12),
+                                Text(
+                                    'Loading trailer… ${_progress.clamp(0, 100)}%',
+                                    style: const TextStyle(
+                                        color: Colors.white70, fontSize: 12)),
                               ],
                             ),
                           ),
@@ -303,15 +321,16 @@ function nudge() {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.wifi_off_rounded, color: Colors.white54, size: 36),
-                                  const SizedBox(height: 10),
+                                  Icon(Icons.wifi_off_rounded,
+                                      color: Colors.white54, size: 36),
+                                  SizedBox(height: 10),
                                   Text('This trailer could not be loaded.'.tr,
                                       textAlign: TextAlign.center,
                                       style: TextStyle(color: Colors.white70)),
-                                  const SizedBox(height: 10),
+                                  SizedBox(height: 10),
                                   FilledButton.icon(
                                     onPressed: _loadTrailer,
-                                    icon: const Icon(Icons.refresh_rounded),
+                                    icon: Icon(Icons.refresh_rounded),
                                     label: Text('Try again'.tr),
                                   ),
                                 ],
@@ -329,19 +348,33 @@ function nudge() {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                            decoration: BoxDecoration(color: appRed, borderRadius: BorderRadius.circular(6)),
-                            child: Text('TRAILER'.tr, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 9, vertical: 5),
+                            decoration: BoxDecoration(
+                                color: appRed,
+                                borderRadius: BorderRadius.circular(6)),
+                            child: Text('TRAILER'.tr,
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1)),
                           ),
-                          const SizedBox(width: 9),
-                          const Icon(Icons.ondemand_video_rounded, color: Colors.white54, size: 18),
-                          const SizedBox(width: 5),
-                          Text('Playing in DamiMovies'.tr, style: TextStyle(color: Colors.white54, fontSize: 11)),
+                          SizedBox(width: 9),
+                          Icon(Icons.ondemand_video_rounded,
+                              color: Colors.white54, size: 18),
+                          SizedBox(width: 5),
+                          Text('Playing in DamiMovies'.tr,
+                              style: TextStyle(
+                                  color: Colors.white54, fontSize: 11)),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      Text(widget.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, height: 1.12)),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12),
+                      Text(widget.title,
+                          style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                              height: 1.12)),
+                      SizedBox(height: 12),
                       if (widget.poster.startsWith('http'))
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
@@ -349,13 +382,15 @@ function nudge() {
                             imageUrl: widget.poster,
                             height: 130,
                             fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) => const SizedBox.shrink(),
+                            errorWidget: (_, __, ___) =>
+                                const SizedBox.shrink(),
                           ),
                         ),
-                      const SizedBox(height: 14),
-                      const Text(
+                      SizedBox(height: 14),
+                      Text(
                         'Trailer video provided by YouTube. Use the player controls to pause, seek or enter fullscreen.',
-                        style: TextStyle(color: Colors.white54, height: 1.45, fontSize: 12),
+                        style: TextStyle(
+                            color: Colors.white54, height: 1.45, fontSize: 12),
                       ),
                     ],
                   ),
@@ -363,7 +398,9 @@ function nudge() {
               ],
             ),
             if (_fullscreenWidget != null)
-              Positioned.fill(child: ColoredBox(color: Colors.black, child: _fullscreenWidget!)),
+              Positioned.fill(
+                  child: ColoredBox(
+                      color: Colors.black, child: _fullscreenWidget!)),
           ],
         ),
       ),

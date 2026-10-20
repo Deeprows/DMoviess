@@ -78,13 +78,13 @@ class DownloadScanner extends ChangeNotifier {
   static const _entryTimeout = Duration(seconds: 40);
   static const _overallTimeout = Duration(minutes: 8);
 
-  final List<FoundFile> files = [];
+  final List<FoundFile> files = const [];
   bool scanning = false;
   String status = 'Looking for download links…';
   String cookie = '';
 
   late final WebViewController controller;
-  final Set<String> _probed = {};
+  final Set<String> _probed = const {};
   String _current = '';
   String _entryLabel = '';
   int _gen = 0; // changes with every page load
@@ -110,7 +110,8 @@ class DownloadScanner extends ChangeNotifier {
         onPageStarted: (url) {
           _current = url;
           _gen++;
-          if (_loaded == null || _loaded!.isCompleted) _loaded = Completer<void>();
+          if (_loaded == null || _loaded!.isCompleted)
+            _loaded = Completer<void>();
         },
         onUrlChange: (c) {
           if (c.url != null) _current = c.url!;
@@ -141,7 +142,8 @@ class DownloadScanner extends ChangeNotifier {
     if (scheme == 'about' || scheme == 'data' || scheme == 'blob') {
       return NavigationDecision.navigate;
     }
-    if (scheme != 'http' && scheme != 'https') return NavigationDecision.prevent;
+    if (scheme != 'http' && scheme != 'https')
+      return NavigationDecision.prevent;
     if (_adHost.hasMatch(uri.host)) return NavigationDecision.prevent;
     if (_fileExt.hasMatch(uri.path) ||
         uri.queryParameters.values.any(_fileExt.hasMatch)) {
@@ -185,7 +187,8 @@ class DownloadScanner extends ChangeNotifier {
 
   bool _alive(int run) => !_disposed && run == _run && scanning;
 
-  Future<void> start(String pageUrl, {List<String> directUrls = const []}) async {
+  Future<void> start(String pageUrl,
+      {List<String> directUrls = const []}) async {
     final run = ++_run;
     scanning = true;
     status = 'Looking for download links…';
@@ -307,7 +310,8 @@ class DownloadScanner extends ChangeNotifier {
       final idx = now.indexWhere((n) => n.label == e.label);
       if (idx < 0) return;
       final gen = _gen;
-      await _js('''(function(){var el=document.querySelector('[data-dami="$idx"]');
+      await _js(
+          '''(function(){var el=document.querySelector('[data-dami="$idx"]');
         if(el){el.scrollIntoView&&el.scrollIntoView();el.click();return 1}return 0})();''');
       await _wait(1200);
       if (_gen != gen) await _waitLoaded();
@@ -356,7 +360,8 @@ class DownloadScanner extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> _wait(int ms) => Future<void>.delayed(Duration(milliseconds: ms));
+  Future<void> _wait(int ms) =>
+      Future<void>.delayed(Duration(milliseconds: ms));
 
   Future<dynamic> _js(String code) async {
     try {
@@ -380,7 +385,7 @@ class DownloadScanner extends ChangeNotifier {
   /// Opens collapsed server sections. Returns how many it opened.
   static const _expandJs = r'''
 (function(){
-  var n=0, done=window.__damiExp||(window.__damiExp=[]);
+  var n=0, done=window.__damiExp||(window.__damiExp= const []);
   function dl(el){
     var a=el.querySelectorAll('a,button,[role=button]');
     for(var i=0;i<a.length;i++){ if(/^\s*download/i.test(a[i].innerText||'')) return true; }
@@ -421,7 +426,7 @@ class DownloadScanner extends ChangeNotifier {
   static const _entriesJs = r'''
 (function(){
   var DL=/download|get\s+link|direct\s+download/i;
-  var all=[].slice.call(document.querySelectorAll('a,button,[role=button],input[type=button],input[type=submit]'));
+  var all= const [].slice.call(document.querySelectorAll('a,button,[role=button],input[type=button],input[type=submit]'));
   function text(el){return (el.innerText||el.textContent||el.value||el.getAttribute('aria-label')||'').replace(/\s+/g,' ').trim();}
   function isDl(el){var t=text(el);return t.length>0&&t.length<=55&&DL.test(t);}
   function visible(el){var r=el.getBoundingClientRect(),s=getComputedStyle(el);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden';}
@@ -437,7 +442,7 @@ class DownloadScanner extends ChangeNotifier {
     }
     return best;
   }
-  var out=[], seen={};
+  var out= const [], seen= const {};
   all.forEach(function(el){
     if(!isDl(el)||!visible(el))return;
     var url=null;
@@ -464,7 +469,7 @@ class DownloadScanner extends ChangeNotifier {
   var EXT=/\.(mp4|mkv|avi|mov|m4v|webm|zip|rar|7z|apk)(?:$|[?#&])/i;
   var PG=/download|server|mirror|direct|instant|fsl|pixel|gbps|cdn|\bhd\b|\b(2160|1080|720|480|360)p?\b|4k/i;
   var BAD=/telegram|whatsapp|join|login|register|trailer|torrent|magnet|facebook|twitter|instagram|youtube/i;
-  var out={files:[],pages:[]}, seen={};
+  var out={files:[],pages:[]}, seen= const {};
   function abs(u){ try{ return new URL(u, location.href).href; }catch(e){ return null; } }
   function txt(el){
     var t=(el.innerText||el.textContent||el.getAttribute('title')||el.getAttribute('aria-label')||'').replace(/\s+/g,' ').trim();
@@ -505,8 +510,8 @@ class DownloadScanner extends ChangeNotifier {
     /^(continue|proceed|verify|go\s+to\s+(link|download)|get\s+started|next)\b/i,
     /download/i
   ];
-  var done=window.__damiDone||(window.__damiDone=[]);
-  var els=[].slice.call(document.querySelectorAll('a,button,[role=button],input[type=button],input[type=submit]'));
+  var done=window.__damiDone||(window.__damiDone= const []);
+  var els= const [].slice.call(document.querySelectorAll('a,button,[role=button],input[type=button],input[type=submit]'));
   var best=null, bs=99, bt='';
   els.forEach(function(el){
     if(done.indexOf(el)>=0) return;
@@ -534,7 +539,8 @@ class DownloadScanner extends ChangeNotifier {
       for (final e in v) {
         if (e is Map) {
           final u = e['url'];
-          out.add(_Entry(u is String && u.isNotEmpty ? u : null, '${e['label'] ?? ''}'));
+          out.add(_Entry(
+              u is String && u.isNotEmpty ? u : null, '${e['label'] ?? ''}'));
         }
       }
     }
@@ -550,7 +556,7 @@ class DownloadScanner extends ChangeNotifier {
     final c = '${data['cookie'] ?? ''}';
     if (c.isNotEmpty) cookie = c;
     final here = _current;
-    for (final f in (data['files'] as List? ?? const [])) {
+    for (final f in (data['files'] as List? ?? [])) {
       if (f is Map) {
         final l = '${f['label']}';
         _addFile('${f['url']}', _entryLabel.isEmpty ? l : _entryLabel, here);
@@ -560,11 +566,12 @@ class DownloadScanner extends ChangeNotifier {
     if (!probePages) return hits;
     // "Download [Server]" links without an extension: ask the server.
     var probes = 0;
-    for (final p in (data['pages'] as List? ?? const [])) {
+    for (final p in (data['pages'] as List? ?? [])) {
       if (p is! Map || probes >= 8 || _probed.length >= _maxProbes) continue;
       final url = '${p['url']}';
       final host = Uri.tryParse(url)?.host ?? '';
-      if (host.isEmpty || _adHost.hasMatch(host) || _probed.contains(url)) continue;
+      if (host.isEmpty || _adHost.hasMatch(host) || _probed.contains(url))
+        continue;
       _probed.add(url);
       probes++;
       final info = await DownloadManager.instance
@@ -628,4 +635,3 @@ class DownloadScanner extends ChangeNotifier {
     super.dispose();
   }
 }
-

@@ -33,8 +33,20 @@ class AppDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final premium = PremiumService.instance;
     final until = premium.until;
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug',
-      'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     final items = <_Item>[
       if (RemoteConfig.instance.removeAds.enabled)
         _Item(
@@ -50,9 +62,13 @@ class AppDrawer extends StatelessWidget {
       _Item(Icons.forum_rounded, 'Movie Community'.tr,
           () => _go(context, const CommunityScreen(standalone: true))),
       if (AuthService.instance.user != null)
-        _Item(Icons.edit_note_rounded, 'My profile'.tr,
-            () => _go(context,
-                CommunityProfileScreen(email: AuthService.instance.user!.email))),
+        _Item(
+            Icons.edit_note_rounded,
+            'My profile'.tr,
+            () => _go(
+                context,
+                CommunityProfileScreen(
+                    email: AuthService.instance.user!.email))),
       _Item(Icons.theaters_rounded, 'Watch Together'.tr,
           () => _go(context, const WatchTogetherScreen())),
       _Item(Icons.video_library_rounded, 'My Library',
@@ -62,8 +78,10 @@ class AppDrawer extends StatelessWidget {
       _Item(Icons.notifications_rounded, 'Notice',
           () => _go(context, const SettingsScreen())),
       _Item(Icons.share_rounded, 'Share App', () {
-        _run(context, () => Share.share(
-            'Discover movies with DamiMovies.\n${AppConfig.appUrl}'));
+        _run(
+            context,
+            () => Share.share(
+                'Discover movies with DamiMovies.\n${AppConfig.appUrl}'));
       }),
     ];
 
@@ -101,18 +119,19 @@ class AppDrawer extends StatelessWidget {
       ),
       child: Column(children: [
         user == null ? _brandLogo() : _avatar(user),
-        const SizedBox(height: 14),
+        SizedBox(height: 14),
         if (user == null)
-          const Text(AppConfig.appName,
+          Text(AppConfig.appName,
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800))
         else
           Text(user.email,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 18),
-        const Align(
+              style:
+                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+        SizedBox(height: 18),
+        Align(
           alignment: Alignment.centerLeft,
           child: Text('Version: ${AppConfig.appVersion}',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
@@ -135,8 +154,7 @@ class AppDrawer extends StatelessWidget {
                 offset: const Offset(0, 8)),
           ],
         ),
-        child: const Icon(Icons.movie_filter_rounded,
-            color: Colors.white, size: 60),
+        child: Icon(Icons.movie_filter_rounded, color: Colors.white, size: 60),
       );
 
   /// The signed-in Gmail photo, or the first letter of the email when the
@@ -187,7 +205,7 @@ class AppDrawer extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
           child: Row(children: [
             Icon(item.icon, size: 30, color: Colors.white),
-            const SizedBox(width: 24),
+            SizedBox(width: 24),
             Expanded(
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

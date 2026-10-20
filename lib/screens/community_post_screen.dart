@@ -54,8 +54,8 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
     final text = _input.text.trim();
     if (text.isEmpty || _sending) return;
     setState(() => _sending = true);
-    final ok = await communityTry(
-        context, () => _svc.addComment(widget.post, text));
+    final ok =
+        await communityTry(context, () => _svc.addComment(widget.post, text));
     if (ok) {
       _input.clear();
       await _load();
@@ -95,13 +95,13 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
                 children: [
                   PostCard(post: widget.post, detail: true),
-                  const SizedBox(height: 18),
+                  SizedBox(height: 18),
                   Text(
                     '${'Comments'.tr} (${widget.post.commentCount})',
                     style: const TextStyle(
                         fontSize: 16, fontWeight: FontWeight.w900),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   ..._commentList(),
                 ],
               ),
@@ -126,7 +126,7 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
       ];
     }
     if (_comments == null) {
-      return const [
+      return [
         Padding(
           padding: EdgeInsets.symmetric(vertical: 28),
           child: Center(child: CircularProgressIndicator()),
@@ -187,7 +187,7 @@ class _CommunityPostScreenState extends State<CommunityPostScreen> {
                 onSubmitted: (_) => _send(),
               ),
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             DecoratedBox(
               decoration:
                   BoxDecoration(gradient: Ui.gradient, shape: BoxShape.circle),
@@ -226,7 +226,7 @@ class _CommentTile extends StatelessWidget {
           child: CommunityAvatar(
               url: comment.photoUrl, name: comment.name, radius: 15),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: 10),
         Expanded(
           child: Container(
             padding: const EdgeInsets.fromLTRB(12, 9, 6, 10),
@@ -264,10 +264,10 @@ class _CommentTile extends StatelessWidget {
                         ),
                       )
                     else
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6),
                   ],
                 ),
-                const SizedBox(height: 3),
+                SizedBox(height: 3),
                 Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: Text(comment.text,

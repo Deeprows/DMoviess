@@ -16,7 +16,8 @@ import 'community_profile_screen.dart';
 class CommunityScreen extends StatefulWidget {
   final bool active;
   final bool standalone;
-  const CommunityScreen({super.key, this.active = true, this.standalone = false});
+  const CommunityScreen(
+      {super.key, this.active = true, this.standalone = false});
 
   @override
   State<CommunityScreen> createState() => _CommunityScreenState();
@@ -82,7 +83,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     children: [
                       Icon(Icons.edit_rounded,
                           size: 20, color: Ui.palette.onAccent),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Text('Post'.tr,
                           style: TextStyle(
                               fontWeight: FontWeight.w900,
@@ -123,10 +124,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
           if (widget.standalone)
             IconButton(
               onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back_rounded),
+              icon: Icon(Icons.arrow_back_rounded),
             )
           else
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -143,7 +144,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ),
           IconButton(
             tooltip: 'Movie fans'.tr,
-            icon: const Icon(Icons.people_alt_rounded),
+            icon: Icon(Icons.people_alt_rounded),
             onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
                 builder: (_) => const CommunityPeopleScreen())),
           ),
@@ -174,7 +175,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     url: user?.photoUrl ?? '',
                     name: user?.name ?? '',
                     radius: 19),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Text('What are you watching?'.tr,
                       style: TextStyle(color: Ui.muted, fontSize: 14.5)),
@@ -219,7 +220,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
   List<Widget> _body(BuildContext context, List<CommunityPost> posts) {
     if (!_svc.loaded || (_svc.loading && posts.isEmpty)) {
-      return const [
+      return [
         SliverFillRemaining(
           hasScrollBody: false,
           child: Center(child: CircularProgressIndicator()),
@@ -241,7 +242,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
       ];
     }
     if (posts.isEmpty) {
-      return const [
+      return [
         SliverFillRemaining(
           hasScrollBody: false,
           child: CommunityMessage(
@@ -257,7 +258,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
         padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
         sliver: SliverList.separated(
           itemCount: posts.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          separatorBuilder: (_, __) => SizedBox(height: 12),
           itemBuilder: (_, i) => PostCard(post: posts[i]),
         ),
       ),

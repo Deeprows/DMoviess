@@ -27,7 +27,7 @@ Future<bool> openInExternalBrowser(BuildContext? context, String url) async {
   }
   if (!ok && context != null && context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open your browser for this link.')));
+        SnackBar(content: Text('Could not open your browser for this link.')));
   }
   return ok;
 }

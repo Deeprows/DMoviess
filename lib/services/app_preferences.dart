@@ -21,12 +21,15 @@ class DamiPalette {
 
 /// Persisted movie-app preferences shared by the UI and player.
 class AppPreferences extends ChangeNotifier with WidgetsBindingObserver {
-  AppPreferences._() { WidgetsBinding.instance.addObserver(this); }
+  AppPreferences._() {
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   @override
   void didChangeLocales(List<Locale>? locales) {
     if (_language == systemLanguage) notifyListeners();
   }
+
   static final AppPreferences instance = AppPreferences._();
 
   static const List<DamiPalette> palettes = [
@@ -107,7 +110,15 @@ class AppPreferences extends ChangeNotifier with WidgetsBindingObserver {
   static const String systemLanguage = 'System Default (Automatic)';
   static const List<String> languages = [
     systemLanguage,
-    'English', 'Arabic', 'French', 'Spanish', 'Portuguese', 'Hindi', 'Turkish', 'Hausa', 'Yoruba'
+    'English',
+    'Arabic',
+    'French',
+    'Spanish',
+    'Portuguese',
+    'Hindi',
+    'Turkish',
+    'Hausa',
+    'Yoruba'
   ];
 
   int _themeIndex = 1;
@@ -118,15 +129,24 @@ class AppPreferences extends ChangeNotifier with WidgetsBindingObserver {
   bool _backgroundPlayback = true;
   bool _loaded = false;
 
-  DamiPalette get palette => palettes[_themeIndex.clamp(0, palettes.length - 1).toInt()];
+  DamiPalette get palette =>
+      palettes[_themeIndex.clamp(0, palettes.length - 1).toInt()];
   int get themeIndex => _themeIndex;
   String get language => _language;
   String get languageCode => _language == systemLanguage
       ? _deviceLanguageCode
       : (const {
-    'English': 'en', 'Arabic': 'ar', 'French': 'fr', 'Spanish': 'es',
-    'Portuguese': 'pt', 'Hindi': 'hi', 'Turkish': 'tr', 'Hausa': 'ha', 'Yoruba': 'yo'
-  }[_language] ?? 'en');
+            'English': 'en',
+            'Arabic': 'ar',
+            'French': 'fr',
+            'Spanish': 'es',
+            'Portuguese': 'pt',
+            'Hindi': 'hi',
+            'Turkish': 'tr',
+            'Hausa': 'ha',
+            'Yoruba': 'yo'
+          }[_language] ??
+          'en');
 
   String get _deviceLanguageCode {
     const supported = {'en', 'ar', 'fr', 'es', 'pt', 'hi', 'tr', 'ha', 'yo'};
@@ -138,6 +158,7 @@ class AppPreferences extends ChangeNotifier with WidgetsBindingObserver {
     }
     return 'en';
   }
+
   bool get adShield => _adShield;
   bool get lowQuality => _lowQuality;
   bool get keepScreenAwake => _keepScreenAwake;
@@ -148,13 +169,16 @@ class AppPreferences extends ChangeNotifier with WidgetsBindingObserver {
     if (_loaded) return;
     final prefs = await SharedPreferences.getInstance();
     _themeIndex = (prefs.getInt('damimovies_theme_index') ?? _themeIndex)
-        .clamp(0, palettes.length - 1).toInt();
+        .clamp(0, palettes.length - 1)
+        .toInt();
     final lang = prefs.getString('damimovies_language') ?? _language;
     _language = languages.contains(lang) ? lang : systemLanguage;
     _adShield = prefs.getBool('damimovies_ad_shield') ?? _adShield;
     _lowQuality = prefs.getBool('damimovies_low_quality') ?? _lowQuality;
-    _keepScreenAwake = prefs.getBool('damimovies_keep_awake') ?? _keepScreenAwake;
-    _backgroundPlayback = prefs.getBool('damimovies_background_playback') ?? _backgroundPlayback;
+    _keepScreenAwake =
+        prefs.getBool('damimovies_keep_awake') ?? _keepScreenAwake;
+    _backgroundPlayback =
+        prefs.getBool('damimovies_background_playback') ?? _backgroundPlayback;
     _loaded = true;
     notifyListeners();
   }
@@ -205,7 +229,9 @@ class AppPreferences extends ChangeNotifier with WidgetsBindingObserver {
   String translate(String english) {
     final code = languageCode;
     if (code == 'en') return english;
-    return _translations[code]?[english] ?? _extraTranslations[code]?[english] ?? english;
+    return _translations[code]?[english] ??
+        _extraTranslations[code]?[english] ??
+        english;
   }
 
   static const Map<String, Map<String, String>> _extraTranslations = {
@@ -429,68 +455,196 @@ class AppPreferences extends ChangeNotifier with WidgetsBindingObserver {
 
   static const Map<String, Map<String, String>> _translations = {
     'ar': {
-      'Movies': 'الأفلام', 'Browser': 'المتصفح', 'Downloads': 'التنزيلات', 'Library': 'المكتبة',
-      'Settings': 'الإعدادات', 'Search movies...': 'ابحث عن الأفلام...', 'Trending Movies': 'الأفلام الرائجة',
-      'Top 10 Today': 'أفضل 10 اليوم', 'Continue Watching': 'متابعة المشاهدة', 'Latest Trailers': 'أحدث الإعلانات',
-      'Play': 'تشغيل', 'Download': 'تنزيل', 'My List': 'قائمتي', 'Refresh': 'تحديث',
-      'All': 'الكل', 'Series': 'مسلسلات', 'Retry': 'إعادة المحاولة', 'Share': 'مشاركة',
-      'Watch Later': 'المشاهدة لاحقاً', 'History': 'السجل', 'Theme': 'المظهر', 'Language': 'اللغة',
+      'Movies': 'الأفلام',
+      'Browser': 'المتصفح',
+      'Downloads': 'التنزيلات',
+      'Library': 'المكتبة',
+      'Settings': 'الإعدادات',
+      'Search movies...': 'ابحث عن الأفلام...',
+      'Trending Movies': 'الأفلام الرائجة',
+      'Top 10 Today': 'أفضل 10 اليوم',
+      'Continue Watching': 'متابعة المشاهدة',
+      'Latest Trailers': 'أحدث الإعلانات',
+      'Play': 'تشغيل',
+      'Download': 'تنزيل',
+      'My List': 'قائمتي',
+      'Refresh': 'تحديث',
+      'All': 'الكل',
+      'Series': 'مسلسلات',
+      'Retry': 'إعادة المحاولة',
+      'Share': 'مشاركة',
+      'Watch Later': 'المشاهدة لاحقاً',
+      'History': 'السجل',
+      'Theme': 'المظهر',
+      'Language': 'اللغة',
     },
     'fr': {
-      'Movies': 'Films', 'Browser': 'Navigateur', 'Downloads': 'Téléchargements', 'Library': 'Bibliothèque',
-      'Settings': 'Paramètres', 'Search movies...': 'Rechercher des films...', 'Trending Movies': 'Films tendance',
-      'Top 10 Today': 'Top 10 du jour', 'Continue Watching': 'Reprendre la lecture', 'Latest Trailers': 'Bandes-annonces récentes',
-      'Play': 'Lire', 'Download': 'Télécharger', 'My List': 'Ma liste', 'Refresh': 'Actualiser',
-      'All': 'Tout', 'Series': 'Séries', 'Retry': 'Réessayer', 'Share': 'Partager',
-      'Watch Later': 'À regarder plus tard', 'History': 'Historique', 'Theme': 'Thème', 'Language': 'Langue',
+      'Movies': 'Films',
+      'Browser': 'Navigateur',
+      'Downloads': 'Téléchargements',
+      'Library': 'Bibliothèque',
+      'Settings': 'Paramètres',
+      'Search movies...': 'Rechercher des films...',
+      'Trending Movies': 'Films tendance',
+      'Top 10 Today': 'Top 10 du jour',
+      'Continue Watching': 'Reprendre la lecture',
+      'Latest Trailers': 'Bandes-annonces récentes',
+      'Play': 'Lire',
+      'Download': 'Télécharger',
+      'My List': 'Ma liste',
+      'Refresh': 'Actualiser',
+      'All': 'Tout',
+      'Series': 'Séries',
+      'Retry': 'Réessayer',
+      'Share': 'Partager',
+      'Watch Later': 'À regarder plus tard',
+      'History': 'Historique',
+      'Theme': 'Thème',
+      'Language': 'Langue',
     },
     'es': {
-      'Movies': 'Películas', 'Browser': 'Navegador', 'Downloads': 'Descargas', 'Library': 'Biblioteca',
-      'Settings': 'Ajustes', 'Search movies...': 'Buscar películas...', 'Trending Movies': 'Películas populares',
-      'Top 10 Today': 'Top 10 de hoy', 'Continue Watching': 'Continuar viendo', 'Latest Trailers': 'Últimos tráileres',
-      'Play': 'Reproducir', 'Download': 'Descargar', 'My List': 'Mi lista', 'Refresh': 'Actualizar',
-      'All': 'Todo', 'Series': 'Series', 'Retry': 'Reintentar', 'Share': 'Compartir',
-      'Watch Later': 'Ver más tarde', 'History': 'Historial', 'Theme': 'Tema', 'Language': 'Idioma',
+      'Movies': 'Películas',
+      'Browser': 'Navegador',
+      'Downloads': 'Descargas',
+      'Library': 'Biblioteca',
+      'Settings': 'Ajustes',
+      'Search movies...': 'Buscar películas...',
+      'Trending Movies': 'Películas populares',
+      'Top 10 Today': 'Top 10 de hoy',
+      'Continue Watching': 'Continuar viendo',
+      'Latest Trailers': 'Últimos tráileres',
+      'Play': 'Reproducir',
+      'Download': 'Descargar',
+      'My List': 'Mi lista',
+      'Refresh': 'Actualizar',
+      'All': 'Todo',
+      'Series': 'Series',
+      'Retry': 'Reintentar',
+      'Share': 'Compartir',
+      'Watch Later': 'Ver más tarde',
+      'History': 'Historial',
+      'Theme': 'Tema',
+      'Language': 'Idioma',
     },
     'pt': {
-      'Movies': 'Filmes', 'Browser': 'Navegador', 'Downloads': 'Transferências', 'Library': 'Biblioteca',
-      'Settings': 'Configurações', 'Search movies...': 'Pesquisar filmes...', 'Trending Movies': 'Filmes em alta',
-      'Top 10 Today': 'Top 10 de hoje', 'Continue Watching': 'Continuar assistindo', 'Latest Trailers': 'Trailers recentes',
-      'Play': 'Assistir', 'Download': 'Baixar', 'My List': 'Minha lista', 'Refresh': 'Atualizar',
-      'All': 'Todos', 'Series': 'Séries', 'Retry': 'Tentar novamente', 'Share': 'Compartilhar',
-      'Watch Later': 'Assistir depois', 'History': 'Histórico', 'Theme': 'Tema', 'Language': 'Idioma',
+      'Movies': 'Filmes',
+      'Browser': 'Navegador',
+      'Downloads': 'Transferências',
+      'Library': 'Biblioteca',
+      'Settings': 'Configurações',
+      'Search movies...': 'Pesquisar filmes...',
+      'Trending Movies': 'Filmes em alta',
+      'Top 10 Today': 'Top 10 de hoje',
+      'Continue Watching': 'Continuar assistindo',
+      'Latest Trailers': 'Trailers recentes',
+      'Play': 'Assistir',
+      'Download': 'Baixar',
+      'My List': 'Minha lista',
+      'Refresh': 'Atualizar',
+      'All': 'Todos',
+      'Series': 'Séries',
+      'Retry': 'Tentar novamente',
+      'Share': 'Compartilhar',
+      'Watch Later': 'Assistir depois',
+      'History': 'Histórico',
+      'Theme': 'Tema',
+      'Language': 'Idioma',
     },
     'hi': {
-      'Movies': 'फ़िल्में', 'Browser': 'ब्राउज़र', 'Downloads': 'डाउनलोड', 'Library': 'लाइब्रेरी',
-      'Settings': 'सेटिंग्स', 'Search movies...': 'फ़िल्म खोजें...', 'Trending Movies': 'लोकप्रिय फ़िल्में',
-      'Top 10 Today': 'आज की टॉप 10', 'Continue Watching': 'देखना जारी रखें', 'Latest Trailers': 'नए ट्रेलर',
-      'Play': 'चलाएँ', 'Download': 'डाउनलोड', 'My List': 'मेरी सूची', 'Refresh': 'रिफ़्रेश',
-      'All': 'सभी', 'Series': 'सीरीज़', 'Retry': 'फिर कोशिश करें', 'Share': 'शेयर करें',
-      'Watch Later': 'बाद में देखें', 'History': 'इतिहास', 'Theme': 'थीम', 'Language': 'भाषा',
+      'Movies': 'फ़िल्में',
+      'Browser': 'ब्राउज़र',
+      'Downloads': 'डाउनलोड',
+      'Library': 'लाइब्रेरी',
+      'Settings': 'सेटिंग्स',
+      'Search movies...': 'फ़िल्म खोजें...',
+      'Trending Movies': 'लोकप्रिय फ़िल्में',
+      'Top 10 Today': 'आज की टॉप 10',
+      'Continue Watching': 'देखना जारी रखें',
+      'Latest Trailers': 'नए ट्रेलर',
+      'Play': 'चलाएँ',
+      'Download': 'डाउनलोड',
+      'My List': 'मेरी सूची',
+      'Refresh': 'रिफ़्रेश',
+      'All': 'सभी',
+      'Series': 'सीरीज़',
+      'Retry': 'फिर कोशिश करें',
+      'Share': 'शेयर करें',
+      'Watch Later': 'बाद में देखें',
+      'History': 'इतिहास',
+      'Theme': 'थीम',
+      'Language': 'भाषा',
     },
     'tr': {
-      'Movies': 'Filmler', 'Browser': 'Tarayıcı', 'Downloads': 'İndirilenler', 'Library': 'Kitaplık',
-      'Settings': 'Ayarlar', 'Search movies...': 'Film ara...', 'Trending Movies': 'Trend Filmler',
-      'Top 10 Today': 'Bugünün İlk 10’u', 'Continue Watching': 'İzlemeye Devam Et', 'Latest Trailers': 'Son Fragmanlar',
-      'Play': 'Oynat', 'Download': 'İndir', 'My List': 'Listem', 'Refresh': 'Yenile',
-      'All': 'Tümü', 'Series': 'Diziler', 'Retry': 'Yeniden dene', 'Share': 'Paylaş',
-      'Watch Later': 'Daha Sonra İzle', 'History': 'Geçmiş', 'Theme': 'Tema', 'Language': 'Dil',
+      'Movies': 'Filmler',
+      'Browser': 'Tarayıcı',
+      'Downloads': 'İndirilenler',
+      'Library': 'Kitaplık',
+      'Settings': 'Ayarlar',
+      'Search movies...': 'Film ara...',
+      'Trending Movies': 'Trend Filmler',
+      'Top 10 Today': 'Bugünün İlk 10’u',
+      'Continue Watching': 'İzlemeye Devam Et',
+      'Latest Trailers': 'Son Fragmanlar',
+      'Play': 'Oynat',
+      'Download': 'İndir',
+      'My List': 'Listem',
+      'Refresh': 'Yenile',
+      'All': 'Tümü',
+      'Series': 'Diziler',
+      'Retry': 'Yeniden dene',
+      'Share': 'Paylaş',
+      'Watch Later': 'Daha Sonra İzle',
+      'History': 'Geçmiş',
+      'Theme': 'Tema',
+      'Language': 'Dil',
     },
     'ha': {
-      'Movies': 'Fina-finai', 'Browser': 'Mai bincike', 'Downloads': 'Abubuwan da aka sauke', 'Library': 'Laburare',
-      'Settings': 'Saituna', 'Search movies...': 'Nemo fim...', 'Trending Movies': 'Fina-finai masu tasowa',
-      'Top 10 Today': 'Manyan 10 na yau', 'Continue Watching': 'Ci gaba da kallo', 'Latest Trailers': 'Sabbin tallan fim',
-      'Play': 'Kunna', 'Download': 'Sauke', 'My List': 'Jerin nawa', 'Refresh': 'Sabunta',
-      'All': 'Duka', 'Series': 'Jerin shirye-shirye', 'Retry': 'Sake gwadawa', 'Share': 'Raba',
-      'Watch Later': 'Kallo daga baya', 'History': 'Tarihi', 'Theme': 'Jigo', 'Language': 'Harshe',
+      'Movies': 'Fina-finai',
+      'Browser': 'Mai bincike',
+      'Downloads': 'Abubuwan da aka sauke',
+      'Library': 'Laburare',
+      'Settings': 'Saituna',
+      'Search movies...': 'Nemo fim...',
+      'Trending Movies': 'Fina-finai masu tasowa',
+      'Top 10 Today': 'Manyan 10 na yau',
+      'Continue Watching': 'Ci gaba da kallo',
+      'Latest Trailers': 'Sabbin tallan fim',
+      'Play': 'Kunna',
+      'Download': 'Sauke',
+      'My List': 'Jerin nawa',
+      'Refresh': 'Sabunta',
+      'All': 'Duka',
+      'Series': 'Jerin shirye-shirye',
+      'Retry': 'Sake gwadawa',
+      'Share': 'Raba',
+      'Watch Later': 'Kallo daga baya',
+      'History': 'Tarihi',
+      'Theme': 'Jigo',
+      'Language': 'Harshe',
     },
     'yo': {
-      'Movies': 'Àwọn fíìmù', 'Browser': 'Ẹ̀rọ aṣàwárí', 'Downloads': 'Àwọn ìgbàsílẹ̀', 'Library': 'Ilé ìkàwé',
-      'Settings': 'Ètò', 'Search movies...': 'Wá fíìmù...', 'Trending Movies': 'Àwọn fíìmù tó gbajúmọ̀',
-      'Top 10 Today': 'Àwọn mẹ́wàá tó ga jù lónìí', 'Continue Watching': 'Tẹ̀ síwájú wíwo', 'Latest Trailers': 'Àwọn ìpolówó tuntun',
-      'Play': 'Ṣeré', 'Download': 'Gba sílẹ̀', 'My List': 'Àkójọ mi', 'Refresh': 'Tún ṣe',
-      'All': 'Gbogbo', 'Series': 'Àwọn eré tó tẹ̀lé ara wọn', 'Retry': 'Gbìyànjú lẹ́ẹ̀kansi', 'Share': 'Pín',
-      'Watch Later': 'Wo nígbà míì', 'History': 'Ìtàn', 'Theme': 'Àwòrán', 'Language': 'Èdè',
+      'Movies': 'Àwọn fíìmù',
+      'Browser': 'Ẹ̀rọ aṣàwárí',
+      'Downloads': 'Àwọn ìgbàsílẹ̀',
+      'Library': 'Ilé ìkàwé',
+      'Settings': 'Ètò',
+      'Search movies...': 'Wá fíìmù...',
+      'Trending Movies': 'Àwọn fíìmù tó gbajúmọ̀',
+      'Top 10 Today': 'Àwọn mẹ́wàá tó ga jù lónìí',
+      'Continue Watching': 'Tẹ̀ síwájú wíwo',
+      'Latest Trailers': 'Àwọn ìpolówó tuntun',
+      'Play': 'Ṣeré',
+      'Download': 'Gba sílẹ̀',
+      'My List': 'Àkójọ mi',
+      'Refresh': 'Tún ṣe',
+      'All': 'Gbogbo',
+      'Series': 'Àwọn eré tó tẹ̀lé ara wọn',
+      'Retry': 'Gbìyànjú lẹ́ẹ̀kansi',
+      'Share': 'Pín',
+      'Watch Later': 'Wo nígbà míì',
+      'History': 'Ìtàn',
+      'Theme': 'Àwòrán',
+      'Language': 'Èdè',
     },
   };
 }

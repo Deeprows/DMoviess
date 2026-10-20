@@ -21,6 +21,7 @@ class CommunityProfileScreen extends StatefulWidget {
   final String email;
   final String? name;
   final String? photoUrl;
+
   /// True when shown as the bottom-bar Profile tab (no back button).
   final bool asTab;
 
@@ -44,8 +45,11 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
   String? _error;
   String _nickname = '';
   String _avatarPath = '';
-  String get _key => widget.email.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
-  bool get _mine => AuthService.instance.user?.email.toLowerCase() == widget.email.toLowerCase();
+  String get _key =>
+      widget.email.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+  bool get _mine =>
+      AuthService.instance.user?.email.toLowerCase() ==
+      widget.email.toLowerCase();
 
   @override
   void initState() {
@@ -71,13 +75,24 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
 
   Future<void> _editNickname() async {
     final controller = TextEditingController(text: _nickname);
-    final result = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
-      title: Text('Movie nickname'.tr),
-      content: TextField(controller: controller, maxLength: 24,
-        decoration: const InputDecoration(hintText: 'CinemaKing, MovieBuff...')),
-      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text('Cancel'.tr)),
-        FilledButton(onPressed: () => Navigator.pop(ctx, controller.text.trim()), child: Text('Save'.tr))],
-    ));
+    final result = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: Text('Movie nickname'.tr),
+              content: TextField(
+                  controller: controller,
+                  maxLength: 24,
+                  decoration: const InputDecoration(
+                      hintText: 'CinemaKing, MovieBuff...')),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text('Cancel'.tr)),
+                FilledButton(
+                    onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+                    child: Text('Save'.tr))
+              ],
+            ));
     controller.dispose();
     if (result == null || !mounted) return;
     final prefs = await SharedPreferences.getInstance();
@@ -86,7 +101,8 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
   }
 
   Future<void> _changeAvatar() async {
-    final image = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 75, maxWidth: 700);
+    final image = await ImagePicker().pickImage(
+        source: ImageSource.gallery, imageQuality: 75, maxWidth: 700);
     if (image == null) return;
     final dir = await getApplicationDocumentsDirectory();
     final destination = File('${dir.path}/avatar_$_key.jpg');
@@ -97,12 +113,20 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
   }
 
   Future<void> _logout() async {
-    final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-      title: Text('Log out?'.tr),
-      content: Text('You will need to sign in again.'.tr),
-      actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel'.tr)),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Log out'.tr))],
-    ));
+    final yes = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: Text('Log out?'.tr),
+              content: Text('You will need to sign in again.'.tr),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: Text('Cancel'.tr)),
+                FilledButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: Text('Log out'.tr))
+              ],
+            ));
     if (yes == true) await AuthService.instance.signOut();
   }
 
@@ -128,10 +152,14 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
       appBar: AppBar(
         backgroundColor: Ui.bg,
         automaticallyImplyLeading: !widget.asTab,
-        title: Text((!widget.asTab && (p?.mine ?? false) ? 'My profile' : 'Profile').tr,
+        title: Text(
+            (!widget.asTab && (p?.mine ?? false) ? 'My profile' : 'Profile').tr,
             style: const TextStyle(fontWeight: FontWeight.w900)),
       ),
-      body: SafeArea(top: false, bottom: true, child: p == null ? _loading() : _content(p)),
+      body: SafeArea(
+          top: false,
+          bottom: true,
+          child: p == null ? _loading() : _content(p)),
     );
   }
 
@@ -150,16 +178,19 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
     }
     return Column(
       children: [
-        const SizedBox(height: 8),
-        _header(
-            widget.name ?? '', widget.photoUrl ?? '', null, posts: 0, likes: 0),
-        const Expanded(child: Center(child: CircularProgressIndicator())),
+        SizedBox(height: 8),
+        _header(widget.name ?? '', widget.photoUrl ?? '', null,
+            posts: 0, likes: 0),
+        Expanded(child: Center(child: CircularProgressIndicator())),
       ],
     );
   }
 
   Widget _header(String name, String photo, String? bio,
-      {required int posts, required int likes, String? email, bool badges = false}) {
+      {required int posts,
+      required int likes,
+      String? email,
+      bool badges = false}) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       padding: const EdgeInsets.all(18),
@@ -175,15 +206,23 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
               GestureDetector(
                 onTap: _mine ? _changeAvatar : null,
                 child: Stack(alignment: Alignment.bottomRight, children: [
-                  if (_mine && _avatarPath.isNotEmpty && File(_avatarPath).existsSync())
-                    CircleAvatar(radius: 36, backgroundImage: FileImage(File(_avatarPath)))
+                  if (_mine &&
+                      _avatarPath.isNotEmpty &&
+                      File(_avatarPath).existsSync())
+                    CircleAvatar(
+                        radius: 36,
+                        backgroundImage: FileImage(File(_avatarPath)))
                   else
-                    CommunityAvatar(url: _mine ? '' : photo, name: name, radius: 34),
-                  if (_mine) const CircleAvatar(radius: 12, backgroundColor: Ui.red,
-                    child: Icon(Icons.edit, size: 13, color: Colors.white)),
+                    CommunityAvatar(
+                        url: _mine ? '' : photo, name: name, radius: 34),
+                  if (_mine)
+                    CircleAvatar(
+                        radius: 12,
+                        backgroundColor: Ui.red,
+                        child: Icon(Icons.edit, size: 13, color: Colors.white)),
                 ]),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,13 +235,23 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
                             fontWeight: FontWeight.w900,
                             letterSpacing: -.3)),
                     if (_mine) ...[
-                      const SizedBox(height: 5),
-                      InkWell(onTap: _editNickname, child: Row(children: [
-                        Flexible(child: Text(_nickname.isEmpty ? 'Add movie nickname' : '@$_nickname',
-                          maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: Ui.redSoft, fontSize: 13))),
-                        const SizedBox(width: 5), const Icon(Icons.edit_rounded, size: 14, color: Ui.redSoft),
-                      ])),
+                      SizedBox(height: 5),
+                      InkWell(
+                          onTap: _editNickname,
+                          child: Row(children: [
+                            Flexible(
+                                child: Text(
+                                    _nickname.isEmpty
+                                        ? 'Add movie nickname'
+                                        : '@$_nickname',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        color: Ui.redSoft, fontSize: 13))),
+                            SizedBox(width: 5),
+                            Icon(Icons.edit_rounded,
+                                size: 14, color: Ui.redSoft),
+                          ])),
                     ],
                     if (badges)
                       ListenableBuilder(
@@ -212,7 +261,7 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
                           child: Row(children: [
                             Icon(Icons.workspace_premium_rounded,
                                 size: 16, color: Colors.amber),
-                            const SizedBox(width: 6),
+                            SizedBox(width: 6),
                             Text(
                                 '${ProfileData.instance.badgesEarned}/10 ${'Badges'.tr}',
                                 style: TextStyle(
@@ -223,7 +272,7 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
                         ),
                       ),
                     if (bio != null && bio.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(bio,
                           style: TextStyle(color: Ui.muted, fontSize: 13)),
                     ],
@@ -232,11 +281,11 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           Row(
             children: [
               _stat(Icons.forum_rounded, '$posts', 'Posts'),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               _stat(Icons.favorite_rounded, '$likes', 'Likes received'),
             ],
           ),
@@ -257,7 +306,7 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
         child: Row(
           children: [
             Icon(icon, size: 20, color: Ui.redSoft),
-            const SizedBox(width: 10),
+            SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,7 +326,6 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
       ),
     );
   }
-
 
   // ---- Profile grid (own profile only) ----------------------------------
 
@@ -309,8 +357,8 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
               () => _open(const BadgesScreen())),
           _tile(Icons.format_list_bulleted_rounded, 'Lists', data.lists.length,
               () => _open(const ListsScreen())),
-          _tile(Icons.check_circle_outline_rounded, 'Check-ins', data.checkIns.length,
-              () => _open(const CheckInsScreen())),
+          _tile(Icons.check_circle_outline_rounded, 'Check-ins',
+              data.checkIns.length, () => _open(const CheckInsScreen())),
           _tile(Icons.people_alt_rounded, 'Favorite people', data.people.length,
               () => _open(const FavoritePeopleScreen())),
         ];
@@ -347,17 +395,19 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 28, color: Ui.redSoft),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(label.tr,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                       fontSize: 13.5, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text('$count',
                   style: TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w700, color: Ui.muted)),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Ui.muted)),
             ],
           ),
         ),
@@ -370,7 +420,7 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
         child: Row(
           children: [
             Icon(icon, size: 18, color: Ui.redSoft),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Text(title.tr,
                 style: const TextStyle(
                     fontSize: 15.5, fontWeight: FontWeight.w900)),
@@ -380,14 +430,16 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
 
   Widget _content(CommunityProfile p) {
     final others = p.posts
-        .where((x) => x.id != p.lastTweet?.id && x.id != p.lastRecommendation?.id)
+        .where(
+            (x) => x.id != p.lastTweet?.id && x.id != p.lastRecommendation?.id)
         .toList();
     return RefreshIndicator(
       color: Ui.red,
       onRefresh: _load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 48),
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 48),
         children: [
           _header(p.name, p.photoUrl, p.bio,
               posts: p.postCount,
@@ -395,27 +447,32 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
               email: null,
               badges: p.mine),
           if (p.mine) _statGrid(),
-          if (p.mine) Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: OutlinedButton.icon(onPressed: _logout,
-              icon: const Icon(Icons.logout_rounded), label: Text('Log out'.tr)),
-          ),
+          if (p.mine)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: OutlinedButton.icon(
+                  onPressed: _logout,
+                  icon: Icon(Icons.logout_rounded),
+                  label: Text('Log out'.tr)),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                  builder: (_) => WatchTogetherScreen(
-                      inviteEmail: p.mine ? null : p.email),
+                onPressed: () =>
+                    Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) =>
+                      WatchTogetherScreen(inviteEmail: p.mine ? null : p.email),
                 )),
-                icon: const Icon(Icons.groups_rounded),
+                icon: Icon(Icons.groups_rounded),
                 label: Text('Watch Together'.tr),
                 style: FilledButton.styleFrom(
                   backgroundColor: Ui.red,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15)),
                 ),
               ),
             ),
@@ -490,7 +547,8 @@ class _CommunityPeopleScreenState extends State<CommunityPeopleScreen> {
     final list = all == null
         ? const <CommunityPerson>[]
         : all
-            .where((p) => p.name.toLowerCase().contains(_q.trim().toLowerCase()))
+            .where(
+                (p) => p.name.toLowerCase().contains(_q.trim().toLowerCase()))
             .toList();
     return Scaffold(
       backgroundColor: Ui.bg,
@@ -507,7 +565,7 @@ class _CommunityPeopleScreenState extends State<CommunityPeopleScreen> {
               onChanged: (v) => setState(() => _q = v),
               decoration: InputDecoration(
                 hintText: 'Search people'.tr,
-                prefixIcon: const Icon(Icons.search_rounded),
+                prefixIcon: Icon(Icons.search_rounded),
                 filled: true,
                 fillColor: Colors.white.withValues(alpha: .06),
                 border: OutlineInputBorder(
@@ -526,7 +584,7 @@ class _CommunityPeopleScreenState extends State<CommunityPeopleScreen> {
                         hint: _error!,
                         action: 'Try again',
                         onAction: _load)
-                    : const Center(child: CircularProgressIndicator()))
+                    : Center(child: CircularProgressIndicator()))
                 : list.isEmpty
                     ? const CommunityMessage(
                         icon: Icons.people_outline_rounded,
@@ -547,8 +605,7 @@ class _CommunityPeopleScreenState extends State<CommunityPeopleScreen> {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w800)),
-                            subtitle: Text(
-                                '${p.postCount} ${'posts'.tr}',
+                            subtitle: Text('${p.postCount} ${'posts'.tr}',
                                 style:
                                     TextStyle(color: Ui.muted, fontSize: 12)),
                             trailing: Icon(Icons.chevron_right_rounded,

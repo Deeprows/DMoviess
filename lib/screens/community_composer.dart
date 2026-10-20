@@ -25,7 +25,8 @@ Future<bool> showCommunityComposer(
     return false;
   }
   if (!svc.signedIn) {
-    communityToast(context, const CommunityException('google_required').message);
+    communityToast(
+        context, const CommunityException('google_required').message);
     return false;
   }
   final posted = await showModalBottomSheet<bool>(
@@ -101,7 +102,8 @@ class _ComposerState extends State<_Composer> {
     } on CommunityException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
-      if (mounted) setState(() => _error = const CommunityException('').message);
+      if (mounted)
+        setState(() => _error = const CommunityException('').message);
     }
     if (mounted) setState(() => _sending = false);
   }
@@ -111,7 +113,8 @@ class _ComposerState extends State<_Composer> {
     final user = AuthService.instance.user;
     return AnimatedPadding(
       duration: const Duration(milliseconds: 150),
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
         child: Column(
@@ -124,7 +127,7 @@ class _ComposerState extends State<_Composer> {
                     url: user?.photoUrl ?? '',
                     name: user?.name ?? '',
                     radius: 20),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: Text(user?.name ?? 'Movie fan'.tr,
                       maxLines: 1,
@@ -134,20 +137,20 @@ class _ComposerState extends State<_Composer> {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             Glass(
               radius: 16,
               padding: const EdgeInsets.all(4),
               child: Row(
                 children: [
-                  _segment('Movie tweet', Icons.chat_bubble_rounded, !_recommend,
-                      () => setState(() => _recommend = false)),
+                  _segment('Movie tweet', Icons.chat_bubble_rounded,
+                      !_recommend, () => setState(() => _recommend = false)),
                   _segment('Recommendation', Icons.thumb_up_alt_rounded,
                       _recommend, () => setState(() => _recommend = true)),
                 ],
               ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             TextField(
               controller: _text,
               autofocus: widget.movie == null,
@@ -173,21 +176,23 @@ class _ComposerState extends State<_Composer> {
                 ),
               ),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             if (_movie == null)
               OutlinedButton.icon(
                 onPressed: _pickMovie,
-                icon: const Icon(Icons.movie_filter_rounded, size: 20),
-                label: Text((_recommend ? 'Pick a movie (required)' : 'Attach a movie').tr),
+                icon: Icon(Icons.movie_filter_rounded, size: 20),
+                label: Text(
+                    (_recommend ? 'Pick a movie (required)' : 'Attach a movie')
+                        .tr),
               )
             else
               _attached(),
             if (_error != null) ...[
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Text(_error!.tr,
                   style: TextStyle(color: Ui.red, fontWeight: FontWeight.w700)),
             ],
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Opacity(
               opacity: _ready && !_sending ? 1 : .45,
               child: GradientButton(
@@ -217,9 +222,8 @@ class _ComposerState extends State<_Composer> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon,
-                  size: 16, color: on ? Ui.palette.onAccent : Ui.muted),
-              const SizedBox(width: 6),
+              Icon(icon, size: 16, color: on ? Ui.palette.onAccent : Ui.muted),
+              SizedBox(width: 6),
               Flexible(
                 child: Text(label.tr,
                     maxLines: 1,
@@ -265,7 +269,7 @@ class _ComposerState extends State<_Composer> {
                       : ColoredBox(color: Ui.cardDeep),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: Text(m.title,
                     maxLines: 2,
@@ -279,11 +283,11 @@ class _ComposerState extends State<_Composer> {
                   _movie = null;
                   _rating = 0;
                 }),
-                icon: const Icon(Icons.close_rounded),
+                icon: Icon(Icons.close_rounded),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Row(
             children: [
               Text('Your rating'.tr,
@@ -324,7 +328,7 @@ class _MoviePickerState extends State<_MoviePicker> {
   final _tmdb = TmdbService();
   final _q = TextEditingController();
   Timer? _debounce;
-  List<Movie> _found = const [];
+  List<Movie> _found = [];
   bool _busy = false;
   String _last = '';
 
@@ -377,7 +381,8 @@ class _MoviePickerState extends State<_MoviePicker> {
     final height = MediaQuery.of(context).size.height * .8;
     return AnimatedPadding(
       duration: const Duration(milliseconds: 150),
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SizedBox(
         height: height,
         child: Column(
@@ -390,7 +395,7 @@ class _MoviePickerState extends State<_MoviePicker> {
                 onChanged: _changed,
                 decoration: InputDecoration(
                   hintText: 'Search any movie or series…'.tr,
-                  prefixIcon: const Icon(Icons.search_rounded),
+                  prefixIcon: Icon(Icons.search_rounded),
                   filled: true,
                   fillColor: Colors.white.withValues(alpha: .06),
                   border: OutlineInputBorder(
@@ -433,8 +438,8 @@ class _MoviePickerState extends State<_MoviePicker> {
                           title: Text(m.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w800)),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w800)),
                           subtitle: Text(
                               [
                                 (m.isSeries ? 'Series' : 'Movie').tr,

@@ -5,22 +5,32 @@ class MovieCastMember {
   final String character;
   final String photo;
 
-  const MovieCastMember({required this.name, required this.character, this.photo = ''});
+  const MovieCastMember(
+      {required this.name, required this.character, this.photo = ''});
 
-  factory MovieCastMember.fromJson(Map<String, dynamic> json) => MovieCastMember(
+  factory MovieCastMember.fromJson(Map<String, dynamic> json) =>
+      MovieCastMember(
         name: (json['name'] ?? '').toString(),
         character: (json['character'] ?? '').toString(),
         photo: (json['photo'] ?? '').toString(),
       );
 
-  Map<String, dynamic> toJson() => {'name': name, 'character': character, 'photo': photo};
+  Map<String, dynamic> toJson() =>
+      {'name': name, 'character': character, 'photo': photo};
 }
 
 /// Movie or series model. The original catalogue fields remain compatible with
 /// assets/data/movies.json; the extra fields are filled from TMDB details.
 class Movie {
   final String name, url, downloadUrl, rating, genre, image, date, backdrop;
-  final String backupUrl, thirdUrl, referer, userAgent, altReferer, altUserAgent, thirdReferer, thirdUserAgent;
+  final String backupUrl,
+      thirdUrl,
+      referer,
+      userAgent,
+      altReferer,
+      altUserAgent,
+      thirdReferer,
+      thirdUserAgent;
   final int? tmdbId;
   final String mediaType;
   final String overview, tagline, status, language, releaseDate;
@@ -60,26 +70,46 @@ class Movie {
   });
 
   factory Movie.fromJson(Map<String, dynamic> j) {
-    final id = int.tryParse('${j['tmdbId'] ?? j['tmdb_id'] ?? j['tmdb'] ?? j['id'] ?? ''}');
-    final typeRaw = (j['type'] ?? j['mediaType'] ?? 'movie').toString().toLowerCase();
-    final type = (typeRaw == 'tv' || typeRaw == 'series' || typeRaw == 'show' || (j['url'] ?? '').toString().contains('/tv/')) ? 'tv' : 'movie';
+    final id = int.tryParse(
+        '${j['tmdbId'] ?? j['tmdb_id'] ?? j['tmdb'] ?? j['id'] ?? ''}');
+    final typeRaw =
+        (j['type'] ?? j['mediaType'] ?? 'movie').toString().toLowerCase();
+    final type = (typeRaw == 'tv' ||
+            typeRaw == 'series' ||
+            typeRaw == 'show' ||
+            (j['url'] ?? '').toString().contains('/tv/'))
+        ? 'tv'
+        : 'movie';
     return Movie(
       name: (j['name'] ?? j['title'] ?? 'Untitled').toString(),
-      url: _normaliseSourceUrl((j['url'] ?? (id == null ? '' : '${AppConfig.embedBase}/$type/$id')).toString()),
-      downloadUrl: (j['downloadUrl'] ?? (id == null ? '' : '${AppConfig.downloadBase}/$type/$id')).toString(),
+      url: _normaliseSourceUrl(
+          (j['url'] ?? (id == null ? '' : '${AppConfig.embedBase}/$type/$id'))
+              .toString()),
+      downloadUrl: (j['downloadUrl'] ??
+              (id == null ? '' : '${AppConfig.downloadBase}/$type/$id'))
+          .toString(),
       rating: _normaliseRating((j['rating'] ?? '').toString()),
-      genre: (j['genre'] ?? (j['genres'] is List ? (j['genres'] as List).join(',') : '')).toString(),
+      genre: (j['genre'] ??
+              (j['genres'] is List ? (j['genres'] as List).join(',') : ''))
+          .toString(),
       image: normalizeImage((j['image'] ?? '').toString()),
       date: (j['date'] ?? '').toString(),
       backdrop: (j['backdrop'] ?? '').toString(),
-      backupUrl: (j['altUrl'] ?? j['alt_url'] ?? j['backupUrl'] ?? j['backup_url'] ?? '').toString(),
-      thirdUrl: (j['thirdUrl'] ?? j['third_url'] ?? j['player3'] ?? '').toString(),
+      backupUrl: (j['altUrl'] ??
+              j['alt_url'] ??
+              j['backupUrl'] ??
+              j['backup_url'] ??
+              '')
+          .toString(),
+      thirdUrl:
+          (j['thirdUrl'] ?? j['third_url'] ?? j['player3'] ?? '').toString(),
       referer: (j['referer'] ?? '').toString(),
       userAgent: (j['userAgent'] ?? j['user_agent'] ?? '').toString(),
       altReferer: (j['altReferer'] ?? j['alt_referer'] ?? '').toString(),
       altUserAgent: (j['altUserAgent'] ?? j['alt_user_agent'] ?? '').toString(),
       thirdReferer: (j['thirdReferer'] ?? j['third_referer'] ?? '').toString(),
-      thirdUserAgent: (j['thirdUserAgent'] ?? j['third_user_agent'] ?? '').toString(),
+      thirdUserAgent:
+          (j['thirdUserAgent'] ?? j['third_user_agent'] ?? '').toString(),
       tmdbId: id,
       mediaType: type,
       overview: (j['overview'] ?? j['summary'] ?? '').toString(),
@@ -87,11 +117,25 @@ class Movie {
       status: (j['status'] ?? '').toString(),
       language: (j['language'] ?? '').toString(),
       releaseDate: (j['releaseDate'] ?? j['release_date'] ?? '').toString(),
-      runtime: j['runtime'] is num ? (j['runtime'] as num).toInt() : int.tryParse('${j['runtime'] ?? ''}'),
-      seasons: j['seasons'] is num ? (j['seasons'] as num).toInt() : int.tryParse('${j['seasons'] ?? ''}'),
-      episodes: j['episodes'] is num ? (j['episodes'] as num).toInt() : int.tryParse('${j['episodes'] ?? ''}'),
-      directors: (j['directors'] is List) ? (j['directors'] as List).map((e) => e.toString()).toList() : const [],
-      cast: (j['cast'] is List) ? (j['cast'] as List).whereType<Map>().map((e) => MovieCastMember.fromJson(Map<String, dynamic>.from(e))).toList() : const [],
+      runtime: j['runtime'] is num
+          ? (j['runtime'] as num).toInt()
+          : int.tryParse('${j['runtime'] ?? ''}'),
+      seasons: j['seasons'] is num
+          ? (j['seasons'] as num).toInt()
+          : int.tryParse('${j['seasons'] ?? ''}'),
+      episodes: j['episodes'] is num
+          ? (j['episodes'] as num).toInt()
+          : int.tryParse('${j['episodes'] ?? ''}'),
+      directors: (j['directors'] is List)
+          ? (j['directors'] as List).map((e) => e.toString()).toList()
+          : [],
+      cast: (j['cast'] is List)
+          ? (j['cast'] as List)
+              .whereType<Map>()
+              .map(
+                  (e) => MovieCastMember.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
+          : [],
     );
   }
 
@@ -127,21 +171,38 @@ class Movie {
       };
 
   String get title => name.replaceFirst(RegExp(r'\s*\(\d{4}\)\s*$'), '').trim();
-  String get year => RegExp(r'(?:19|20)\d{2}').firstMatch(releaseDate.isNotEmpty ? releaseDate : name)?.group(0) ?? '';
-  List<String> get genres => genre.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toSet().toList();
-  String get key => tmdbId != null ? '$mediaType:$tmdbId' : (url.isNotEmpty ? url : name);
+  String get year =>
+      RegExp(r'(?:19|20)\d{2}')
+          .firstMatch(releaseDate.isNotEmpty ? releaseDate : name)
+          ?.group(0) ??
+      '';
+  List<String> get genres => genre
+      .split(',')
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toSet()
+      .toList();
+  String get key =>
+      tmdbId != null ? '$mediaType:$tmdbId' : (url.isNotEmpty ? url : name);
   bool get isSeries => mediaType == 'tv' || url.contains('/tv/');
   String get altUrl {
     if (backupUrl.trim().isNotEmpty) return backupUrl.trim();
     // Prefer a provider/IMDb ID already present in the source URL. Detail
     // enrichment adds the numeric TMDB ID to Movie, but must not replace a
     // working IMDb-based fallback URL with that unrelated numeric ID.
-    final sourceId = RegExp(r'/(?:embed/)?(?:movie|tv)/(tt\d+|\d+)', caseSensitive: false)
-        .firstMatch(url)?.group(1);
-    final id = sourceId?.startsWith('tt') == true ? sourceId : tmdbId?.toString() ?? sourceId;
+    final sourceId =
+        RegExp(r'/(?:embed/)?(?:movie|tv)/(tt\d+|\d+)', caseSensitive: false)
+            .firstMatch(url)
+            ?.group(1);
+    final id = sourceId?.startsWith('tt') == true
+        ? sourceId
+        : tmdbId?.toString() ?? sourceId;
     if (id == null) return '';
-    return isSeries ? '${AppConfig.altEmbedBase}/tv/$id/1/1' : '${AppConfig.altEmbedBase}/movie/$id';
+    return isSeries
+        ? '${AppConfig.altEmbedBase}/tv/$id/1/1'
+        : '${AppConfig.altEmbedBase}/movie/$id';
   }
+
   String get runtimeText {
     final r = runtime;
     if (r == null || r <= 0) return '';
@@ -170,13 +231,16 @@ class Movie {
       r'^https?://(?:www\.|media\.)?themoviedb\.org/t/p/[^/]+/(.+)$',
       caseSensitive: false,
     ).firstMatch(raw.trim());
-    if (match != null) return 'https://image.tmdb.org/t/p/w500/${match.group(1)}';
+    if (match != null)
+      return 'https://image.tmdb.org/t/p/w500/${match.group(1)}';
     return raw.trim();
   }
 
   static String _normaliseSourceUrl(String raw) {
     final input = raw.trim();
-    final match = RegExp(r'^https?://([^/]+)/embed/(movie|tv)/(.*)$', caseSensitive: false).firstMatch(input);
+    final match = RegExp(r'^https?://([^/]+)/embed/(movie|tv)/(.*)$',
+            caseSensitive: false)
+        .firstMatch(input);
     if (match == null) return input;
     final host = match.group(1)!.toLowerCase();
     if (!AppConfig.replaceHosts.contains(host)) return input;
@@ -184,12 +248,36 @@ class Movie {
   }
 
   Movie copyWith({
-    String? name, String? url, String? downloadUrl, String? rating, String? genre,
-    String? image, String? date, String? backdrop, String? backupUrl, String? thirdUrl, String? referer, String? userAgent, String? altReferer, String? altUserAgent, String? thirdReferer, String? thirdUserAgent, int? tmdbId, String? mediaType,
-    String? overview, String? tagline, String? status, String? language,
-    String? releaseDate, int? runtime, int? seasons, int? episodes,
-    List<String>? directors, List<MovieCastMember>? cast,
-  }) => Movie(
+    String? name,
+    String? url,
+    String? downloadUrl,
+    String? rating,
+    String? genre,
+    String? image,
+    String? date,
+    String? backdrop,
+    String? backupUrl,
+    String? thirdUrl,
+    String? referer,
+    String? userAgent,
+    String? altReferer,
+    String? altUserAgent,
+    String? thirdReferer,
+    String? thirdUserAgent,
+    int? tmdbId,
+    String? mediaType,
+    String? overview,
+    String? tagline,
+    String? status,
+    String? language,
+    String? releaseDate,
+    int? runtime,
+    int? seasons,
+    int? episodes,
+    List<String>? directors,
+    List<MovieCastMember>? cast,
+  }) =>
+      Movie(
         name: name ?? this.name,
         url: url ?? this.url,
         downloadUrl: downloadUrl ?? this.downloadUrl,

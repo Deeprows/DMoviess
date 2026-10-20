@@ -229,7 +229,8 @@ class CommunityService extends ChangeNotifier {
   bool get loaded => _loaded;
   String? get error => _error;
 
-  String get _base => AppConfig.communityUrl.trim().replaceAll(RegExp(r'/+$'), '');
+  String get _base =>
+      AppConfig.communityUrl.trim().replaceAll(RegExp(r'/+$'), '');
   bool get available => _base.isNotEmpty;
   bool get signedIn => AuthService.instance.user != null;
 
@@ -247,20 +248,17 @@ class CommunityService extends ChangeNotifier {
       if (k == null || k.length < 32) {
         final r = Random.secure();
         k = List.generate(
-                32, (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0'))
-            .join();
+            32, (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
         await prefs.setString('community_key', k);
       }
       return _key = k;
     } catch (_) {
       return _key = List.generate(
-              32, (_) => Random.secure().nextInt(16).toRadixString(16))
-          .join();
+          32, (_) => Random.secure().nextInt(16).toRadixString(16)).join();
     }
   }
 
-  Future<dynamic> _request(String path,
-      {Map<String, dynamic>? body}) async {
+  Future<dynamic> _request(String path, {Map<String, dynamic>? body}) async {
     if (!available) throw const CommunityException('unavailable');
     final user = AuthService.instance.user;
     if (user == null) throw const CommunityException('google_required');
@@ -356,9 +354,10 @@ class CommunityService extends ChangeNotifier {
     final id = movie == null
         ? null
         : (movie.tmdbId ??
-            int.tryParse(
-                RegExp(r'/(?:movie|tv)/(\d+)').firstMatch(movie.url)?.group(1) ??
-                    ''));
+            int.tryParse(RegExp(r'/(?:movie|tv)/(\d+)')
+                    .firstMatch(movie.url)
+                    ?.group(1) ??
+                ''));
     final d = await _request('/community/posts', body: {
       'text': text.trim(),
       'kind': recommendation ? 'recommendation' : 'tweet',
@@ -431,7 +430,9 @@ class CommunityService extends ChangeNotifier {
   Future<void> addComment(CommunityPost p, String text) async {
     final d = await _request('/community/comments',
         body: {'postId': p.id, 'text': text.trim()});
-    p.commentCount = d is Map ? (_int(d['commentCount']) ?? p.commentCount + 1) : p.commentCount + 1;
+    p.commentCount = d is Map
+        ? (_int(d['commentCount']) ?? p.commentCount + 1)
+        : p.commentCount + 1;
     notifyListeners();
   }
 
@@ -506,10 +507,14 @@ class CommunityService extends ChangeNotifier {
     final d = await _request('/community/watch/invitations');
     final raw = d is Map ? d['invitations'] : null;
     if (raw is! List) return [];
-    return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    return raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
   }
 
-  Future<Map<String, dynamic>> respondWatchInvitation(String roomId, bool accept) async {
+  Future<Map<String, dynamic>> respondWatchInvitation(
+      String roomId, bool accept) async {
     final d = await _request('/community/watch/respond', body: {
       'roomId': roomId,
       'accept': accept,
@@ -521,7 +526,8 @@ class CommunityService extends ChangeNotifier {
   }
 
   Future<Map<String, dynamic>> watchRoom(String roomId) async {
-    final d = await _request('/community/watch/room?id=${Uri.encodeQueryComponent(roomId)}');
+    final d = await _request(
+        '/community/watch/room?id=${Uri.encodeQueryComponent(roomId)}');
     if (d is! Map || d['room'] is! Map) {
       throw const CommunityException('watch_room_failed');
     }
@@ -533,11 +539,15 @@ class CommunityService extends ChangeNotifier {
     final d = await _request('/community/watch/mine');
     final raw = d is Map ? d['rooms'] : null;
     if (raw is! List) return [];
-    return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    return raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
   }
 
   /// Chat message, emoji reaction, or (host only) the shared "start".
-  Future<void> watchEvent(String roomId, String kind, [String text = '']) async {
+  Future<void> watchEvent(String roomId, String kind,
+      [String text = '']) async {
     await _request('/community/watch/event',
         body: {'roomId': roomId, 'kind': kind, 'text': text});
   }

@@ -21,8 +21,18 @@ String timeAgo(DateTime t) {
   if (d.inHours < 24) return '${d.inHours}h';
   if (d.inDays < 7) return '${d.inDays}d';
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec'
   ];
   return '${t.day} ${months[t.month - 1]}';
 }
@@ -39,7 +49,8 @@ void communityToast(BuildContext context, String message) {
 }
 
 /// Runs a community action and shows its error (if any) as a message.
-Future<bool> communityTry(BuildContext context, Future<void> Function() job) async {
+Future<bool> communityTry(
+    BuildContext context, Future<void> Function() job) async {
   try {
     await job();
     return true;
@@ -147,7 +158,7 @@ class _KindBadge extends StatelessWidget {
                   : Icons.chat_bubble_rounded,
               size: 11,
               color: c),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           Text((recommendation ? 'Recommends' : 'Tweet').tr,
               style: TextStyle(
                   fontSize: 10.5, fontWeight: FontWeight.w800, color: c)),
@@ -193,9 +204,8 @@ class PostMovie extends StatelessWidget {
           ),
           child: Row(
             children: [
-              ClipRRect(
-                  borderRadius: BorderRadius.circular(10), child: poster),
-              const SizedBox(width: 12),
+              ClipRRect(borderRadius: BorderRadius.circular(10), child: poster),
+              SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,11 +215,11 @@ class PostMovie extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             fontSize: 14.5, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 3),
+                    SizedBox(height: 3),
                     Text((post.movieTv ? 'Series' : 'Movie').tr,
                         style: TextStyle(color: Ui.muted, fontSize: 12)),
                     if (post.rating != null && post.rating! > 0) ...[
-                      const SizedBox(height: 5),
+                      SizedBox(height: 5),
                       StarsRow(rating10: post.rating!),
                     ],
                   ],
@@ -329,7 +339,7 @@ class PostCard extends StatelessWidget {
                                   name: post.name,
                                   radius: 19,
                                 ),
-                                const SizedBox(width: 10),
+                                SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -346,7 +356,7 @@ class PostCard extends StatelessWidget {
                                           fontSize: 14.5,
                                         ),
                                       ),
-                                      const SizedBox(height: 2),
+                                      SizedBox(height: 2),
                                       Text(
                                         timeAgo(post.createdAt),
                                         style: TextStyle(
@@ -363,7 +373,7 @@ class PostCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     _KindBadge(recommendation: post.recommendation),
                     if (post.mine)
                       PopupMenuButton<String>(
@@ -377,7 +387,7 @@ class PostCard extends StatelessWidget {
                             child: Row(children: [
                               Icon(Icons.delete_outline_rounded,
                                   size: 20, color: Ui.red),
-                              const SizedBox(width: 10),
+                              SizedBox(width: 10),
                               Text('Delete'.tr),
                             ]),
                           ),
@@ -389,7 +399,7 @@ class PostCard extends StatelessWidget {
                 Row(
                   children: [
                     _KindBadge(recommendation: post.recommendation),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Text(timeAgo(post.createdAt),
                         style: TextStyle(color: Ui.muted, fontSize: 11.5)),
                     const Spacer(),
@@ -402,7 +412,7 @@ class PostCard extends StatelessWidget {
                       ),
                   ],
                 ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: detail ? null : () => openCommunityPost(context, post),
@@ -412,10 +422,10 @@ class PostCard extends StatelessWidget {
                     style: const TextStyle(fontSize: 15, height: 1.42)),
               ),
               if (post.hasMovie) ...[
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 PostMovie(post: post),
               ],
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               Row(
                 children: [
                   _ActionButton(
@@ -436,9 +446,10 @@ class PostCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                   _ActionButton(
-                    onTap: detail ? null : () => openCommunityPost(context, post),
+                    onTap:
+                        detail ? null : () => openCommunityPost(context, post),
                     color: Ui.muted,
                     count: post.commentCount,
                     icon: Icon(Icons.mode_comment_outlined,
@@ -475,7 +486,7 @@ class _ActionButton extends StatelessWidget {
         child: Row(
           children: [
             icon,
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             Text('$count',
                 style: TextStyle(
                     color: color, fontWeight: FontWeight.w800, fontSize: 13)),
@@ -510,17 +521,17 @@ class CommunityMessage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 54, color: Ui.dim),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             Text(title.tr,
                 textAlign: TextAlign.center,
                 style:
                     const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Text(hint.tr,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Ui.muted, fontSize: 13, height: 1.4)),
             if (action != null) ...[
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               OutlinedButton(onPressed: onAction, child: Text(action!.tr)),
             ],
           ],

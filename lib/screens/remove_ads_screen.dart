@@ -47,10 +47,16 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
   Future<void> _redeem() async {
     if (_busy) return;
     if (_token.text.trim().isEmpty) {
-      setState(() { _message = 'Paste your token first.'; _messageOk = false; });
+      setState(() {
+        _message = 'Paste your token first.';
+        _messageOk = false;
+      });
       return;
     }
-    setState(() { _busy = true; _message = null; });
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
     final result = await PremiumService.instance.redeem(_token.text);
     if (!mounted) return;
     setState(() {
@@ -63,7 +69,10 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
 
   Future<void> _request(RemoveAdsConfig config, RemovePlan plan) async {
     if (_requesting) return;
-    setState(() { _requesting = true; _requestMsg = null; });
+    setState(() {
+      _requesting = true;
+      _requestMsg = null;
+    });
     final price = CurrencyService.instance.priceFor(plan, config);
     final result = await PremiumService.instance.requestToken(
       whatsapp: _whatsapp.text,
@@ -83,10 +92,14 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
     final text = 'Hi, I want to remove ads on DamiMovies.\n'
         'Plan: ${plan.days} days (${price.text})\n'
         'My Device ID: ${PremiumService.instance.installId}';
-    final uri = Uri.parse('https://wa.me/${config.whatsapp}?text=${Uri.encodeComponent(text)}');
+    final uri = Uri.parse(
+        'https://wa.me/${config.whatsapp}?text=${Uri.encodeComponent(text)}');
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && mounted) {
-      setState(() { _message = 'Could not open WhatsApp.'; _messageOk = false; });
+      setState(() {
+        _message = 'Could not open WhatsApp.';
+        _messageOk = false;
+      });
     }
   }
 
@@ -95,7 +108,11 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: Listenable.merge([PremiumService.instance, CurrencyService.instance, RemoteConfig.instance]),
+        animation: Listenable.merge([
+          PremiumService.instance,
+          CurrencyService.instance,
+          RemoteConfig.instance
+        ]),
         builder: (context, _) {
           final config = RemoteConfig.instance.removeAds;
           final premium = PremiumService.instance;
@@ -107,10 +124,12 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
               padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
               children: [
                 if (premium.active) _activeCard(premium),
-                if (premium.active) const SizedBox(height: 18),
-                Text('Prices for ${CurrencyService.instance.countryLabel} (${CurrencyService.instance.code})',
-                    style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
+                if (premium.active) SizedBox(height: 18),
+                Text(
+                    'Prices for ${CurrencyService.instance.countryLabel} (${CurrencyService.instance.code})',
+                    style: const TextStyle(
+                        color: Colors.white70, fontWeight: FontWeight.w700)),
+                SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   value: CurrencyService.instance.selectedCountry ?? 'AUTO',
                   isExpanded: true,
@@ -120,54 +139,85 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
                     border: OutlineInputBorder(),
                   ),
                   items: [
-                    const DropdownMenuItem(value: 'AUTO', child: Text('Automatic (device region)')),
-                    ...CurrencyService.countryNames.entries.map((entry) => DropdownMenuItem(
-                      value: entry.key,
-                      child: Text('${entry.value} (${CurrencyService.instance.currencyForCountry(entry.key)})', overflow: TextOverflow.ellipsis),
-                    )),
+                    const DropdownMenuItem(
+                        value: 'AUTO',
+                        child: Text('Automatic (device region)')),
+                    ...CurrencyService.countryNames.entries
+                        .map((entry) => DropdownMenuItem(
+                              value: entry.key,
+                              child: Text(
+                                  '${entry.value} (${CurrencyService.instance.currencyForCountry(entry.key)})',
+                                  overflow: TextOverflow.ellipsis),
+                            )),
                   ],
-                  onChanged: (value) => CurrencyService.instance.setCountry(value == 'AUTO' ? null : value),
+                  onChanged: (value) => CurrencyService.instance
+                      .setCountry(value == 'AUTO' ? null : value),
                 ),
-                const SizedBox(height: 14),
-                Text('Choose a plan'.tr, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 10),
-                for (var i = 0; i < plans.length; i++) _planTile(i, plans[i], config),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
+                Text('Choose a plan'.tr,
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                SizedBox(height: 10),
+                for (var i = 0; i < plans.length; i++)
+                  _planTile(i, plans[i], config),
+                SizedBox(height: 14),
                 _requestSection(config, plans[_plan]),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 _deviceId(premium),
-                const SizedBox(height: 26),
-                Text('Already have a token?'.tr, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 10),
+                SizedBox(height: 26),
+                Text('Already have a token?'.tr,
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                SizedBox(height: 10),
                 TextField(
                   controller: _token,
                   minLines: 2,
                   maxLines: 4,
                   autocorrect: false,
                   enableSuggestions: false,
-                  decoration: const InputDecoration(hintText: 'Paste your token here'),
+                  decoration:
+                      const InputDecoration(hintText: 'Paste your token here'),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: appRed, minimumSize: const Size.fromHeight(52)),
+                  style: FilledButton.styleFrom(
+                      backgroundColor: appRed,
+                      minimumSize: const Size.fromHeight(52)),
                   onPressed: _busy ? null : _redeem,
                   child: _busy
-                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-                      : Text('Remove ads now'.tr, style: TextStyle(fontWeight: FontWeight.w800)),
+                      ? SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2.4, color: Colors.white))
+                      : Text('Remove ads now'.tr,
+                          style: TextStyle(fontWeight: FontWeight.w800)),
                 ),
                 if (_message != null) ...[
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Row(children: [
-                    Icon(_messageOk ? Icons.check_circle_rounded : Icons.error_outline_rounded,
-                        color: _messageOk ? const Color(0xFF1FAF5A) : appAccentSoft, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text(_message!, style: TextStyle(color: _messageOk ? const Color(0xFF1FAF5A) : appAccentSoft))),
+                    Icon(
+                        _messageOk
+                            ? Icons.check_circle_rounded
+                            : Icons.error_outline_rounded,
+                        color: _messageOk
+                            ? const Color(0xFF1FAF5A)
+                            : appAccentSoft,
+                        size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                        child: Text(_message!,
+                            style: TextStyle(
+                                color: _messageOk
+                                    ? const Color(0xFF1FAF5A)
+                                    : appAccentSoft))),
                   ]),
                 ],
-                const SizedBox(height: 22),
-                const Text(
+                SizedBox(height: 22),
+                Text(
                   'A token only works on the phone whose Device ID it was made for, and adds days on top of any time you already have.',
-                  style: TextStyle(color: Colors.white38, fontSize: 11, height: 1.45),
+                  style: TextStyle(
+                      color: Colors.white38, fontSize: 11, height: 1.45),
                 ),
               ],
             ),
@@ -183,10 +233,12 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
               minimumSize: const Size.fromHeight(52),
             ),
             onPressed: () => _buyOnWhatsApp(config, plan),
-            icon: const Icon(Icons.chat_rounded),
-            label: Text('Buy token on WhatsApp'.tr, style: TextStyle(fontWeight: FontWeight.w800)),
+            icon: Icon(Icons.chat_rounded),
+            label: Text('Buy token on WhatsApp'.tr,
+                style: TextStyle(fontWeight: FontWeight.w800)),
           )
-        : Text('Contact support to buy a token.'.tr, style: TextStyle(color: Colors.white60));
+        : Text('Contact support to buy a token.'.tr,
+            style: TextStyle(color: Colors.white60));
     if (!AppConfig.authUrl.startsWith('http')) return whatsappButton;
 
     final okColor = const Color(0xFF1FAF5A);
@@ -198,16 +250,18 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
         border: Border.all(color: Colors.white12),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('Request a token'.tr, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 6),
-        const Text(
+        Text('Request a token'.tr,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+        SizedBox(height: 6),
+        Text(
           'Enter your WhatsApp number with country code. We will send your token there after payment details are confirmed.',
           style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.4),
         ),
-        const SizedBox(height: 10),
-        Text('Token request amount: ${CurrencyService.instance.priceFor(plan, config).text}',
+        SizedBox(height: 10),
+        Text(
+            'Token request amount: ${CurrencyService.instance.priceFor(plan, config).text}',
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         TextField(
           controller: _whatsapp,
           keyboardType: TextInputType.phone,
@@ -216,21 +270,34 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
             prefixIcon: Icon(Icons.chat_rounded),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: okColor, minimumSize: const Size.fromHeight(52)),
+          style: FilledButton.styleFrom(
+              backgroundColor: okColor, minimumSize: const Size.fromHeight(52)),
           onPressed: _requesting ? null : () => _request(config, plan),
           child: _requesting
-              ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-              : Text('Request ${plan.days}-day token', style: const TextStyle(fontWeight: FontWeight.w800)),
+              ? SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2.4, color: Colors.white))
+              : Text('Request ${plan.days}-day token',
+                  style: const TextStyle(fontWeight: FontWeight.w800)),
         ),
         if (_requestMsg != null) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Icon(_requestOk ? Icons.check_circle_rounded : Icons.error_outline_rounded,
-                color: _requestOk ? okColor : appAccentSoft, size: 20),
-            const SizedBox(width: 8),
-            Expanded(child: Text(_requestMsg!, style: TextStyle(color: _requestOk ? okColor : appAccentSoft))),
+            Icon(
+                _requestOk
+                    ? Icons.check_circle_rounded
+                    : Icons.error_outline_rounded,
+                color: _requestOk ? okColor : appAccentSoft,
+                size: 20),
+            SizedBox(width: 8),
+            Expanded(
+                child: Text(_requestMsg!,
+                    style: TextStyle(
+                        color: _requestOk ? okColor : appAccentSoft))),
           ]),
         ],
         if (config.whatsapp.isNotEmpty)
@@ -254,12 +321,15 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
         ),
         child: Row(children: [
           Icon(Icons.verified_rounded, color: appRed, size: 30),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Ads removed'.tr, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-              const SizedBox(height: 3),
-              Text('Until ${_date(premium.until!)} · ${premium.daysLeft} days left',
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Ads removed'.tr,
+                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              SizedBox(height: 3),
+              Text(
+                  'Until ${_date(premium.until!)} · ${premium.daysLeft} days left',
                   style: const TextStyle(color: Colors.white70, fontSize: 13)),
             ]),
           ),
@@ -279,19 +349,30 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
           decoration: BoxDecoration(
             color: appSurface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: selected ? appRed : Colors.white12, width: selected ? 2 : 1),
+            border: Border.all(
+                color: selected ? appRed : Colors.white12,
+                width: selected ? 2 : 1),
           ),
           child: Row(children: [
-            Icon(selected ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+            Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_off_rounded,
                 color: selected ? appRed : Colors.white38),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
-              child: Text('${plan.days} days', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              child: Text('${plan.days} days',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 16)),
             ),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-              Text(price.text, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+              Text(price.text,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w900, fontSize: 18)),
               if (price.usdText != null && !price.exact)
-                Text('≈ ${price.usdText}', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                Text('≈ ${price.usdText}',
+                    style:
+                        const TextStyle(color: Colors.white54, fontSize: 11)),
             ]),
           ]),
         ),
@@ -301,20 +382,24 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
 
   Widget _deviceId(PremiumService premium) => Container(
         padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
-        decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(14)),
+        decoration: BoxDecoration(
+            color: appSurface, borderRadius: BorderRadius.circular(14)),
         child: Row(children: [
-          Text('Device ID'.tr, style: TextStyle(color: Colors.white54, fontSize: 12)),
-          const SizedBox(width: 12),
+          Text('Device ID'.tr,
+              style: TextStyle(color: Colors.white54, fontSize: 12)),
+          SizedBox(width: 12),
           Expanded(
             child: SelectableText(premium.installId,
-                style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: .8)),
+                style: const TextStyle(
+                    fontWeight: FontWeight.w800, letterSpacing: .8)),
           ),
           IconButton(
             tooltip: 'Copy',
-            icon: const Icon(Icons.copy_rounded, size: 18),
+            icon: Icon(Icons.copy_rounded, size: 18),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: premium.installId));
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Device ID copied'.tr)));
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text('Device ID copied'.tr)));
             },
           ),
         ]),

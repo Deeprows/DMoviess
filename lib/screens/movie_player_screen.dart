@@ -77,11 +77,18 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
   Widget? _fullscreenWidget;
   VoidCallback? _fullscreenHidden;
 
-  String get _currentUrl => _sources.isEmpty ? '' : _sources[_sourceIndex.clamp(0, _sources.length - 1).toInt()].url;
-  String get _currentReferer => _sources.isEmpty ? '' : _sources[_sourceIndex.clamp(0, _sources.length - 1).toInt()].referer;
-  String get _currentAgent => _sources.isEmpty ? '' : _sources[_sourceIndex.clamp(0, _sources.length - 1).toInt()].agent;
+  String get _currentUrl => _sources.isEmpty
+      ? ''
+      : _sources[_sourceIndex.clamp(0, _sources.length - 1).toInt()].url;
+  String get _currentReferer => _sources.isEmpty
+      ? ''
+      : _sources[_sourceIndex.clamp(0, _sources.length - 1).toInt()].referer;
+  String get _currentAgent => _sources.isEmpty
+      ? ''
+      : _sources[_sourceIndex.clamp(0, _sources.length - 1).toInt()].agent;
   ResolvedStream get _stream => StreamResolver.resolve(_currentUrl);
-  bool get _isImmersive => _fullscreen || _landscape || _fullscreenWidget != null;
+  bool get _isImmersive =>
+      _fullscreen || _landscape || _fullscreenWidget != null;
 
   List<({String url, String referer, String agent})> _buildSources() {
     final m = widget.movie;
@@ -119,13 +126,15 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     if (nativeSourceIndex >= 0) _sourceIndex = nativeSourceIndex;
     unawaited(MovieLibrary.instance.recordOpened(widget.movie));
     _checkPip();
-    if (AppPreferences.instance.keepScreenAwake) unawaited(WakelockPlus.enable());
+    if (AppPreferences.instance.keepScreenAwake)
+      unawaited(WakelockPlus.enable());
 
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.black)
       ..setUserAgent(AppConfig.userAgent)
-      ..addJavaScriptChannel('DamiPlayback', onMessageReceived: _onPlaybackMessage)
+      ..addJavaScriptChannel('DamiPlayback',
+          onMessageReceived: _onPlaybackMessage)
       ..setNavigationDelegate(NavigationDelegate(
         onNavigationRequest: _onNavigation,
         onPageStarted: (url) {
@@ -144,9 +153,10 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
         },
         onPageFinished: (url) {
           _loadTimeout?.cancel();
-          if (mounted) setState(() {
-            _loading = false;
-          });
+          if (mounted)
+            setState(() {
+              _loading = false;
+            });
           _keepVisible();
           _applyShield();
           _installVideoHooks();
@@ -158,7 +168,8 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
             setState(() {
               _loading = false;
               _error = true;
-              _errorDetail = 'The video page could not be loaded. Try Reload or Switch player.';
+              _errorDetail =
+                  'The video page could not be loaded. Try Reload or Switch player.';
             });
           }
         },
@@ -198,9 +209,13 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
   Future<void> _onStopTapped() async {
     final native = _nativeController;
     if (native != null && native.value.isInitialized) {
-      try { await native.pause(); } catch (_) {}
+      try {
+        await native.pause();
+      } catch (_) {}
     } else {
-      try { await _controller.runJavaScript(_videosJs('v.pause()')); } catch (_) {}
+      try {
+        await _controller.runJavaScript(_videosJs('v.pause()'));
+      } catch (_) {}
     }
     if (mounted) await Navigator.of(context).maybePop();
   }
@@ -227,11 +242,15 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       return;
     }
     if (action == 'seekBy') {
-      _controller.runJavaScript(
-        "document.querySelectorAll('video').forEach(function(v){try{v.currentTime=Math.max(0,(v.currentTime||0)+($seconds))}catch(e){}});",
-      ).catchError((_) {});
+      _controller
+          .runJavaScript(
+            "document.querySelectorAll('video').forEach(function(v){try{v.currentTime=Math.max(0,(v.currentTime||0)+($seconds))}catch(e){}});",
+          )
+          .catchError((_) {});
     } else {
-      _controller.runJavaScript(_videosJs(action == 'play' ? 'v.play()' : 'v.pause()')).catchError((_) {});
+      _controller
+          .runJavaScript(_videosJs(action == 'play' ? 'v.play()' : 'v.pause()'))
+          .catchError((_) {});
     }
   }
 
@@ -256,9 +275,13 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
   Future<void> _seekToFraction(double fraction) async {
     final progress = fraction.clamp(0.0, 0.97).toDouble();
     final native = _nativeController;
-    if (native != null && native.value.isInitialized && native.value.duration > Duration.zero) {
+    if (native != null &&
+        native.value.isInitialized &&
+        native.value.duration > Duration.zero) {
       try {
-        await native.seekTo(Duration(milliseconds: (native.value.duration.inMilliseconds * progress).round()));
+        await native.seekTo(Duration(
+            milliseconds:
+                (native.value.duration.inMilliseconds * progress).round()));
         return;
       } catch (_) {}
     }
@@ -274,7 +297,9 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This video source does not support resume playback.'.tr)),
+        SnackBar(
+            content:
+                Text('This video source does not support resume playback.'.tr)),
       );
     }
   }
@@ -288,10 +313,12 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       final playing = value['playing'] == true;
       if (playing != _videoPlaying) {
         _videoPlaying = playing;
-        if (_playbackServiceActive) unawaited(BackgroundPlayback.setPlaying(playing));
+        if (_playbackServiceActive)
+          unawaited(BackgroundPlayback.setPlaying(playing));
       }
       if (duration > 0 && position >= 0) {
-        unawaited(MovieLibrary.instance.setProgress(widget.movie, position, duration));
+        unawaited(MovieLibrary.instance
+            .setProgress(widget.movie, position, duration));
       }
     } catch (_) {}
   }
@@ -317,17 +344,23 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
   }
 
   void _keepVisible() {
-    _controller.runJavaScript(BackgroundPlayback.keepVisibleJs).catchError((_) {});
+    _controller
+        .runJavaScript(BackgroundPlayback.keepVisibleJs)
+        .catchError((_) {});
   }
 
   void _rememberPlaying() {
     if (_nativeController != null) return;
-    _controller.runJavaScript(BackgroundPlayback.rememberPlayingJs).catchError((_) {});
+    _controller
+        .runJavaScript(BackgroundPlayback.rememberPlayingJs)
+        .catchError((_) {});
   }
 
   void _resumePlaying() {
     if (_nativeController != null) return;
-    _controller.runJavaScript(BackgroundPlayback.resumePlayingJs).catchError((_) {});
+    _controller
+        .runJavaScript(BackgroundPlayback.resumePlayingJs)
+        .catchError((_) {});
   }
 
   void _armTimeout() {
@@ -337,20 +370,24 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       setState(() {
         _loading = false;
         _error = true;
-        _errorDetail = 'This source is taking too long to respond. Try switching to another player.';
+        _errorDetail =
+            'This source is taking too long to respond. Try switching to another player.';
       });
     });
   }
 
   bool _isTrustedPlayerHost(String host) {
-    String normalize(String value) => value.toLowerCase().replaceFirst(RegExp(r'^www\.'), '');
+    String normalize(String value) =>
+        value.toLowerCase().replaceFirst(RegExp(r'^www\.'), '');
     final target = normalize(host);
     final allowed = <String>{};
     void addHostFromUrl(String value) {
       final parsed = Uri.tryParse(value);
       final parsedHost = parsed?.host;
-      if (parsedHost != null && parsedHost.isNotEmpty) allowed.add(normalize(parsedHost));
+      if (parsedHost != null && parsedHost.isNotEmpty)
+        allowed.add(normalize(parsedHost));
     }
+
     addHostFromUrl(_currentUrl);
     addHostFromUrl(_currentReferer);
     addHostFromUrl(AppConfig.playerOrigin);
@@ -363,14 +400,20 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     final uri = Uri.tryParse(request.url);
     if (uri == null) return NavigationDecision.prevent;
     final scheme = uri.scheme.toLowerCase();
-    if (scheme == 'about' || scheme == 'data' || scheme == 'blob' || scheme == 'javascript') {
+    if (scheme == 'about' ||
+        scheme == 'data' ||
+        scheme == 'blob' ||
+        scheme == 'javascript') {
       return NavigationDecision.navigate;
     }
-    if (scheme != 'http' && scheme != 'https') return NavigationDecision.prevent;
+    if (scheme != 'http' && scheme != 'https')
+      return NavigationDecision.prevent;
     if (AppPreferences.instance.adShield && AdShield.isAdUrl(request.url)) {
       return NavigationDecision.prevent;
     }
-    if (!request.isMainFrame && AppPreferences.instance.adShield && AdShield.isAdSubframe(request.url)) {
+    if (!request.isMainFrame &&
+        AppPreferences.instance.adShield &&
+        AdShield.isAdSubframe(request.url)) {
       return NavigationDecision.prevent;
     }
     if (request.isMainFrame && isDirectMovieDownload(request.url)) {
@@ -381,7 +424,9 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     // Keep the movie inside DamiMovies: allow same-provider navigation, but
     // block main-frame jumps to unrelated domains. The explicit Browser action
     // remains available for users who intentionally want to leave the player.
-    if (request.isMainFrame && _stream.kind == StreamKind.embed && !_isTrustedPlayerHost(uri.host)) {
+    if (request.isMainFrame &&
+        _stream.kind == StreamKind.embed &&
+        !_isTrustedPlayerHost(uri.host)) {
       // Blocked silently: no notification is shown to the user.
       return NavigationDecision.prevent;
     }
@@ -390,7 +435,9 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
 
   Future<void> _applyShield() async {
     if (!AppPreferences.instance.adShield) return;
-    try { await _controller.runJavaScript(AdShield.adShieldJs); } catch (_) {}
+    try {
+      await _controller.runJavaScript(AdShield.adShieldJs);
+    } catch (_) {}
   }
 
   Future<void> _checkPip() async {
@@ -407,10 +454,15 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     final wasPlaying = _videoPlaying;
     final old = _nativeController;
     _nativeController = null;
-    if (wasPlaying && _playbackServiceActive) unawaited(BackgroundPlayback.setPlaying(false));
+    if (wasPlaying && _playbackServiceActive)
+      unawaited(BackgroundPlayback.setPlaying(false));
     if (old != null) {
-      try { old.removeListener(_onNativePlayerChanged); } catch (_) {}
-      try { await old.dispose(); } catch (_) {}
+      try {
+        old.removeListener(_onNativePlayerChanged);
+      } catch (_) {}
+      try {
+        await old.dispose();
+      } catch (_) {}
     }
   }
 
@@ -431,8 +483,10 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     }
     if (value.isPlaying != _videoPlaying) {
       _videoPlaying = value.isPlaying;
-      if (_playbackServiceActive) unawaited(BackgroundPlayback.setPlaying(value.isPlaying));
-      if (value.isPlaying && _nativeControlsVisible) _scheduleHideNativeControls();
+      if (_playbackServiceActive)
+        unawaited(BackgroundPlayback.setPlaying(value.isPlaying));
+      if (value.isPlaying && _nativeControlsVisible)
+        _scheduleHideNativeControls();
     }
   }
 
@@ -448,19 +502,22 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
   void _showNativeControls() {
     if (!mounted) return;
     setState(() => _nativeControlsVisible = true);
-    if (_nativeController?.value.isPlaying == true) _scheduleHideNativeControls();
+    if (_nativeController?.value.isPlaying == true)
+      _scheduleHideNativeControls();
   }
 
   Future<void> _loadNativeSource(ResolvedStream stream) async {
     await _disposeNativePlayer();
     if (!mounted) return;
     final headers = <String, String>{
-      'User-Agent': _currentAgent.isNotEmpty ? _currentAgent : AppConfig.userAgent,
+      'User-Agent':
+          _currentAgent.isNotEmpty ? _currentAgent : AppConfig.userAgent,
       if (_currentReferer.isNotEmpty) 'Referer': _currentReferer,
     };
     VideoPlayerController? next;
     try {
-      next = VideoPlayerController.networkUrl(Uri.parse(stream.url), httpHeaders: headers);
+      next = VideoPlayerController.networkUrl(Uri.parse(stream.url),
+          httpHeaders: headers);
       _nativeController = next;
       _nativeControlsVisible = true;
       next.addListener(_onNativePlayerChanged);
@@ -484,22 +541,31 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       _nativeProgressTimer = Timer.periodic(const Duration(seconds: 12), (_) {
         _onNativePlayerChanged();
       });
-      try { await next.play(); } catch (_) { /* Show native play control if autoplay is denied. */ }
+      try {
+        await next.play();
+      } catch (_) {/* Show native play control if autoplay is denied. */}
       unawaited(_offerResume());
       if (next.value.isPlaying) _scheduleHideNativeControls();
     } catch (error) {
-      final isCurrentRequest = next == null || identical(_nativeController, next);
+      final isCurrentRequest =
+          next == null || identical(_nativeController, next);
       if (isCurrentRequest) _loadTimeout?.cancel();
       if (next != null && identical(_nativeController, next)) {
-        try { next.removeListener(_onNativePlayerChanged); } catch (_) {}
+        try {
+          next.removeListener(_onNativePlayerChanged);
+        } catch (_) {}
         _nativeController = null;
-        try { await next.dispose(); } catch (_) {}
+        try {
+          await next.dispose();
+        } catch (_) {}
       }
-      if (mounted && isCurrentRequest) setState(() {
-        _loading = false;
-        _error = true;
-        _errorDetail = 'Native playback could not start for this source. Try Reload or Switch player. ${error.toString().split('\n').first}';
-      });
+      if (mounted && isCurrentRequest)
+        setState(() {
+          _loading = false;
+          _error = true;
+          _errorDetail =
+              'Native playback could not start for this source. Try Reload or Switch player. ${error.toString().split('\n').first}';
+        });
     }
   }
 
@@ -532,25 +598,29 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     if (!mounted) return;
     setState(() {});
     try {
-      await _controller.setUserAgent(_currentAgent.isNotEmpty ? _currentAgent : AppConfig.userAgent);
+      await _controller.setUserAgent(
+          _currentAgent.isNotEmpty ? _currentAgent : AppConfig.userAgent);
       final headers = <String, String>{
         if (_currentReferer.isNotEmpty) 'Referer': _currentReferer,
       };
       await _controller.loadRequest(Uri.parse(stream.url), headers: headers);
     } catch (_) {
       _loadTimeout?.cancel();
-      if (mounted) setState(() {
-        _loading = false;
-        _error = true;
-        _errorDetail = 'Could not open this video source.';
-      });
+      if (mounted)
+        setState(() {
+          _loading = false;
+          _error = true;
+          _errorDetail = 'Could not open this video source.';
+        });
     }
   }
 
   Future<void> _switchSource() async {
     if (_sources.length < 2 || _switching) {
       if (_sources.length < 2 && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No backup player is configured for this title.'.tr)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content:
+                Text('No backup player is configured for this title.'.tr)));
       }
       return;
     }
@@ -569,18 +639,21 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       _fullscreen = next;
     });
     await SystemChrome.setPreferredOrientations(next
-        ? const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
-        : const [DeviceOrientation.portraitUp]);
-    await SystemChrome.setEnabledSystemUIMode(next ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge);
+        ? [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
+        : [DeviceOrientation.portraitUp]);
+    await SystemChrome.setEnabledSystemUIMode(
+        next ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge);
   }
 
   Future<void> _setFullscreen(bool enabled) async {
     if (!mounted) return;
     setState(() => _fullscreen = enabled);
-    await SystemChrome.setEnabledSystemUIMode(enabled ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge);
+    await SystemChrome.setEnabledSystemUIMode(
+        enabled ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge);
     if (!enabled && _landscape) {
       setState(() => _landscape = false);
-      await SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+      await SystemChrome.setPreferredOrientations(
+          [DeviceOrientation.portraitUp]);
     }
   }
 
@@ -590,7 +663,8 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       _fullscreenWidget = child;
       _fullscreenHidden = onHidden;
     });
-    SystemChrome.setPreferredOrientations(const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+    SystemChrome.setPreferredOrientations(
+        [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
@@ -601,9 +675,10 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       _fullscreenHidden = null;
     });
     SystemChrome.setPreferredOrientations(_landscape
-        ? const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
-        : const [DeviceOrientation.portraitUp]);
-    SystemChrome.setEnabledSystemUIMode(_isImmersive ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge);
+        ? [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]
+        : [DeviceOrientation.portraitUp]);
+    SystemChrome.setEnabledSystemUIMode(
+        _isImmersive ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge);
   }
 
   void _onBack() {
@@ -619,25 +694,39 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
 
   Future<void> _copyLink() async {
     await Clipboard.setData(ClipboardData(text: _currentUrl));
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Player link copied'.tr)));
+    if (mounted)
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Player link copied'.tr)));
   }
 
   Future<void> _cast() async {
-    for (final action in const ['android.settings.CAST_SETTINGS', 'android.settings.WIFI_DISPLAY_SETTINGS']) {
+    for (final action in [
+      'android.settings.CAST_SETTINGS',
+      'android.settings.WIFI_DISPLAY_SETTINGS'
+    ]) {
       try {
         await AndroidIntent(action: action).launch();
         return;
       } catch (_) {}
     }
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open Cast or Smart View from your phone quick settings.'.tr)));
+    if (mounted)
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'Open Cast or Smart View from your phone quick settings.'.tr)));
   }
 
   Future<void> _enterPip() async {
     try {
       final ok = await _pip.invokeMethod<bool>('enter') ?? false;
-      if (!ok && mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Picture-in-picture is not available on this device.'.tr)));
+      if (!ok && mounted)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                'Picture-in-picture is not available on this device.'.tr)));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Picture-in-picture is not available in this build.'.tr)));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content:
+                Text('Picture-in-picture is not available in this build.'.tr)));
     }
   }
 
@@ -651,19 +740,24 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
   Future<void> _saveWatchLater() async {
     final added = await MovieLibrary.instance.toggleSaved(widget.movie);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(added ? 'Saved to Watch Later' : 'Removed from Watch Later')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content:
+            Text(added ? 'Saved to Watch Later' : 'Removed from Watch Later')));
   }
 
   Future<void> _downloadPage() async {
     final url = widget.movie.downloadUrl.trim();
     // A direct video file opens straight in the user's browser, otherwise the
     // provider's download page does. Nothing is downloaded inside the app.
-    if (_stream.kind == StreamKind.video && isDirectMovieDownload(_stream.url)) {
+    if (_stream.kind == StreamKind.video &&
+        isDirectMovieDownload(_stream.url)) {
       await openInExternalBrowser(context, _stream.url);
       return;
     }
     if (url.isEmpty) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No download page is available for this title.'.tr)));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('No download page is available for this title.'.tr)));
       return;
     }
     await openInExternalBrowser(context, url);
@@ -677,25 +771,33 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     final prefs = AppPreferences.instance;
     await prefs.setLowQuality(!prefs.lowQuality);
     if (!_stream.usesNativePlayer) await _loadSource();
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
-      _stream.usesNativePlayer
-          ? 'Quality is selected by the native stream player when supported.'
-          : (prefs.lowQuality ? 'Low quality preference enabled where supported.' : 'Automatic quality preference enabled.'),
-    )));
+    if (mounted)
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+        _stream.usesNativePlayer
+            ? 'Quality is selected by the native stream player when supported.'
+            : (prefs.lowQuality
+                ? 'Low quality preference enabled where supported.'
+                : 'Automatic quality preference enabled.'),
+      )));
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden || state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.inactive) {
       _rememberPlaying();
       unawaited(WakelockPlus.disable());
-      for (final ms in const [400, 1500]) {
+      for (final ms in [400, 1500]) {
         Future.delayed(Duration(milliseconds: ms), () {
-          if (mounted && AppPreferences.instance.backgroundPlayback) _resumePlaying();
+          if (mounted && AppPreferences.instance.backgroundPlayback)
+            _resumePlaying();
         });
       }
     } else if (state == AppLifecycleState.resumed) {
-      if (AppPreferences.instance.keepScreenAwake) unawaited(WakelockPlus.enable());
+      if (AppPreferences.instance.keepScreenAwake)
+        unawaited(WakelockPlus.enable());
       _resumePlaying();
     }
   }
@@ -718,13 +820,17 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     final native = _nativeController;
     _nativeController = null;
     if (native != null) {
-      try { native.removeListener(_onNativePlayerChanged); } catch (_) {}
+      try {
+        native.removeListener(_onNativePlayerChanged);
+      } catch (_) {}
       unawaited(native.dispose());
     }
-    if (_playbackServiceActive) unawaited(BackgroundPlayback.stop(_onStopTapped));
+    if (_playbackServiceActive)
+      unawaited(BackgroundPlayback.stop(_onStopTapped));
     unawaited(WakelockPlus.disable());
     unawaited(SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge));
-    unawaited(SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]));
+    unawaited(
+        SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]));
     super.dispose();
   }
 
@@ -744,7 +850,9 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     final minutes = (total % 3600) ~/ 60;
     final seconds = total % 60;
     String two(int v) => v.toString().padLeft(2, '0');
-    return hours > 0 ? '$hours:${two(minutes)}:${two(seconds)}' : '$minutes:${two(seconds)}';
+    return hours > 0
+        ? '$hours:${two(minutes)}:${two(seconds)}'
+        : '$minutes:${two(seconds)}';
   }
 
   Widget _buildNativeVideo(VideoPlayerController controller) {
@@ -752,7 +860,7 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       valueListenable: controller,
       builder: (context, value, _) {
         if (!value.isInitialized) {
-          return const Center(child: CircularProgressIndicator(color: Colors.white));
+          return Center(child: CircularProgressIndicator(color: Colors.white));
         }
         final aspect = value.aspectRatio.isFinite && value.aspectRatio > 0
             ? value.aspectRatio
@@ -775,7 +883,9 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
                 if (value.isBuffering)
                   const Positioned.fill(
                     child: IgnorePointer(
-                      child: Center(child: CircularProgressIndicator(color: Colors.white70)),
+                      child: Center(
+                          child:
+                              CircularProgressIndicator(color: Colors.white70)),
                     ),
                   ),
                 if (showControls)
@@ -786,7 +896,11 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
                           gradient: LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [Color(0x68000000), Colors.transparent, Color(0x99000000)],
+                            colors: [
+                              Color(0x68000000),
+                              Colors.transparent,
+                              Color(0x99000000)
+                            ],
                             stops: [0, .45, 1],
                           ),
                         ),
@@ -806,7 +920,11 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
                                 widget.movie.title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontWeight: FontWeight.w800, shadows: [Shadow(color: Colors.black, blurRadius: 8)]),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    shadows: [
+                                      Shadow(color: Colors.black, blurRadius: 8)
+                                    ]),
                               ),
                             ),
                           ),
@@ -817,24 +935,31 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
                               children: [
                                 IconButton.filledTonal(
                                   tooltip: 'Back 10 seconds',
-                                  onPressed: () => _runVideoAction('seekBy', seconds: -10),
+                                  onPressed: () =>
+                                      _runVideoAction('seekBy', seconds: -10),
                                   iconSize: 25,
-                                  icon: const Icon(Icons.replay_10_rounded),
+                                  icon: Icon(Icons.replay_10_rounded),
                                 ),
-                                const SizedBox(width: 18),
+                                SizedBox(width: 18),
                                 IconButton.filled(
                                   tooltip: value.isPlaying ? 'Pause' : 'Play',
-                                  onPressed: () => _runVideoAction(value.isPlaying ? 'pause' : 'play'),
+                                  onPressed: () => _runVideoAction(
+                                      value.isPlaying ? 'pause' : 'play'),
                                   iconSize: 36,
-                                  style: IconButton.styleFrom(backgroundColor: appRed, foregroundColor: Colors.white),
-                                  icon: Icon(value.isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                                  style: IconButton.styleFrom(
+                                      backgroundColor: appRed,
+                                      foregroundColor: Colors.white),
+                                  icon: Icon(value.isPlaying
+                                      ? Icons.pause_rounded
+                                      : Icons.play_arrow_rounded),
                                 ),
-                                const SizedBox(width: 18),
+                                SizedBox(width: 18),
                                 IconButton.filledTonal(
                                   tooltip: 'Forward 10 seconds',
-                                  onPressed: () => _runVideoAction('seekBy', seconds: 10),
+                                  onPressed: () =>
+                                      _runVideoAction('seekBy', seconds: 10),
                                   iconSize: 25,
-                                  icon: const Icon(Icons.forward_10_rounded),
+                                  icon: Icon(Icons.forward_10_rounded),
                                 ),
                               ],
                             ),
@@ -848,7 +973,8 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
                               VideoProgressIndicator(
                                 controller,
                                 allowScrubbing: true,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
                                 colors: VideoProgressColors(
                                   playedColor: appRed,
                                   bufferedColor: Colors.white54,
@@ -857,15 +983,20 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
                               ),
                               Row(
                                 children: [
-                                  Text(_formatPlayerTime(value.position), style: const TextStyle(fontSize: 12)),
+                                  Text(_formatPlayerTime(value.position),
+                                      style: const TextStyle(fontSize: 12)),
                                   const Spacer(),
-                                  Text(_formatPlayerTime(value.duration), style: const TextStyle(fontSize: 12)),
-                                  const SizedBox(width: 8),
+                                  Text(_formatPlayerTime(value.duration),
+                                      style: const TextStyle(fontSize: 12)),
+                                  SizedBox(width: 8),
                                   IconButton(
                                     tooltip: 'Fullscreen',
                                     visualDensity: VisualDensity.compact,
-                                    onPressed: () => _setFullscreen(!_fullscreen),
-                                    icon: Icon(_fullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded),
+                                    onPressed: () =>
+                                        _setFullscreen(!_fullscreen),
+                                    icon: Icon(_fullscreen
+                                        ? Icons.fullscreen_exit_rounded
+                                        : Icons.fullscreen_rounded),
                                   ),
                                 ],
                               ),
@@ -905,25 +1036,63 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (native != null) _buildNativeVideo(native) else WebViewWidget(controller: _controller),
-          if (_loading) Positioned.fill(child: IgnorePointer(child: Container(color: Colors.black.withValues(alpha: .28), child: Center(child: CircularProgressIndicator(color: appRed))))),
-          if (_error) Positioned.fill(child: Container(
-            color: const Color(0xE6080B10),
-            padding: const EdgeInsets.all(26),
-            child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.play_disabled_rounded, color: Colors.white60, size: 46),
-              const SizedBox(height: 14),
-              Text('Unable to play this source'.tr, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-              const SizedBox(height: 9),
-              Text(_errorDetail ?? 'Try reloading or switching player sources.', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white60, height: 1.4)),
-              const SizedBox(height: 20),
-              Wrap(alignment: WrapAlignment.center, spacing: 10, runSpacing: 8, children: [
-                FilledButton.icon(onPressed: _loadSource, icon: const Icon(Icons.refresh_rounded), label: Text('Reload'.tr)),
-                if (_sources.length > 1) OutlinedButton.icon(onPressed: _switchSource, icon: const Icon(Icons.swap_horiz_rounded), label: Text('Switch player'.tr)),
-              ]),
-            ])),
-          )),
-          if (_fullscreen) Positioned(right: 12, top: 12, child: SafeArea(child: IconButton.filledTonal(tooltip: 'Exit fullscreen', onPressed: () => _setFullscreen(false), icon: const Icon(Icons.fullscreen_exit_rounded)))),
+          if (native != null)
+            _buildNativeVideo(native)
+          else
+            WebViewWidget(controller: _controller),
+          if (_loading)
+            Positioned.fill(
+                child: IgnorePointer(
+                    child: Container(
+                        color: Colors.black.withValues(alpha: .28),
+                        child: Center(
+                            child: CircularProgressIndicator(color: appRed))))),
+          if (_error)
+            Positioned.fill(
+                child: Container(
+              color: const Color(0xE6080B10),
+              padding: const EdgeInsets.all(26),
+              child: Center(
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.play_disabled_rounded,
+                    color: Colors.white60, size: 46),
+                SizedBox(height: 14),
+                Text('Unable to play this source'.tr,
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                SizedBox(height: 9),
+                Text(
+                    _errorDetail ??
+                        'Try reloading or switching player sources.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white60, height: 1.4)),
+                SizedBox(height: 20),
+                Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: [
+                      FilledButton.icon(
+                          onPressed: _loadSource,
+                          icon: Icon(Icons.refresh_rounded),
+                          label: Text('Reload'.tr)),
+                      if (_sources.length > 1)
+                        OutlinedButton.icon(
+                            onPressed: _switchSource,
+                            icon: Icon(Icons.swap_horiz_rounded),
+                            label: Text('Switch player'.tr)),
+                    ]),
+              ])),
+            )),
+          if (_fullscreen)
+            Positioned(
+                right: 12,
+                top: 12,
+                child: SafeArea(
+                    child: IconButton.filledTonal(
+                        tooltip: 'Exit fullscreen',
+                        onPressed: () => _setFullscreen(false),
+                        icon: Icon(Icons.fullscreen_exit_rounded)))),
         ],
       ),
     );
@@ -933,14 +1102,19 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
         fit: StackFit.expand,
         children: [
           video,
-          if (_fullscreenWidget != null) Positioned.fill(child: ColoredBox(color: Colors.black, child: _fullscreenWidget)),
+          if (_fullscreenWidget != null)
+            Positioned.fill(
+                child:
+                    ColoredBox(color: Colors.black, child: _fullscreenWidget)),
         ],
       );
     }
 
     return PopScope(
       canPop: !_isImmersive,
-      onPopInvokedWithResult: (didPop, _) { if (!didPop) _onBack(); },
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _onBack();
+      },
       child: Scaffold(
         backgroundColor: Colors.black,
         appBar: null,
@@ -953,35 +1127,84 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
                 child: _isImmersive
                     ? video
                     : Padding(
-                        padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
-                        child: MediaQuery.removePadding(context: context, removeTop: true, child: video),
+                        padding: EdgeInsets.only(
+                            top: MediaQuery.paddingOf(context).top),
+                        child: MediaQuery.removePadding(
+                            context: context, removeTop: true, child: video),
                       ),
               ),
-              if (!_isImmersive) Container(
-                color: appSurface,
-                child: SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
-                    child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
-                      _Control(icon: Icons.refresh_rounded, label: 'Reload', onTap: _loadSource),
-                      _Control(icon: Icons.swap_horiz_rounded, label: 'Switch', onTap: _switchSource, disabled: _sources.length < 2 || _switching),
-                      _Control(icon: Icons.screen_rotation_alt_rounded, label: _landscape ? 'Portrait' : 'Rotate', onTap: _toggleLandscape),
-                      _Control(icon: Icons.fullscreen_rounded, label: 'Fullscreen', onTap: () => _setFullscreen(true)),
-                      _Control(icon: Icons.cast_rounded, label: 'Cast', onTap: _cast),
-                      if (_pipAvailable) _Control(icon: Icons.picture_in_picture_alt_rounded, label: 'PiP', onTap: _enterPip),
-                      _Control(icon: Icons.bookmark_add_outlined, label: 'Watch Later', onTap: _saveWatchLater),
-                      _Control(icon: Icons.download_rounded, label: 'Download', onTap: _downloadPage),
-                      _Control(icon: Icons.copy_rounded, label: 'Copy link', onTap: _copyLink),
-                    ])),
+              if (!_isImmersive)
+                Container(
+                  color: appSurface,
+                  child: SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(6, 8, 6, 8),
+                      child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(children: [
+                            _Control(
+                                icon: Icons.refresh_rounded,
+                                label: 'Reload',
+                                onTap: _loadSource),
+                            _Control(
+                                icon: Icons.swap_horiz_rounded,
+                                label: 'Switch',
+                                onTap: _switchSource,
+                                disabled: _sources.length < 2 || _switching),
+                            _Control(
+                                icon: Icons.screen_rotation_alt_rounded,
+                                label: _landscape ? 'Portrait' : 'Rotate',
+                                onTap: _toggleLandscape),
+                            _Control(
+                                icon: Icons.fullscreen_rounded,
+                                label: 'Fullscreen',
+                                onTap: () => _setFullscreen(true)),
+                            _Control(
+                                icon: Icons.cast_rounded,
+                                label: 'Cast',
+                                onTap: _cast),
+                            if (_pipAvailable)
+                              _Control(
+                                  icon: Icons.picture_in_picture_alt_rounded,
+                                  label: 'PiP',
+                                  onTap: _enterPip),
+                            _Control(
+                                icon: Icons.bookmark_add_outlined,
+                                label: 'Watch Later',
+                                onTap: _saveWatchLater),
+                            _Control(
+                                icon: Icons.download_rounded,
+                                label: 'Download',
+                                onTap: _downloadPage),
+                            _Control(
+                                icon: Icons.copy_rounded,
+                                label: 'Copy link',
+                                onTap: _copyLink),
+                          ])),
+                    ),
                   ),
                 ),
-              ),
             ]),
-            if (_fullscreenWidget != null) Positioned.fill(child: ColoredBox(color: Colors.black, child: _fullscreenWidget)),
+            if (_fullscreenWidget != null)
+              Positioned.fill(
+                  child: ColoredBox(
+                      color: Colors.black, child: _fullscreenWidget)),
             if (_landscape && !_fullscreen && _fullscreenWidget == null) ...[
-              Positioned(left: 12, top: 12, child: SafeArea(child: IconButton.filledTonal(onPressed: _onBack, icon: const Icon(Icons.arrow_back_rounded)))),
-              Positioned(right: 12, top: 12, child: SafeArea(child: IconButton.filledTonal(onPressed: _toggleLandscape, icon: const Icon(Icons.screen_rotation_rounded)))),
+              Positioned(
+                  left: 12,
+                  top: 12,
+                  child: SafeArea(
+                      child: IconButton.filledTonal(
+                          onPressed: _onBack,
+                          icon: Icon(Icons.arrow_back_rounded)))),
+              Positioned(
+                  right: 12,
+                  top: 12,
+                  child: SafeArea(
+                      child: IconButton.filledTonal(
+                          onPressed: _toggleLandscape,
+                          icon: Icon(Icons.screen_rotation_rounded)))),
             ],
           ],
         ),
@@ -995,19 +1218,31 @@ class _Control extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final bool disabled;
-  const _Control({required this.icon, required this.label, required this.onTap, this.disabled = false});
+  const _Control(
+      {required this.icon,
+      required this.label,
+      required this.onTap,
+      this.disabled = false});
 
   @override
   Widget build(BuildContext context) => InkWell(
-    onTap: disabled ? null : onTap,
-    borderRadius: BorderRadius.circular(10),
-    child: SizedBox(width: 66, child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 20, color: disabled ? Colors.white24 : Colors.white),
-        const SizedBox(height: 4),
-        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 9, color: disabled ? Colors.white24 : Colors.white70)),
-      ]),
-    )),
-  );
+        onTap: disabled ? null : onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: SizedBox(
+            width: 66,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(icon,
+                    size: 20, color: disabled ? Colors.white24 : Colors.white),
+                SizedBox(height: 4),
+                Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 9,
+                        color: disabled ? Colors.white24 : Colors.white70)),
+              ]),
+            )),
+      );
 }

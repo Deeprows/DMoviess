@@ -20,7 +20,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _signUp = true;
   bool _busy = false;
   AuthFailure? _failure;
-  List<String> _posters = const [];
+  List<String> _posters = [];
 
   @override
   void initState() {
@@ -79,7 +79,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   appBg.withValues(alpha: .78),
                   appBg,
                 ],
-                stops: const [0, .55, 1],
+                stops: [0, .55, 1],
               ),
             ),
           ),
@@ -144,14 +144,19 @@ class _AuthScreenState extends State<AuthScreen> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(22),
-              child: Image.asset('assets/icon/icon.png', width: 84, height: 84, fit: BoxFit.cover),
+              child: Image.asset('assets/icon/icon.png',
+                  width: 84, height: 84, fit: BoxFit.cover),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text('DamiMovies'.tr,
-                style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, letterSpacing: -.8)),
-            const SizedBox(height: 3),
+                style: TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -.8)),
+            SizedBox(height: 3),
             Text('YOUR WORLD OF ENTERTAINMENT'.tr,
-                style: TextStyle(color: Colors.white60, fontSize: 9, letterSpacing: 1.6)),
+                style: TextStyle(
+                    color: Colors.white60, fontSize: 9, letterSpacing: 1.6)),
           ],
         ),
       );
@@ -173,43 +178,51 @@ class _AuthScreenState extends State<AuthScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _tabs(),
-                  const SizedBox(height: 26),
+                  SizedBox(height: 26),
                   Text(
                     _signUp ? 'Create your account' : 'Welcome back',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 27, fontWeight: FontWeight.w900, letterSpacing: -.5),
+                    style: const TextStyle(
+                        fontSize: 27,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -.5),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   Text(
                     _signUp
                         ? 'Join with your Gmail to stream, download and save movies.'
                         : 'Log in with your Gmail to pick up where you left off.',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70, fontSize: 15, height: 1.4),
+                    style: const TextStyle(
+                        color: Colors.white70, fontSize: 15, height: 1.4),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
                   _gmailButton(),
                   if (_failure != null) ...[
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     _error(_failure!),
                   ],
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.lock_outline_rounded, color: Colors.white54, size: 16),
+                    children: [
+                      Icon(Icons.lock_outline_rounded,
+                          color: Colors.white54, size: 16),
                       SizedBox(width: 8),
                       Flexible(
-                        child: Text('Gmail accounts only. No password needed.'.tr,
-                            style: TextStyle(color: Colors.white54, fontSize: 12)),
+                        child: Text(
+                            'Gmail accounts only. No password needed.'.tr,
+                            style:
+                                TextStyle(color: Colors.white54, fontSize: 12)),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  const Text(
+                  SizedBox(height: 14),
+                  Text(
                     'By continuing you agree that DamiMovies does not host any movies. All content belongs to its owners.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white38, fontSize: 11, height: 1.45),
+                    style: TextStyle(
+                        color: Colors.white38, fontSize: 11, height: 1.45),
                   ),
                 ],
               ),
@@ -226,8 +239,20 @@ class _AuthScreenState extends State<AuthScreen> {
           border: Border.all(color: Colors.white12),
         ),
         child: Row(children: [
-          _tab('Log in', !_signUp, () => setState(() { _signUp = false; _failure = null; })),
-          _tab('Sign up', _signUp, () => setState(() { _signUp = true; _failure = null; })),
+          _tab(
+              'Log in',
+              !_signUp,
+              () => setState(() {
+                    _signUp = false;
+                    _failure = null;
+                  })),
+          _tab(
+              'Sign up',
+              _signUp,
+              () => setState(() {
+                    _signUp = true;
+                    _failure = null;
+                  })),
         ]),
       );
 
@@ -268,15 +293,19 @@ class _AuthScreenState extends State<AuthScreen> {
                   ? SizedBox(
                       width: 24,
                       height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2.6, color: appRed),
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2.6, color: appRed),
                     )
                   : Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: const [
+                      children: [
                         _GoogleG(),
                         SizedBox(width: 12),
                         Text('Continue with Gmail'.tr,
-                            style: TextStyle(color: Color(0xFF1B1B1F), fontSize: 18, fontWeight: FontWeight.w800)),
+                            style: TextStyle(
+                                color: Color(0xFF1B1B1F),
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800)),
                       ],
                     ),
             ),
@@ -291,16 +320,18 @@ class _AuthScreenState extends State<AuthScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(Icons.error_outline_rounded, color: appAccentSoft, size: 20),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: Text(failure.message,
-                    style: TextStyle(color: appAccentSoft, fontSize: 14, height: 1.35)),
+                    style: TextStyle(
+                        color: appAccentSoft, fontSize: 14, height: 1.35)),
               ),
             ],
           ),
           if (failure.detail.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(failure.detail, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+            SizedBox(height: 6),
+            Text(failure.detail,
+                style: const TextStyle(color: Colors.white38, fontSize: 11)),
           ],
         ],
       );
@@ -324,6 +355,7 @@ class _GoogleG extends StatelessWidget {
           stops: [0, .25, .5, .75, 1],
         ).createShader(rect),
         child: Text('G'.tr,
-            style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, height: 1)),
+            style: TextStyle(
+                fontSize: 30, fontWeight: FontWeight.w900, height: 1)),
       );
 }

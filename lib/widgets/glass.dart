@@ -110,7 +110,7 @@ class GradientButton extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(icon, size: 26, color: Ui.palette.onAccent),
-                const SizedBox(width: 6),
+                SizedBox(width: 6),
                 Text(label,
                     style: TextStyle(
                         fontSize: 16,
@@ -154,7 +154,7 @@ class GlassButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 24),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               Text(label,
                   style: const TextStyle(
                       fontSize: 15.5, fontWeight: FontWeight.w700)),
@@ -182,8 +182,8 @@ class RatingPill extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.star_rounded, size: 12, color: Color(0xFFFFC107)),
-          const SizedBox(width: 3),
+          Icon(Icons.star_rounded, size: 12, color: Color(0xFFFFC107)),
+          SizedBox(width: 3),
           Text(rating,
               style:
                   const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),

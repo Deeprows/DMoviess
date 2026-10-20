@@ -75,7 +75,7 @@ class StreamResolver {
     }
     final uri = Uri.tryParse(s);
     if (uri != null && uri.hasQuery) {
-      for (final k in const ['url', 'src', 'file', 'source', 'stream']) {
+      for (final k in ['url', 'src', 'file', 'source', 'stream']) {
         final v = uri.queryParameters[k];
         if (v != null && _http.hasMatch(v) && _kindOf(v) != StreamKind.embed) {
           return v;
