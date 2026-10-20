@@ -5,6 +5,7 @@ import '../models/movie.dart';
 import '../services/ad_service.dart';
 import '../services/movie_library.dart';
 import 'movie_detail_screen.dart';
+import 'downloads_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
   final int initialTab;
@@ -13,7 +14,7 @@ class LibraryScreen extends StatefulWidget {
 }
 class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabs;
-  @override void initState() { super.initState(); _tabs = TabController(length: 2, vsync: this, initialIndex: widget.initialTab.clamp(0, 1)); MovieLibrary.instance.load(); }
+  @override void initState() { super.initState(); _tabs = TabController(length: 3, vsync: this, initialIndex: widget.initialTab.clamp(0, 2)); MovieLibrary.instance.load(); }
   @override void dispose() { _tabs.dispose(); super.dispose(); }
 
   @override Widget build(BuildContext context) {
@@ -24,10 +25,11 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
           final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('Clear watch history?'), content: const Text('This will remove recently opened titles from your device.'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Clear'))]));
           if (yes == true) await library.clearHistory();
         }, icon: const Icon(Icons.delete_sweep_outlined)),
-      ], bottom: TabBar(controller: _tabs, indicatorColor: appRed, tabs: const [Tab(icon: Icon(Icons.bookmark_border), text: 'Watch Later'), Tab(icon: Icon(Icons.history_rounded), text: 'History')])),
+      ], bottom: TabBar(controller: _tabs, indicatorColor: appRed, tabs: const [Tab(icon: Icon(Icons.bookmark_border), text: 'Watch Later'), Tab(icon: Icon(Icons.history_rounded), text: 'History'), Tab(icon: Icon(Icons.download_rounded), text: 'Downloads')])),
       body: ListenableBuilder(listenable: library, builder: (context, _) => TabBarView(controller: _tabs, children: [
         _movieList(library.saved, emptyIcon: Icons.bookmark_add_outlined, emptyText: 'Your saved movies and series will appear here.', remove: (m) => library.removeSaved(m)),
         _movieList(library.history, emptyIcon: Icons.history_rounded, emptyText: 'Titles you open will appear here.', remove: (m) => library.removeHistory(m)),
+        const DownloadsScreen(),
       ])),
     );
   }
