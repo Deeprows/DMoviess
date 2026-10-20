@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'screens/auth_gate.dart';
 import 'services/ad_service.dart';
 import 'services/app_preferences.dart';
+import 'utils/l10n.dart';
 import 'services/download_manager.dart';
 
 Color get appBg => AppPreferences.instance.palette.background;
@@ -63,6 +64,7 @@ class DamiMoviesApp extends StatelessWidget {
           final palette = AppPreferences.instance.palette;
           return MaterialApp(
             title: 'DamiMovies',
+            locale: Locale(AppPreferences.instance.languageCode),
             debugShowCheckedModeBanner: false,
             theme: ThemeData(
               brightness: Brightness.dark,
