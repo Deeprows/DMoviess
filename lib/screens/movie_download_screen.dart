@@ -481,7 +481,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
         const SizedBox(width: 12),
         Container(width: 44, height: 44, decoration: BoxDecoration(gradient: LinearGradient(colors: [appAccentSoft, appRed]), borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.movie_filter_rounded, color: Colors.white, size: 26)),
         const SizedBox(width: 11),
-        const Expanded(child: Text('DamiMovies', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: -.7))),
+        const Expanded(child: Text('DamiMovies'.tr, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: -.7))),
         InkWell(customBorder: const CircleBorder(), onTap: _openSearch, child: _circleIcon(Icons.search_rounded)),
       ]);
 
@@ -583,7 +583,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                       FilledButton.icon(
                         onPressed: () => _runRemoteSearch(_query),
                         icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Retry search'),
+                        label: Text('Retry search'.tr),
                       ),
                     ],
                   ),
@@ -656,7 +656,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                         : 'TMDB unavailable: $_tmdbError Showing your saved catalogue.',
                     style: const TextStyle(color: Colors.white70, fontSize: 11),
                   )),
-                  TextButton(onPressed: _loadHome, child: const Text('Retry')),
+                  TextButton(onPressed: _loadHome, child: Text('Retry'.tr)),
                 ]),
               ),
             )),
@@ -666,9 +666,9 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
               child: Center(child: Column(children: [
                 const Icon(Icons.movie_filter_outlined, size: 42, color: Colors.white54),
                 const SizedBox(height: 10),
-                const Text('No movies could be loaded.', style: TextStyle(fontWeight: FontWeight.w700)),
+                Text('No movies could be loaded.'.tr, style: TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
-                FilledButton(onPressed: _loadHome, child: const Text('Try again')),
+                FilledButton(onPressed: _loadHome, child: Text('Try again'.tr)),
               ])),
             )),
           const SliverToBoxAdapter(child: SizedBox(height: 26)),
@@ -770,7 +770,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                   children: [
                     Icon(Icons.local_fire_department_rounded, size: 15, color: Colors.white),
                     SizedBox(width: 5),
-                    Text('TRENDING NOW', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: .8, color: Colors.white)),
+                    Text('TRENDING NOW'.tr, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: .8, color: Colors.white)),
                   ],
                 ),
               ),
@@ -849,7 +849,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
     SizedBox(height: showProgress ? 202 : 220, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 17), scrollDirection: Axis.horizontal, itemCount: movies.length, separatorBuilder: (_, __) => const SizedBox(width: 12), itemBuilder: (_, i) => SizedBox(width: 128, child: GestureDetector(onTap: () => _open(movies[i]), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Expanded(child: Stack(fit: StackFit.expand, children: [ClipRRect(borderRadius: BorderRadius.circular(15), child: _image(movies[i].image)), Positioned(right: 7, top: 7, child: _bookmarkButton(movies[i])), if (showProgress && MovieLibrary.instance.progressFor(movies[i]) > 0) Positioned(left: 0, right: 0, bottom: 0, child: LinearProgressIndicator(value: MovieLibrary.instance.progressFor(movies[i]), minHeight: 4, backgroundColor: Colors.white24, color: appRed))])),
       const SizedBox(height: 8), Text(movies[i].title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, height: 1.2)),
-      if (showProgress) const Padding(padding: EdgeInsets.only(top: 4), child: Text('Continue watching', style: TextStyle(color: Colors.white54, fontSize: 10))),
+      if (showProgress) const Padding(padding: EdgeInsets.only(top: 4), child: Text('Continue watching'.tr, style: TextStyle(color: Colors.white54, fontSize: 10))),
     ]))))), const SizedBox(height: 7)]);
 
   Widget _topTenRail() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
