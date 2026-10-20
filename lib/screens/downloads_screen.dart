@@ -1,3 +1,4 @@
+import '../utils/l10n.dart';
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../models/download_task.dart';
@@ -8,13 +9,13 @@ class DownloadsScreen extends StatelessWidget {
   @override Widget build(BuildContext context) {
     final manager = DownloadManager.instance;
     return Scaffold(
-      appBar: AppBar(title: const Text('Downloads', style: TextStyle(fontWeight: FontWeight.w900)), actions: [
+      appBar: AppBar(title: Text('Downloads'.tr, style: TextStyle(fontWeight: FontWeight.w900)), actions: [
         IconButton(tooltip: 'Clear finished downloads', icon: const Icon(Icons.cleaning_services_rounded), onPressed: () => manager.clearFinished()),
       ]),
       body: ListenableBuilder(listenable: manager, builder: (context, _) {
         final tasks = manager.tasks;
-        if (!manager.available && tasks.isEmpty) return Center(child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.download_for_offline_outlined, size: 52, color: Colors.white54), const SizedBox(height: 12), const Text('Background downloads are not ready on this device.', textAlign: TextAlign.center), const SizedBox(height: 8), Text('Open a movie and tap Download to start one.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white54))])));
-        if (tasks.isEmpty) return Center(child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.download_done_rounded, size: 58, color: Colors.white24), const SizedBox(height: 14), const Text('No downloads yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)), const SizedBox(height: 8), const Text('Tap Download on a movie and its files will appear here.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white54))])));
+        if (!manager.available && tasks.isEmpty) return Center(child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.download_for_offline_outlined, size: 52, color: Colors.white54), const SizedBox(height: 12), Text('Background downloads are not ready on this device.'.tr, textAlign: TextAlign.center), const SizedBox(height: 8), Text('Open a movie and tap Download to start one.'.tr, textAlign: TextAlign.center, style: TextStyle(color: Colors.white54))])));
+        if (tasks.isEmpty) return Center(child: Padding(padding: const EdgeInsets.all(28), child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.download_done_rounded, size: 58, color: Colors.white24), const SizedBox(height: 14), Text('No downloads yet'.tr, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)), const SizedBox(height: 8), Text('Tap Download on a movie and its files will appear here.'.tr, textAlign: TextAlign.center, style: TextStyle(color: Colors.white54))])));
         return ListView.separated(padding: const EdgeInsets.all(14), itemCount: tasks.length, separatorBuilder: (_, __) => const SizedBox(height: 8), itemBuilder: (context, i) {
           final task = tasks[i];
           final status = switch (task.status) {
