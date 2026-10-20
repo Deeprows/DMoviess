@@ -111,8 +111,41 @@ class DamiMoviesApp extends StatelessWidget {
               useMaterial3: true,
             ),
             navigatorKey: AdService.instance.navigatorKey,
-            home: const AuthGate(),
+            home: const _DamiSplash(),
           );
         },
       );
+}
+
+
+class _DamiSplash extends StatefulWidget {
+  const _DamiSplash();
+
+  @override
+  State<_DamiSplash> createState() => _DamiSplashState();
+}
+
+class _DamiSplashState extends State<_DamiSplash> {
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.delayed(const Duration(milliseconds: 1400), () {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => const AuthGate()),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: const Color(0xFF080B10),
+    body: Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Image.asset('assets/splash/splash.png',
+          width: 300, height: 300, fit: BoxFit.contain),
+      ),
+    ),
+  );
 }
