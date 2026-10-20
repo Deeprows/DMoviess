@@ -108,6 +108,27 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
               children: [
                 if (premium.active) _activeCard(premium),
                 if (premium.active) const SizedBox(height: 18),
+                Text('Prices for ${CurrencyService.instance.countryLabel} (${CurrencyService.instance.code})',
+                    style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: CurrencyService.instance.selectedCountry ?? 'AUTO',
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Pricing country / currency',
+                    prefixIcon: Icon(Icons.public_rounded),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: 'AUTO', child: Text('Automatic (device region)')),
+                    ...CurrencyService.countryNames.entries.map((entry) => DropdownMenuItem(
+                      value: entry.key,
+                      child: Text('${entry.value} (${CurrencyService.instance.currencyForCountry(entry.key)})', overflow: TextOverflow.ellipsis),
+                    )),
+                  ],
+                  onChanged: (value) => CurrencyService.instance.setCountry(value == 'AUTO' ? null : value),
+                ),
+                const SizedBox(height: 14),
                 Text('Choose a plan'.tr, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 10),
                 for (var i = 0; i < plans.length; i++) _planTile(i, plans[i], config),
@@ -183,6 +204,9 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
           'Enter your WhatsApp number with country code. We will send your token there after payment details are confirmed.',
           style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.4),
         ),
+        const SizedBox(height: 10),
+        Text('Token request amount: ${CurrencyService.instance.priceFor(plan, config).text}',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
         const SizedBox(height: 12),
         TextField(
           controller: _whatsapp,
