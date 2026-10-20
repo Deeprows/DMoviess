@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -21,7 +22,9 @@ class RedeemResult {
 /// for one phone's Device ID and checked offline against the public key in
 /// app_config.json, so the APK never contains tokens or a signing secret.
 class PremiumService extends ChangeNotifier {
-  PremiumService._();
+  PremiumService._() {
+    AuthService.instance.addListener(() => unawaited(_refreshAccountId()));
+  }
   static final PremiumService instance = PremiumService._();
 
   static const _kId = 'damimovies_install_id';
@@ -30,12 +33,16 @@ class PremiumService extends ChangeNotifier {
   static const _kSeen = 'damimovies_last_seen';
   static const int _day = 86400000;
 
-  String _installId = '';
+  String _installId = ''; // legacy per-install ID (old tokens were made for it)
+  String _accountId = ''; // static ID derived from the signed-in Gmail
   int _untilMs = 0;
   int _lastSeenMs = 0;
   final Set<String> _used = {};
 
-  String get installId => _installId;
+  /// The Device ID shown to the user and put in token requests. It is derived from the
+  /// signed-in Gmail address, so it is the same on every phone, after reinstalling, and
+  /// after the app's data is cleared. Before sign-in it falls back to the old install ID.
+  String get installId => _accountId.isNotEmpty ? _accountId : _installId;
 
   /// Never trust a clock that was moved backwards.
   int get _nowMs {
@@ -51,42 +58,74 @@ class PremiumService extends ChangeNotifier {
 
   /// Makes sure the Device ID exists. Safe to call from anywhere, any number of times.
   Future<void> ensureLoaded() {
-    if (_installId.isNotEmpty) return Future.value();
-    return _loading ??= load().whenComplete(() => _loading = null);
+    if (installId.isNotEmpty) return Future.value();
+    return load();
+  }
+
+  String _formatId(List<int> bytes) {
+    final hex = bytes.take(6).map((b) => b.toRadixString(16).padLeft(2, '0')).join().toUpperCase();
+    return '${hex.substring(0, 4)}-${hex.substring(4, 8)}-${hex.substring(8, 12)}';
   }
 
   String _newInstallId() {
     final random = Random.secure();
-    final bytes = List<int>.generate(6, (_) => random.nextInt(256));
-    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join().toUpperCase();
-    return '${hex.substring(0, 4)}-${hex.substring(4, 8)}-${hex.substring(8, 12)}';
+    return _formatId(List<int>.generate(6, (_) => random.nextInt(256)));
   }
 
-  Future<void> load() async {
+  /// Must match accountId() in cloudflare/auth-worker.js exactly.
+  String _normEmail(String email) {
+    var e = email.trim().toLowerCase();
+    if (e.endsWith('@googlemail.com')) e = '${e.substring(0, e.length - 15)}@gmail.com';
+    return e;
+  }
+
+  Future<void> _refreshAccountId() async {
+    final email = _normEmail(AuthService.instance.user?.email ?? '');
+    var next = '';
+    if (email.isNotEmpty) {
+      final hash = await Sha256().hash(utf8.encode('damimovies|acct|$email'));
+      next = _formatId(hash.bytes);
+    }
+    if (next != _accountId) {
+      _accountId = next;
+      notifyListeners();
+    }
+  }
+
+  /// Loads the saved state. Concurrent calls share one run.
+  Future<void> load() => _loading ??= _load().whenComplete(() => _loading = null);
+
+  Future<void> _load() async {
+    SharedPreferences? prefs;
     try {
-      final prefs = await SharedPreferences.getInstance();
-      _installId = prefs.getString(_kId) ?? '';
-      if (_installId.isEmpty) {
-        _installId = _newInstallId();
-        await prefs.setString(_kId, _installId);
-      }
-      _untilMs = prefs.getInt(_kUntil) ?? 0;
-      _lastSeenMs = prefs.getInt(_kSeen) ?? 0;
+      prefs = await SharedPreferences.getInstance();
+    } catch (error) {
+      debugPrint('DamiMovies: premium storage not readable: $error');
+    }
+    // A saved legacy ID is never overwritten (tokens made before this update used it).
+    var stored = '';
+    try {
+      stored = prefs?.getString(_kId) ?? '';
+    } catch (_) {}
+    if (stored.isNotEmpty) {
+      _installId = stored;
+    } else {
+      _installId = _newInstallId();
+      try {
+        await prefs?.setString(_kId, _installId);
+      } catch (_) {}
+    }
+    try {
+      _untilMs = prefs?.getInt(_kUntil) ?? 0;
+      _lastSeenMs = prefs?.getInt(_kSeen) ?? 0;
       _used
         ..clear()
-        ..addAll(prefs.getStringList(_kUsed) ?? const []);
+        ..addAll(prefs?.getStringList(_kUsed) ?? const []);
       await touch();
     } catch (error) {
       debugPrint('DamiMovies: premium state not loaded: $error');
     }
-    if (_installId.isEmpty) {
-      // Storage was not readable: still give this install an ID, and try to keep it.
-      _installId = _newInstallId();
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString(_kId, _installId);
-      } catch (_) {}
-    }
+    await _refreshAccountId();
     notifyListeners();
   }
 
@@ -127,8 +166,9 @@ class PremiumService extends ChangeNotifier {
       return const RedeemResult(false, 'Enter a valid WhatsApp number with country code.');
     }
     await ensureLoaded();
-    if (_installId.isEmpty) {
-      return const RedeemResult(false, 'Your Device ID is not ready yet. Please try again in a moment.');
+    await _refreshAccountId();
+    if (_accountId.isEmpty) {
+      return const RedeemResult(false, 'Please sign in with Gmail first.');
     }
     final idToken = await AuthService.instance.freshIdToken();
     if (idToken == null) {
@@ -145,7 +185,7 @@ class PremiumService extends ChangeNotifier {
               'whatsapp': digits,
               'days': plan.days,
               'price': priceText,
-              'deviceId': _installId,
+              'deviceId': installId,
             }),
           )
           .timeout(const Duration(seconds: 15));
@@ -166,6 +206,7 @@ class PremiumService extends ChangeNotifier {
 
   Future<RedeemResult> redeem(String input) async {
     await ensureLoaded();
+    await _refreshAccountId();
     final publicKey = RemoteConfig.instance.removeAds.publicKey;
     if (publicKey.isEmpty) {
       return const RedeemResult(false, 'Ad removal is not set up yet. Please contact support.');
@@ -190,8 +231,9 @@ class PremiumService extends ChangeNotifier {
     }
     final fields = utf8.decode(payloadBytes, allowMalformed: true).split('|');
     if (fields.length != 4 || fields[0] != 'v1') return const RedeemResult(false, 'That token is not valid.');
-    if (_normId(fields[1]) != _normId(_installId)) {
-      return const RedeemResult(false, 'This token was made for a different phone.');
+    final tokenId = _normId(fields[1]);
+    if (tokenId != _normId(installId) && tokenId != _normId(_installId)) {
+      return const RedeemResult(false, 'This token was made for a different Gmail account.');
     }
     final days = int.tryParse(fields[2]) ?? 0;
     if (days < 1 || days > 3650) return const RedeemResult(false, 'That token is not valid.');
