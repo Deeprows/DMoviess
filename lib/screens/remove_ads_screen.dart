@@ -1,3 +1,4 @@
+import '../utils/l10n.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -101,13 +102,13 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
           final plans = config.plans;
           if (_plan >= plans.length) _plan = 0;
           return Scaffold(
-            appBar: AppBar(title: const Text('Remove ads')),
+            appBar: AppBar(title: Text('Remove ads'.tr)),
             body: ListView(
               padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
               children: [
                 if (premium.active) _activeCard(premium),
                 if (premium.active) const SizedBox(height: 18),
-                const Text('Choose a plan', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                Text('Choose a plan'.tr, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 10),
                 for (var i = 0; i < plans.length; i++) _planTile(i, plans[i], config),
                 const SizedBox(height: 14),
@@ -115,7 +116,7 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
                 const SizedBox(height: 12),
                 _deviceId(premium),
                 const SizedBox(height: 26),
-                const Text('Already have a token?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                Text('Already have a token?'.tr, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _token,
@@ -131,7 +132,7 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
                   onPressed: _busy ? null : _redeem,
                   child: _busy
                       ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white))
-                      : const Text('Remove ads now', style: TextStyle(fontWeight: FontWeight.w800)),
+                      : Text('Remove ads now'.tr, style: TextStyle(fontWeight: FontWeight.w800)),
                 ),
                 if (_message != null) ...[
                   const SizedBox(height: 12),
@@ -162,9 +163,9 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
             ),
             onPressed: () => _buyOnWhatsApp(config, plan),
             icon: const Icon(Icons.chat_rounded),
-            label: const Text('Buy token on WhatsApp', style: TextStyle(fontWeight: FontWeight.w800)),
+            label: Text('Buy token on WhatsApp'.tr, style: TextStyle(fontWeight: FontWeight.w800)),
           )
-        : const Text('Contact support to buy a token.', style: TextStyle(color: Colors.white60));
+        : Text('Contact support to buy a token.'.tr, style: TextStyle(color: Colors.white60));
     if (!AppConfig.authUrl.startsWith('http')) return whatsappButton;
 
     final okColor = const Color(0xFF1FAF5A);
@@ -176,7 +177,7 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
         border: Border.all(color: Colors.white12),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Request a token', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
+        Text('Request a token'.tr, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
         const SizedBox(height: 6),
         const Text(
           'Enter your WhatsApp number with country code. We will send your token there after payment details are confirmed.',
@@ -213,7 +214,7 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
             alignment: Alignment.centerLeft,
             child: TextButton(
               onPressed: () => _buyOnWhatsApp(config, plan),
-              child: const Text('Or message us on WhatsApp'),
+              child: Text('Or message us on WhatsApp'.tr),
             ),
           ),
       ]),
@@ -232,7 +233,7 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Ads removed', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              Text('Ads removed'.tr, style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
               const SizedBox(height: 3),
               Text('Until ${_date(premium.until!)} · ${premium.daysLeft} days left',
                   style: const TextStyle(color: Colors.white70, fontSize: 13)),
@@ -278,7 +279,7 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
         padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
         decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(14)),
         child: Row(children: [
-          const Text('Device ID', style: TextStyle(color: Colors.white54, fontSize: 12)),
+          Text('Device ID'.tr, style: TextStyle(color: Colors.white54, fontSize: 12)),
           const SizedBox(width: 12),
           Expanded(
             child: SelectableText(premium.installId,
@@ -289,7 +290,7 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
             icon: const Icon(Icons.copy_rounded, size: 18),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: premium.installId));
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Device ID copied')));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Device ID copied'.tr)));
             },
           ),
         ]),
