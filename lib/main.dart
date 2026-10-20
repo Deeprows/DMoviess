@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'screens/auth_gate.dart';
 import 'services/ad_service.dart';
 import 'services/app_preferences.dart';
-import 'services/download_manager.dart';
+// import 'services/download_manager.dart'; // in-app downloads disabled
 
 Color get appBg => AppPreferences.instance.palette.background;
 Color get appSurface => AppPreferences.instance.palette.surface;
@@ -46,13 +46,13 @@ Future<void> _initializeServices() async {
     debugPrint('DamiMovies: ads unavailable at startup: $error');
   }
 
-  try {
-    await DownloadManager.instance
-        .init()
-        .timeout(const Duration(seconds: 8));
-  } catch (error) {
-    debugPrint('DamiMovies: download service unavailable at startup: $error');
-  }
+  // try {
+  // await DownloadManager.instance
+  // .init()
+  // .timeout(const Duration(seconds: 8));
+  // } catch (error) {
+  // debugPrint('DamiMovies: download service unavailable at startup: $error');
+  // }
 }
 
 class DamiMoviesApp extends StatelessWidget {
