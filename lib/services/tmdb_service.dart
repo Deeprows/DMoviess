@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/movie.dart';
 import '../config.dart';
+import 'app_preferences.dart';
 
 /// TMDB API service. Override the built-in key at build time with
 /// --dart-define=TMDB_API_KEY=YOUR_KEY.
@@ -23,7 +24,7 @@ class TmdbService {
     try {
       final isV4Token = _apiKey.startsWith('eyJ') && _apiKey.length > 80;
       final query = <String, String>{
-        'language': 'en-US',
+        'language': '${AppPreferences.instance.languageCode}-${AppPreferences.instance.languageCode == 'pt' ? 'BR' : AppPreferences.instance.languageCode == 'en' ? 'US' : AppPreferences.instance.languageCode.toUpperCase()}',
         ...params,
         if (!isV4Token) 'api_key': _apiKey,
       };
