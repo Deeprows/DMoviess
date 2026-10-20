@@ -1,3 +1,4 @@
+import '../utils/l10n.dart';
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -304,14 +305,14 @@ function nudge() {
                                 children: [
                                   const Icon(Icons.wifi_off_rounded, color: Colors.white54, size: 36),
                                   const SizedBox(height: 10),
-                                  const Text('This trailer could not be loaded.',
+                                  Text('This trailer could not be loaded.'.tr,
                                       textAlign: TextAlign.center,
                                       style: TextStyle(color: Colors.white70)),
                                   const SizedBox(height: 10),
                                   FilledButton.icon(
                                     onPressed: _loadTrailer,
                                     icon: const Icon(Icons.refresh_rounded),
-                                    label: const Text('Try again'),
+                                    label: Text('Try again'.tr),
                                   ),
                                 ],
                               ),
@@ -330,12 +331,12 @@ function nudge() {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                             decoration: BoxDecoration(color: appRed, borderRadius: BorderRadius.circular(6)),
-                            child: const Text('TRAILER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                            child: Text('TRAILER'.tr, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
                           ),
                           const SizedBox(width: 9),
                           const Icon(Icons.ondemand_video_rounded, color: Colors.white54, size: 18),
                           const SizedBox(width: 5),
-                          const Text('Playing in DamiMovies', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                          Text('Playing in DamiMovies'.tr, style: TextStyle(color: Colors.white54, fontSize: 11)),
                         ],
                       ),
                       const SizedBox(height: 12),
