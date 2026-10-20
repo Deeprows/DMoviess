@@ -1,8 +1,6 @@
 import '../utils/l10n.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import '../main.dart';
@@ -29,13 +27,13 @@ class BrowserScreen extends StatefulWidget {
 
 class _BrowserScreenState extends State<BrowserScreen> {
   late final WebViewController _controller;
-  final TextEditingController _address = TextEditingController();
   String _url = '';
   String _pageTitle = 'DamiMovies Browser';
   String? _errorText;
   int _progress = 0;
   bool _canBack = false, _canForward = false, _shieldEnabled = true;
   bool _isDownloadOptionsPage = false;
+  bool _leaving = false;
   int _pageDetectionGeneration = 0;
   Timer? _progressTimeout;
 
@@ -46,7 +44,6 @@ class _BrowserScreenState extends State<BrowserScreen> {
         ? 'about:blank'
         : _normalise(widget.initialUrl!);
     _url = start;
-    _address.text = start;
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(appBg)
@@ -59,8 +56,8 @@ class _BrowserScreenState extends State<BrowserScreen> {
               _progress = 8;
               _errorText = null;
             });
-          _address.text = url;
           _applyShield();
+          _refreshNav();
           _progressTimeout?.cancel();
           _progressTimeout = Timer(const Duration(seconds: 25), () {
             if (mounted && _progress < 100) setState(() => _progress = 100);
@@ -81,7 +78,6 @@ class _BrowserScreenState extends State<BrowserScreen> {
                 (title == null || title.isEmpty) ? 'DamiMovies Browser' : title;
             _progress = 100;
           });
-          _address.text = url;
           _detectDownloadOptionsPage();
           Future<void>.delayed(const Duration(milliseconds: 900), () {
             if (mounted && _url == url) _detectDownloadOptionsPage();
@@ -92,7 +88,6 @@ class _BrowserScreenState extends State<BrowserScreen> {
           final value = change.url;
           if (value != null && mounted) {
             setState(() => _url = value);
-            _address.text = value;
           }
           _refreshNav();
         },
@@ -170,13 +165,16 @@ class _BrowserScreenState extends State<BrowserScreen> {
     final uri = Uri.tryParse(request.url);
     if (uri == null) return NavigationDecision.prevent;
     final scheme = uri.scheme.toLowerCase();
-    if (scheme == 'about' || scheme == 'data' || scheme == 'blob')
+    if (scheme == 'about' || scheme == 'data' || scheme == 'blob') {
       return NavigationDecision.navigate;
-    if (scheme != 'http' && scheme != 'https')
+    }
+    if (scheme != 'http' && scheme != 'https') {
       return NavigationDecision.prevent;
-    if (_shieldEnabled && _isAdHost(uri.host))
+    }
+    if (_shieldEnabled && _isAdHost(uri.host)) {
       return NavigationDecision.prevent;
-    if (request.isMainFrame && isDirectMovieDownload(request.url)) {
+    }
+    if (isDirectMovieDownload(request.url)) {
       unawaited(_startDownload(request.url));
       return NavigationDecision.prevent;
     }
@@ -191,14 +189,46 @@ class _BrowserScreenState extends State<BrowserScreen> {
   Future<void> _applyShield() async {
     if (!_shieldEnabled) return;
     try {
-      await _controller.runJavaScript("""
+      await _controller.runJavaScript(r"""
         (function(){
-          if(window.__damiShieldInstalled)return; window.__damiShieldInstalled=true;
-          window.open=function(){return null};
-          document.addEventListener('click',function(e){var a=e.target&&e.target.closest?e.target.closest('a'):null;if(a&&a.target==='_blank')a.target='_self'},true);
+          if (window.__damiShieldInstalled) return;
+          window.__damiShieldInstalled = true;
+          // Keep the current page in the app. Never create ad pop-ups.
+          window.open = function(){ return null; };
+          document.addEventListener('click', function(event) {
+            var anchor = event.target && event.target.closest
+              ? event.target.closest('a[href]') : null;
+            if (!anchor) return;
+            if (anchor.target === '_blank') anchor.target = '_self';
+            try {
+              var u = new URL(anchor.href, location.href);
+              var host = u.hostname.toLowerCase();
+              if (/(^|\.)(doubleclick\.net|googlesyndication\.com|googleadservices\.com|adsterra\.com|propellerads\.com|popads\.net|popcash\.net|exoclick\.com|clickadu\.com|hilltopads\.net|onclkds\.com|profitablecpmrate\.com|highperformanceformat\.com)$/.test(host)) {
+                event.preventDefault(); event.stopImmediatePropagation();
+              }
+            } catch (_) {}
+          }, true);
+          // Common ad overlays should not obscure the actual download links.
+          var style = document.createElement('style');
+          style.textContent = 'iframe[src*="doubleclick.net"],iframe[src*="adsterra"],iframe[src*="popads.net"]{display:none!important}';
+          (document.head || document.documentElement).appendChild(style);
         })();
       """);
     } catch (_) {}
+  }
+
+  Future<void> _backInsideBrowser() async {
+    if (_leaving) return;
+    try {
+      if (await _controller.canGoBack()) {
+        await _controller.goBack();
+        await _refreshNav();
+        return;
+      }
+    } catch (_) {}
+    if (!mounted || _leaving) return;
+    _leaving = true;
+    Navigator.of(context).pop();
   }
 
   Future<void> _refreshNav() async {
@@ -245,211 +275,141 @@ class _BrowserScreenState extends State<BrowserScreen> {
     }
   }
 
-  Future<void> _go() async {
-    final value = _normalise(_address.text);
-    _address.text = value;
-    FocusScope.of(context).unfocus();
-    setState(() {
-      _progress = 1;
-      _errorText = null;
-    });
-    try {
-      await _controller.loadRequest(Uri.parse(value));
-    } catch (_) {
-      if (mounted)
-        setState(() => _errorText =
-            'Invalid address. Enter a complete website URL or search term.');
-    }
+  Future<void> _reload() async {
+    if (!mounted) return;
+    setState(() { _progress = 5; _errorText = null; });
+    await _controller.reload();
   }
 
   @override
   void dispose() {
     _progressTimeout?.cancel();
-    _address.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          titleSpacing: 12,
-          title:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(_pageTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style:
-                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
-            if (!_isDownloadOptionsPage)
-              Text(Uri.tryParse(_url)?.host ?? '',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 10, color: Colors.white54)),
-          ]),
-          actions: [
-            IconButton(
-                tooltip: 'Scan download options on this page',
-                onPressed: _url.isEmpty ? null : _openScanner,
-                icon: Icon(Icons.manage_search_rounded)),
-            PopupMenuButton<String>(
-                onSelected: (v) async {
-                  if (v == 'shield')
-                    setState(() => _shieldEnabled = !_shieldEnabled);
-                  if (v == 'external') {
-                    final u = Uri.tryParse(_url);
-                    if (u != null)
-                      await launchUrl(u, mode: LaunchMode.externalApplication);
-                  }
-                  if (v == 'copy')
-                    await Clipboard.setData(ClipboardData(text: _url));
-                  if (v == 'downloads' && mounted)
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const DownloadsScreen()));
-                  if (v == 'scan' && mounted) _openScanner();
+  Widget build(BuildContext context) => PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) _backInsideBrowser();
+        },
+        child: Scaffold(
+          appBar: AppBar(
+            leading: IconButton(
+              tooltip: 'Previous page',
+              icon: const Icon(Icons.arrow_back_rounded),
+              onPressed: _backInsideBrowser,
+            ),
+            title: const Text('Download',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            actions: [
+              IconButton(
+                tooltip: 'Find downloadable files',
+                onPressed: _openScanner,
+                icon: const Icon(Icons.download_for_offline_outlined),
+              ),
+              IconButton(
+                tooltip: 'My downloads',
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const DownloadsScreen())),
+                icon: const Icon(Icons.file_download_done_rounded),
+              ),
+              IconButton(
+                tooltip: _shieldEnabled ? 'Ad protection on' : 'Ad protection off',
+                onPressed: () {
+                  setState(() => _shieldEnabled = !_shieldEnabled);
+                  if (_shieldEnabled) _applyShield();
                 },
-                itemBuilder: (_) => [
-                      PopupMenuItem(
-                          value: 'shield',
-                          child: Text(_shieldEnabled
-                              ? 'Disable pop-up shield'
-                              : 'Enable pop-up shield')),
-                      PopupMenuItem(
-                          value: 'external',
-                          child: Text('Open in phone browser'.tr)),
-                      PopupMenuItem(
-                          value: 'copy', child: Text('Copy page link'.tr)),
-                      PopupMenuItem(
-                          value: 'downloads', child: Text('Downloads'.tr)),
-                      PopupMenuItem(
-                          value: 'scan',
-                          child: Text('Scan download options'.tr)),
-                    ]),
-          ],
-          bottom: _progress < 100
-              ? PreferredSize(
-                  preferredSize: const Size.fromHeight(2),
-                  child: LinearProgressIndicator(
+                icon: Icon(_shieldEnabled
+                    ? Icons.shield_rounded : Icons.shield_outlined,
+                    color: _shieldEnabled ? appRed : Colors.white70),
+              ),
+            ],
+            bottom: _progress < 100
+                ? PreferredSize(
+                    preferredSize: const Size.fromHeight(2),
+                    child: LinearProgressIndicator(
                       value: _progress <= 0 ? null : _progress / 100,
-                      minHeight: 2,
-                      color: appRed,
-                      backgroundColor: appSurface))
-              : null,
-        ),
-        body: Column(children: [
-          if (_isDownloadOptionsPage)
-            Padding(
+                      minHeight: 2, color: appRed,
+                      backgroundColor: appSurface,
+                    ))
+                : null,
+          ),
+          body: Column(children: [
+            if (_isDownloadOptionsPage)
+              Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                 child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _openScanner,
-                      icon: Icon(Icons.manage_search_rounded),
-                      label: Text('SCAN DOWNLOAD OPTIONS'.tr,
-                          style: TextStyle(
-                              fontWeight: FontWeight.w900, letterSpacing: .3)),
-                      style: FilledButton.styleFrom(
-                          backgroundColor: appRed,
-                          padding: const EdgeInsets.symmetric(vertical: 14)),
-                    )))
-          else
-            Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                child: Row(children: [
-                  Expanded(
-                      child: TextField(
-                          controller: _address,
-                          keyboardType: TextInputType.url,
-                          textInputAction: TextInputAction.go,
-                          onSubmitted: (_) => _go(),
-                          decoration: InputDecoration(
-                              prefixIcon: Icon(Icons.language_rounded),
-                              hintText: 'Search or enter website',
-                              suffixIcon: IconButton(
-                                  onPressed: () {
-                                    _address.clear();
-                                  },
-                                  icon: Icon(Icons.close_rounded)),
-                              contentPadding:
-                                  const EdgeInsets.symmetric(vertical: 10),
-                              isDense: true))),
-                  SizedBox(width: 7),
-                  IconButton.filled(
-                      onPressed: _go,
-                      icon: Icon(Icons.arrow_forward_rounded),
-                      style: IconButton.styleFrom(backgroundColor: appRed)),
-                ])),
-          Expanded(
-              child: Stack(children: [
-            WebViewWidget(controller: _controller),
-            if (_errorText != null)
-              Center(
-                  child: Container(
-                      margin: const EdgeInsets.all(24),
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                          color: appSurface,
-                          borderRadius: BorderRadius.circular(18)),
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.wifi_off_rounded,
-                            size: 40, color: Colors.white60),
-                        SizedBox(height: 12),
-                        Text(_errorText!, textAlign: TextAlign.center),
-                        SizedBox(height: 12),
-                        FilledButton.icon(
-                            onPressed: () {
-                              setState(() => _errorText = null);
-                              _controller.reload();
-                            },
-                            icon: Icon(Icons.refresh),
-                            label: Text('Retry'.tr))
-                      ]))),
-          ])),
-          Container(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _openScanner,
+                    icon: const Icon(Icons.download_rounded),
+                    label: const Text('Find download links'),
+                    style: FilledButton.styleFrom(backgroundColor: appRed),
+                  ),
+                ),
+              ),
+            Expanded(child: Stack(children: [
+              WebViewWidget(controller: _controller),
+              if (_errorText != null)
+                Center(child: Container(
+                  margin: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: appSurface,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    const Icon(Icons.wifi_off_rounded,
+                        size: 40, color: Colors.white60),
+                    const SizedBox(height: 12),
+                    Text(_errorText!, textAlign: TextAlign.center),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: _reload,
+                      icon: const Icon(Icons.refresh),
+                      label: Text('Retry'.tr),
+                    ),
+                  ]),
+                )),
+            ])),
+            Container(
               height: 54,
               decoration: const BoxDecoration(
-                  color: Color(0xFF0E121A),
-                  border: Border(top: BorderSide(color: Colors.white10))),
+                color: Color(0xFF0E121A),
+                border: Border(top: BorderSide(color: Colors.white10)),
+              ),
               child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(
-                        tooltip: 'Back',
-                        onPressed: _canBack
-                            ? () {
-                                _controller.goBack();
-                                _refreshNav();
-                              }
-                            : null,
-                        icon: Icon(Icons.arrow_back_ios_new_rounded, size: 19)),
-                    IconButton(
-                        tooltip: 'Forward',
-                        onPressed: _canForward
-                            ? () {
-                                _controller.goForward();
-                                _refreshNav();
-                              }
-                            : null,
-                        icon: Icon(Icons.arrow_forward_ios_rounded, size: 19)),
-                    IconButton(
-                        tooltip: 'Home',
-                        onPressed: () {
-                          _address.text = 'https://www.google.com';
-                          _go();
-                        },
-                        icon: Icon(Icons.home_outlined)),
-                    IconButton(
-                        tooltip: 'Reload',
-                        onPressed: () {
-                          setState(() {
-                            _progress = 5;
-                            _errorText = null;
-                          });
-                          _controller.reload();
-                        },
-                        icon: Icon(Icons.refresh_rounded)),
-                  ])),
-        ]),
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  IconButton(
+                    tooltip: 'Previous webpage',
+                    onPressed: _backInsideBrowser,
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 19),
+                  ),
+                  IconButton(
+                    tooltip: 'Next webpage',
+                    onPressed: _canForward ? () async {
+                      await _controller.goForward();
+                      await _refreshNav();
+                    } : null,
+                    icon: const Icon(Icons.arrow_forward_ios_rounded, size: 19),
+                  ),
+                  IconButton(
+                    tooltip: 'Reload page',
+                    onPressed: _reload,
+                    icon: const Icon(Icons.refresh_rounded),
+                  ),
+                  IconButton(
+                    tooltip: 'Download manager',
+                    onPressed: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const DownloadsScreen())),
+                    icon: const Icon(Icons.download_rounded),
+                  ),
+                ],
+              ),
+            ),
+          ]),
+        ),
       );
 }
