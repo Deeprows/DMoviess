@@ -31,6 +31,7 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
   void initState() {
     super.initState();
     CurrencyService.instance.load();
+    PremiumService.instance.ensureLoaded();
     AdService.instance.hold(); // no ad pop-up while sorting this out
   }
 
