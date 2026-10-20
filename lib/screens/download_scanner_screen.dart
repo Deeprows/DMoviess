@@ -1,3 +1,4 @@
+import '../utils/l10n.dart';
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../services/download_manager.dart';
@@ -22,7 +23,7 @@ class _DownloadScannerScreenState extends State<DownloadScannerScreen> {
   @override void dispose() { _scanner.removeListener(_changed); _scanner.dispose(); super.dispose(); }
 
   @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Find downloads'), actions: [
+    appBar: AppBar(title: Text('Find downloads'.tr), actions: [
       IconButton(tooltip: 'Scan again', onPressed: _scanner.scanning ? null : () => _scanner.rescan(widget.pageUrl), icon: const Icon(Icons.refresh_rounded)),
       IconButton(tooltip: 'My downloads', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DownloadsScreen())), icon: const Icon(Icons.download_done_rounded)),
     ]),
