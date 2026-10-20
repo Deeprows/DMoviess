@@ -1,3 +1,4 @@
+import '../utils/l10n.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -179,7 +180,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
     final movie = _selectedMovie;
     if (movie == null || _selectedPeople.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Pick a movie and at least one person.')));
+          content: Text('Pick a movie and at least one person.'.tr)));
       return;
     }
     setState(() => _busy = true);
@@ -245,7 +246,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Watch Together',
+        title: Text('Watch Together'.tr,
             style: TextStyle(fontWeight: FontWeight.w900)),
         actions: [
           IconButton(
@@ -350,7 +351,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Your private cinema',
+                  Text('Your private cinema'.tr,
                       style: TextStyle(
                           fontSize: 19,
                           fontWeight: FontWeight.w900,
@@ -593,7 +594,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: _busy ? null : () => _takeSeat(invite, false),
-                  child: const Text('Decline'),
+                  child: Text('Decline'.tr),
                 ),
               ),
               const SizedBox(width: 8),
@@ -602,7 +603,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
                 child: FilledButton.icon(
                   onPressed: _busy ? null : () => _takeSeat(invite, true),
                   icon: const Icon(Icons.event_seat_rounded),
-                  label: const Text('Take a seat'),
+                  label: Text('Take a seat'.tr),
                   style: FilledButton.styleFrom(
                       backgroundColor: _gold, foregroundColor: Colors.black),
                 ),
