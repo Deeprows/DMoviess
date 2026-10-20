@@ -1,3 +1,4 @@
+import '../utils/l10n.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -386,7 +387,7 @@ class _SupportAdScreenState extends State<SupportAdScreen> {
                 color: _yellow,
                 borderRadius: BorderRadius.circular(3),
               ),
-              child: const Text('Ad',
+              child: Text('Ad'.tr,
                   style: TextStyle(
                       color: Colors.black,
                       fontSize: 12,
@@ -418,7 +419,7 @@ class _SupportAdScreenState extends State<SupportAdScreen> {
             TextButton.icon(
               onPressed: _removeAds,
               icon: const Icon(Icons.block_rounded, size: 16),
-              label: const Text('Remove ads'),
+              label: Text('Remove ads'.tr),
             ),
           ]),
         ),
@@ -458,17 +459,17 @@ class _SupportAdScreenState extends State<SupportAdScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             const Icon(Icons.wifi_off_rounded, size: 44, color: Colors.white54),
             const SizedBox(height: 12),
-            const Text('The ad page could not load',
+            Text('The ad page could not load'.tr,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
-            const Text('Check your internet connection, or continue without it.',
+            Text('Check your internet connection, or continue without it.'.tr,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white60, fontSize: 13)),
             const SizedBox(height: 16),
             Wrap(spacing: 10, children: [
-              FilledButton(onPressed: _retry, child: const Text('Retry')),
+              FilledButton(onPressed: _retry, child: Text('Retry'.tr)),
               OutlinedButton(
-                  onPressed: _continueAnyway, child: const Text('Continue')),
+                  onPressed: _continueAnyway, child: Text('Continue'.tr)),
             ]),
           ]),
         ),
