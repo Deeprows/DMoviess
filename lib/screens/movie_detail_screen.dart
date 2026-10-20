@@ -8,12 +8,12 @@ import '../services/ad_service.dart';
 import '../services/app_preferences.dart';
 import '../services/tmdb_service.dart';
 import '../services/movie_library.dart';
+import 'browser_screen.dart';
 import '../services/profile_data.dart';
 import 'community_composer.dart';
 import 'profile_collections_screen.dart';
 import 'movie_player_screen.dart';
 import 'watch_together_screen.dart';
-import '../utils/external_link.dart';
 import 'trailer_player_screen.dart';
 
 class MovieDetailScreen extends StatefulWidget {
@@ -92,15 +92,26 @@ class _MovieDetailScreenState extends State<MovieDetailScreen> with SingleTicker
     await MovieLibrary.instance.load();
   }
 
-  void _play() => Navigator.push(context, MaterialPageRoute(builder: (_) => MoviePlayerScreen(movie: _movie)));
   void _download() {
-    if (!_movie.downloadUrl.startsWith('http')) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No download link is available for this title.')));
+    final url = _movie.downloadUrl.trim();
+    if (!url.startsWith('http')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No download link is available for this title.')),
+      );
       return;
     }
-    // In-app downloading is disabled: hand the link to the user's browser.
-    openInExternalBrowser(context, _movie.downloadUrl);
+
+    // Movie download buttons point to the first/intermediate download page.
+    // Keep the user in DamiMovies so they can proceed to the actual page that
+    // lists the available download servers/qualities. The scanner is started
+    // from the browser menu on that real download-options page, not here.
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => BrowserScreen(initialUrl: url)),
+    );
   }
+
+  void _play() => Navigator.push(context, MaterialPageRoute(builder: (_) => MoviePlayerScreen(movie: _movie)));
 
   @override void dispose() { _tabs.dispose(); super.dispose(); }
 
