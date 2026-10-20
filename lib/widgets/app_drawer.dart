@@ -50,7 +50,7 @@ class AppDrawer extends StatelessWidget {
       _Item(Icons.forum_rounded, 'Movie Community'.tr,
           () => _go(context, const CommunityScreen(standalone: true))),
       if (AuthService.instance.user != null)
-        _Item(Icons.edit_note_rounded, 'My community posts'.tr,
+        _Item(Icons.edit_note_rounded, 'My profile'.tr,
             () => _go(context,
                 CommunityProfileScreen(email: AuthService.instance.user!.email))),
       _Item(Icons.theaters_rounded, 'Watch Together'.tr,
