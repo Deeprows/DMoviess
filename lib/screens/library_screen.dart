@@ -1,3 +1,4 @@
+import '../utils/l10n.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../main.dart';
@@ -20,9 +21,9 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   @override Widget build(BuildContext context) {
     final library = MovieLibrary.instance;
     return Scaffold(
-      appBar: AppBar(title: const Text('My Library', style: TextStyle(fontWeight: FontWeight.w900)), actions: [
+      appBar: AppBar(title: Text('My Library'.tr, style: TextStyle(fontWeight: FontWeight.w900)), actions: [
         IconButton(tooltip: 'Clear watch history', onPressed: () async {
-          final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('Clear watch history?'), content: const Text('This will remove recently opened titles from your device.'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Clear'))]));
+          final yes = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: Text('Clear watch history?'.tr), content: Text('This will remove recently opened titles from your device.'.tr), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel'.tr)), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Clear'.tr))]));
           if (yes == true) await library.clearHistory();
         }, icon: const Icon(Icons.delete_sweep_outlined)),
       ], bottom: TabBar(controller: _tabs, indicatorColor: appRed, tabs: const [Tab(icon: Icon(Icons.bookmark_border), text: 'Watch Later'), Tab(icon: Icon(Icons.history_rounded), text: 'History'), Tab(icon: Icon(Icons.download_rounded), text: 'Downloads')])),
