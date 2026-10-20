@@ -31,7 +31,7 @@ class SettingsScreen extends StatelessWidget {
     await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
       title: Text(title),
       content: SingleChildScrollView(child: Text(body, style: const TextStyle(height: 1.5))),
-      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close'))],
+      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text('Close'.tr))],
     ));
   }
 
@@ -40,9 +40,9 @@ class SettingsScreen extends StatelessWidget {
     if (link.isEmpty) {
       if (!context.mounted) return;
       await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
-        title: const Text('Update checker'),
-        content: const Text('No update at the moment. Please check again later.'),
-        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('OK'))],
+        title: Text('Update checker'.tr),
+        content: Text('No update at the moment. Please check again later.'.tr),
+        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text('OK'.tr))],
       ));
       return;
     }
@@ -60,8 +60,8 @@ class SettingsScreen extends StatelessWidget {
             title: Text('DamiMovies update · $version'),
             content: Text(notes),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Later')),
-              if (apk.startsWith('http')) FilledButton(onPressed: () { Navigator.pop(dialogContext); launchUrl(Uri.parse(apk), mode: LaunchMode.externalApplication); }, child: const Text('Get update')),
+              TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text('Later'.tr)),
+              if (apk.startsWith('http')) FilledButton(onPressed: () { Navigator.pop(dialogContext); launchUrl(Uri.parse(apk), mode: LaunchMode.externalApplication); }, child: Text('Get update'.tr)),
             ],
           ));
           return;
@@ -70,7 +70,7 @@ class SettingsScreen extends StatelessWidget {
       await launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication);
     } catch (_) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not check updates. Check your connection and try again.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not check updates. Check your connection and try again.'.tr)));
     }
   }
 
@@ -78,7 +78,7 @@ class SettingsScreen extends StatelessWidget {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('DamiMovies'),
+        title: Text('DamiMovies'.tr),
         content: const Text(
           'DamiMovies is just a movie hub for movie lovers. No video or movie is hosted here. All content is the copyright of its respective owners.',
           style: TextStyle(height: 1.5),
@@ -86,7 +86,7 @@ class SettingsScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Close'),
+            child: Text('Close'.tr),
           ),
         ],
       ),
@@ -97,7 +97,7 @@ class SettingsScreen extends StatelessWidget {
     final link = AppConfig.supportUrl.trim();
     if (link.isEmpty) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No support link is configured for this build.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No support link is configured for this build.'.tr)));
       return;
     }
     await openInExternalBrowser(context, link);
@@ -124,8 +124,8 @@ class SettingsScreen extends StatelessWidget {
                 Container(width: 52, height: 52, decoration: BoxDecoration(color: prefs.palette.accent, borderRadius: BorderRadius.circular(16)), child: const Icon(Icons.movie_filter_rounded, size: 30, color: Colors.white)),
                 const SizedBox(width: 13),
                 const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('DamiMovies', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
-                  SizedBox(height: 3), Text('Personalise your movie experience', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                  Text('DamiMovies'.tr, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w900)),
+                  SizedBox(height: 3), Text('Personalise your movie experience'.tr, style: TextStyle(color: Colors.white60, fontSize: 12)),
                 ])),
                 const Text('v${AppConfig.appVersion}', style: TextStyle(color: Colors.white54, fontSize: 11)),
               ]),
@@ -179,32 +179,32 @@ class SettingsScreen extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               value: prefs.adShield,
               onChanged: prefs.setAdShield,
-              title: const Text('Block pop-ups and ad redirects'),
-              subtitle: const Text('Best-effort blocking in the video player and browser.'),
+              title: Text('Block pop-ups and ad redirects'.tr),
+              subtitle: Text('Best-effort blocking in the video player and browser.'.tr),
               secondary: const Icon(Icons.shield_outlined),
             ),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               value: prefs.lowQuality,
               onChanged: prefs.setLowQuality,
-              title: const Text('Prefer low quality on direct streams'),
-              subtitle: const Text('Uses the lowest HLS level when the stream supports it.'),
+              title: Text('Prefer low quality on direct streams'.tr),
+              subtitle: Text('Uses the lowest HLS level when the stream supports it.'.tr),
               secondary: const Icon(Icons.high_quality_outlined),
             ),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               value: prefs.keepScreenAwake,
               onChanged: prefs.setKeepScreenAwake,
-              title: const Text('Keep screen awake while playing'),
-              subtitle: const Text('Avoids screen timeout when watching a movie.'),
+              title: Text('Keep screen awake while playing'.tr),
+              subtitle: Text('Avoids screen timeout when watching a movie.'.tr),
               secondary: const Icon(Icons.brightness_5_outlined),
             ),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               value: prefs.backgroundPlayback,
               onChanged: prefs.setBackgroundPlayback,
-              title: const Text('Background playback controls'),
-              subtitle: const Text('Shows Android media controls while the player is open.'),
+              title: Text('Background playback controls'.tr),
+              subtitle: Text('Shows Android media controls while the player is open.'.tr),
               secondary: const Icon(Icons.headphones_rounded),
             ),
             const SizedBox(height: 20),
@@ -233,11 +233,11 @@ class SettingsScreen extends StatelessWidget {
           final ok = await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('Sign out?'),
-              content: const Text('You will need to sign in with Gmail again to keep watching.'),
+              title: Text('Sign out?'.tr),
+              content: Text('You will need to sign in with Gmail again to keep watching.'.tr),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign out')),
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('Cancel'.tr)),
+                TextButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Sign out'.tr)),
               ],
             ),
           );
@@ -245,18 +245,18 @@ class SettingsScreen extends StatelessWidget {
           await AuthService.instance.signOut();
           if (context.mounted) Navigator.of(context).popUntil((route) => route.isFirst);
         },
-        child: const Text('Sign out'),
+        child: Text('Sign out'.tr),
       ),
     );
   }
 
-  Widget _heading(String text) => Padding(padding: const EdgeInsets.only(left: 2), child: Text(text, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)));
+  Widget _heading(String text) => Padding(padding: const EdgeInsets.only(left: 2), child: Text(text.tr, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)));
 
   Widget _actionTile(IconData icon, String title, String subtitle, VoidCallback onTap) => ListTile(
     contentPadding: const EdgeInsets.symmetric(horizontal: 2),
     leading: Icon(icon, color: appRed),
-    title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-    subtitle: Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+    title: Text(title.tr, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+    subtitle: Text(subtitle.tr, style: const TextStyle(color: Colors.white54, fontSize: 11)),
     trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white38),
     onTap: onTap,
   );
