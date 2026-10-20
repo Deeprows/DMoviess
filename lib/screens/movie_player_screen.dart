@@ -274,7 +274,7 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This video source does not support resume playback.')),
+        const SnackBar(content: Text('This video source does not support resume playback.'.tr)),
       );
     }
   }
@@ -550,7 +550,7 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
   Future<void> _switchSource() async {
     if (_sources.length < 2 || _switching) {
       if (_sources.length < 2 && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No backup player is configured for this title.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No backup player is configured for this title.'.tr)));
       }
       return;
     }
@@ -619,7 +619,7 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
 
   Future<void> _copyLink() async {
     await Clipboard.setData(ClipboardData(text: _currentUrl));
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Player link copied')));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Player link copied'.tr)));
   }
 
   Future<void> _cast() async {
@@ -629,15 +629,15 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
         return;
       } catch (_) {}
     }
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open Cast or Smart View from your phone quick settings.')));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Open Cast or Smart View from your phone quick settings.'.tr)));
   }
 
   Future<void> _enterPip() async {
     try {
       final ok = await _pip.invokeMethod<bool>('enter') ?? false;
-      if (!ok && mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Picture-in-picture is not available on this device.')));
+      if (!ok && mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Picture-in-picture is not available on this device.'.tr)));
     } catch (_) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Picture-in-picture is not available in this build.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Picture-in-picture is not available in this build.'.tr)));
     }
   }
 
@@ -663,7 +663,7 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       return;
     }
     if (url.isEmpty) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No download page is available for this title.')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No download page is available for this title.'.tr)));
       return;
     }
     await openInExternalBrowser(context, url);
@@ -913,13 +913,13 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
             child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.play_disabled_rounded, color: Colors.white60, size: 46),
               const SizedBox(height: 14),
-              const Text('Unable to play this source', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              Text('Unable to play this source'.tr, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
               const SizedBox(height: 9),
               Text(_errorDetail ?? 'Try reloading or switching player sources.', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white60, height: 1.4)),
               const SizedBox(height: 20),
               Wrap(alignment: WrapAlignment.center, spacing: 10, runSpacing: 8, children: [
-                FilledButton.icon(onPressed: _loadSource, icon: const Icon(Icons.refresh_rounded), label: const Text('Reload')),
-                if (_sources.length > 1) OutlinedButton.icon(onPressed: _switchSource, icon: const Icon(Icons.swap_horiz_rounded), label: const Text('Switch player')),
+                FilledButton.icon(onPressed: _loadSource, icon: const Icon(Icons.refresh_rounded), label: Text('Reload'.tr)),
+                if (_sources.length > 1) OutlinedButton.icon(onPressed: _switchSource, icon: const Icon(Icons.swap_horiz_rounded), label: Text('Switch player'.tr)),
               ]),
             ])),
           )),
