@@ -25,5 +25,15 @@
       }
     ],
     "localPrices": {}
+  },
+  "notice": {
+    "enabled": false,
+    "id": "notice-001",
+    "title": "Welcome to DamiMovies",
+    "message": "Write your message to all users here. Change the id each time you send a new notice.",
+    "buttonText": "",
+    "buttonUrl": "",
+    "dismissible": true,
+    "expires": ""
   }
 }
