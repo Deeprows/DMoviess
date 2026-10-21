@@ -90,7 +90,20 @@ class _Probe {
 
   /// The link answered with a web page (not a file).
   final bool isPage;
-  const _Probe({this.error, this.fileName, this.total, this.isPage = false});
+  final String contentType;
+  const _Probe(
+      {this.error,
+      this.fileName,
+      this.total,
+      this.isPage = false,
+      this.contentType = ''});
+}
+
+class _Attempt {
+  final Map<String, String> headers;
+  final String fileName;
+  final bool publicStorage;
+  const _Attempt(this.headers, this.fileName, this.publicStorage);
 }
 
 /// What a link really is, for the in-app download scanner.
@@ -124,6 +137,7 @@ class DownloadManager extends ChangeNotifier {
   bool _ready = false;
   bool _available = false;
   Timer? _notifyTimer;
+  String? _lastError;
 
   List<DownloadTask> get tasks => List.unmodifiable(_tasks);
   int get activeCount => _tasks.where((t) => t.active).length;
@@ -137,6 +151,13 @@ class DownloadManager extends ChangeNotifier {
       await fd.FlutterDownloader.initialize(debug: false, ignoreSsl: false)
           .timeout(const Duration(seconds: 8));
       fd.FlutterDownloader.registerCallback(downloadCallback);
+      _available = true;
+    } on TimeoutException {
+      // The native side is often just slow on first start. Try to use it
+      // anyway; enqueue() reports a real error if it truly is not ready.
+      try {
+        fd.FlutterDownloader.registerCallback(downloadCallback);
+      } catch (_) {}
       _available = true;
     } catch (e) {
       debugPrint('FlutterDownloader init failed: $e');
@@ -303,29 +324,48 @@ class DownloadManager extends ChangeNotifier {
     if (probe.error != null) return probe.error;
 
     unawaited(_askNotificationPermission());
+    await _askStoragePermission();
 
     final dir = await _saveDir();
-    final fileName =
-        sanitizeFileName(name ?? probe.fileName ?? fileNameFromUrl(url));
-    final headers = <String, String>{
+    final fileName = _pickName(name, probe, url);
+    final full = <String, String>{
       'User-Agent': AppConfig.userAgent,
       if (referer.isNotEmpty) 'Referer': referer,
-      if (cookie.isNotEmpty) 'Cookie': cookie,
+      if (cookie.isNotEmpty && !cookie.contains('\n')) 'Cookie': cookie,
     };
+    final slim = <String, String>{
+      'User-Agent': AppConfig.userAgent,
+      if (referer.isNotEmpty) 'Referer': referer,
+    };
+    final asciiName = fileName.replaceAll(RegExp(r'[^\x20-\x7E]'), '_');
 
+    // Try the nicest option first (shows in the phone's Downloads folder),
+    // then simpler ones, so one picky Android version does not block everything.
+    final attempts = <_Attempt>[
+      _Attempt(full, fileName, true),
+      _Attempt(full, fileName, false),
+      _Attempt(slim, asciiName, false),
+    ];
     String? id;
-    try {
-      id = await fd.FlutterDownloader.enqueue(
-        url: url,
-        savedDir: dir,
-        fileName: fileName,
-        headers: headers,
-        showNotification: true,
-        openFileFromNotification: true,
-        saveInPublicStorage: true,
-      );
-    } catch (_) {}
-    if (id == null) return 'Couldn\'t start the download.';
+    _lastError = null;
+    for (final a in attempts) {
+      try {
+        id = await fd.FlutterDownloader.enqueue(
+          url: url,
+          savedDir: dir,
+          fileName: a.fileName,
+          headers: a.headers,
+          showNotification: true,
+          openFileFromNotification: true,
+          saveInPublicStorage: a.publicStorage,
+        );
+        if (id != null) break;
+      } catch (e) {
+        _lastError = e.toString();
+        debugPrint('Download enqueue failed: $e');
+      }
+    }
+    if (id == null) return 'Couldn\'t start the download${_shortError()}.';
 
     _tasks.insert(
       0,
@@ -339,6 +379,41 @@ class DownloadManager extends ChangeNotifier {
     );
     _changed();
     return null;
+  }
+
+  String _shortError() {
+    var e = _lastError;
+    if (e == null || e.isEmpty) return '';
+    e = e.replaceFirst('PlatformException(', '').replaceAll('\n', ' ').trim();
+    if (e.length > 90) e = '${e.substring(0, 90)}…';
+    return ' ($e)';
+  }
+
+  /// Real file name: the server's own name wins, then the link's, then the
+  /// label from the page. Always ends with an extension so the file opens.
+  String _pickName(String? given, _Probe probe, String url) {
+    final hasExt = RegExp(r'\.[A-Za-z0-9]{2,5}$');
+    var base = probe.fileName ?? '';
+    if (base.isEmpty) {
+      final fromUrl = fileNameFromUrl(url);
+      if (hasExt.hasMatch(fromUrl)) base = fromUrl;
+    }
+    if (base.isEmpty && given != null && given.trim().isNotEmpty) base = given;
+    if (base.isEmpty) base = fileNameFromUrl(url);
+    base = sanitizeFileName(base);
+    if (!hasExt.hasMatch(base)) {
+      final t = probe.contentType;
+      if (t.contains('matroska')) {
+        base = '$base.mkv';
+      } else if (t.contains('webm')) {
+        base = '$base.webm';
+      } else if (t.contains('mp4') || t.startsWith('video/')) {
+        base = '$base.mp4';
+      } else if (t.contains('zip')) {
+        base = '$base.zip';
+      }
+    }
+    return base;
   }
 
   /// Checks what a link is (file or web page) without downloading it.
@@ -442,6 +517,13 @@ class DownloadManager extends ChangeNotifier {
     return d.path;
   }
 
+  Future<void> _askStoragePermission() async {
+    try {
+      final s = await Permission.storage.status;
+      if (!s.isGranted) await Permission.storage.request();
+    } catch (_) {}
+  }
+
   Future<void> _askNotificationPermission() async {
     try {
       final s = await Permission.notification.status;
@@ -491,7 +573,7 @@ class DownloadManager extends ChangeNotifier {
           res.contentLength! > 0) {
         total = res.contentLength;
       }
-      return _Probe(fileName: disp, total: total);
+      return _Probe(fileName: disp, total: total, contentType: type);
     } on TimeoutException {
       return const _Probe(error: 'The server took too long to respond.');
     } catch (_) {
