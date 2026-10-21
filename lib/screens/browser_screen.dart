@@ -34,6 +34,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
   bool _canBack = false, _canForward = false, _shieldEnabled = true;
   bool _isDownloadOptionsPage = false;
   bool _leaving = false;
+  String? _allowDownloadNavigationOnce;
   int _pageDetectionGeneration = 0;
   Timer? _progressTimeout;
 
@@ -174,7 +175,11 @@ class _BrowserScreenState extends State<BrowserScreen> {
     if (_shieldEnabled && _isAdHost(uri.host)) {
       return NavigationDecision.prevent;
     }
-    if (isDirectMovieDownload(request.url)) {
+    if (_allowDownloadNavigationOnce == request.url) {
+      _allowDownloadNavigationOnce = null;
+      return NavigationDecision.navigate;
+    }
+    if (isDirectMovieDownload(request.url) && request.isMainFrame) {
       unawaited(_startDownload(request.url));
       return NavigationDecision.prevent;
     }
@@ -193,8 +198,18 @@ class _BrowserScreenState extends State<BrowserScreen> {
         (function(){
           if (window.__damiShieldInstalled) return;
           window.__damiShieldInstalled = true;
-          // Keep the current page in the app. Never create ad pop-ups.
-          window.open = function(){ return null; };
+          // Permit user-initiated download server navigation, not automatic popups.
+          window.open = function(url) {
+            if (!navigator.userActivation || !navigator.userActivation.isActive) return null;
+            if (url) {
+              try {
+                var dest = new URL(url, location.href);
+                if (dest.protocol === 'http:' || dest.protocol === 'https:')
+                  location.assign(dest.href);
+              } catch (_) {}
+            }
+            return null;
+          };
           document.addEventListener('click', function(event) {
             var anchor = event.target && event.target.closest
               ? event.target.closest('a[href]') : null;
@@ -261,8 +276,12 @@ class _BrowserScreenState extends State<BrowserScreen> {
         .enqueue(url, referer: _url, cookie: await _cookies());
     if (!mounted) return;
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error), duration: const Duration(seconds: 8)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('$error Opening the link in the browser instead.'),
+        duration: const Duration(seconds: 5),
+      ));
+      _allowDownloadNavigationOnce = url;
+      await _controller.loadRequest(Uri.parse(url));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Download started'.tr),
