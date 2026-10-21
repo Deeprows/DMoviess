@@ -637,7 +637,7 @@ class _TheatreScreenState extends State<TheatreScreen>
           b(Icons.screen_rotation_alt_rounded, 'Rotate',
               () => _handle.toggleLandscape?.call()),
           b(Icons.fullscreen_rounded, 'Fullscreen',
-              () => _handle.fullscreen?.call()),
+              () => _handle.toggleLandscape?.call()),
           b(Icons.cast_rounded, 'Cast', () => _handle.cast?.call()),
         ],
       ),
