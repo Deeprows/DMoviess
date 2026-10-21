@@ -1,0 +1,35 @@
+name: Send push notification
+
+# Actions > "Send push notification" > Run workflow. Sends your own message
+# to everyone subscribed to the chosen topic ("news" = announcements).
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: 'Topic'
+        type: choice
+        options: [news, trending]
+        default: news
+      title:
+        description: 'Title'
+        default: 'DamiMovies'
+      body:
+        description: 'Message'
+        default: 'Push notifications are working.'
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install --no-save firebase-admin@12
+      - name: Send
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TOPIC: ${{ inputs.topic }}
+          TITLE: ${{ inputs.title }}
+          BODY: ${{ inputs.body }}
+        run: node scripts/send_test_push.mjs

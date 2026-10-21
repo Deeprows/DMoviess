@@ -1,0 +1,46 @@
+name: Notify trending movie
+
+# Every 3 hours: if a new movie has reached the top of TMDB trending, send one
+# push to everyone subscribed to the "trending" topic. A movie is announced
+# only once. Run it by hand with Actions > Notify trending movie > Run workflow.
+on:
+  schedule:
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Send the current #1 trending movie even if already announced (test)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # to save state/trending_last.json
+
+concurrency:
+  group: notify-trending
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install --no-save firebase-admin@12
+      - name: Send trending notification
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          FORCE: ${{ inputs.force && '1' || '0' }}
+        run: node scripts/notify_trending.mjs
+      - name: Save announced list
+        run: |
+          if [ -n "$(git status --porcelain state)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add state
+            git commit -m "chore: update announced trending movies [skip ci]"
+            git push
+          fi
