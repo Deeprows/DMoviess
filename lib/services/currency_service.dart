@@ -23,7 +23,14 @@ class CurrencyService extends ChangeNotifier {
   static final CurrencyService instance = CurrencyService._();
 
   static const _kCache = 'damimovies_fx_cache';
-  static const _ratesUrl = 'https://open.er-api.com/v6/latest/USD';
+  // Several independent feeds. Frankfurter only covers ~30 ECB currencies (no
+  // GHS/NGN/KES...), so the others must come first for African currencies.
+  static const _ratesUrls = <String>[
+    'https://open.er-api.com/v6/latest/USD',
+    'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json',
+    'https://latest.currency-api.pages.dev/v1/currencies/usd.json',
+    'https://api.frankfurter.dev/v1/latest?base=USD',
+  ];
 
   Map<String, double> _rates = {};
   bool _loadingRates = false;
@@ -115,6 +122,7 @@ class CurrencyService extends ChangeNotifier {
     } else {
       await prefs.setString(_kCountry, value);
     }
+    if (!_hasRate(code)) unawaited(load());
   }
 
   String get countryLabel => countryNames[country] ?? country;
@@ -138,25 +146,32 @@ class CurrencyService extends ChangeNotifier {
       if (cached != null) {
         try {
           final data = jsonDecode(cached);
-          _rates = _parse(data['rates']);
+          _rates = {..._rates, ..._parse(data['rates'])};
           final t = data['t'] is int ? data['t'] as int : 0;
+          // Only "fresh" if it is recent AND has the rate for the selected
+          // currency (a partial cache used to hide GHS for a whole day).
           fresh = _rates.isNotEmpty &&
+              _hasRate(code) &&
               DateTime.now().millisecondsSinceEpoch - t < 86400000;
           notifyListeners();
         } catch (_) {}
       }
       if (!fresh) {
-        // Use a second independent feed if the primary provider is unreachable.
-        for (final url in [
-          _ratesUrl,
-          'https://api.frankfurter.dev/v1/latest?base=USD',
-        ]) {
+        for (final url in _ratesUrls) {
           try {
-            final response = await http.get(Uri.parse(url))
-                .timeout(const Duration(seconds: 9));
+            final response = await http
+                .get(Uri.parse(url))
+                .timeout(const Duration(seconds: 8));
             if (response.statusCode != 200) continue;
             final body = jsonDecode(utf8.decode(response.bodyBytes));
-            final rates = _parse(body['rates']);
+            var rates = <String, double>{};
+            if (body is Map) {
+              rates = _parse(body['rates']);
+              if (rates.isEmpty && body['usd'] is Map) {
+                rates = _parse((body['usd'] as Map)
+                    .map((k, v) => MapEntry('$k'.toUpperCase(), v)));
+              }
+            }
             if (rates.isEmpty) continue;
             _rates = {..._rates, ...rates, 'USD': 1.0};
             await prefs.setString(_kCache, jsonEncode({
@@ -164,7 +179,7 @@ class CurrencyService extends ChangeNotifier {
               'rates': _rates,
             }));
             notifyListeners();
-            break;
+            if (_hasRate(code)) break; // otherwise try the next feed
           } catch (error) {
             debugPrint('DamiMovies: currency feed unavailable: $error');
           }
@@ -175,6 +190,8 @@ class CurrencyService extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  bool _hasRate(String c) => c == 'USD' || _rates[c] != null;
 
   Map<String, double> _parse(Object? raw) {
     final out = <String, double>{};
