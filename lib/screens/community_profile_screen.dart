@@ -47,9 +47,11 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
   String _avatarPath = '';
   String get _key =>
       widget.email.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
-  bool get _mine =>
-      AuthService.instance.user?.email.toLowerCase() ==
-      widget.email.toLowerCase();
+  bool get _mine {
+    final own = AuthService.instance.user?.email.trim().toLowerCase();
+    final viewed = widget.email.trim().toLowerCase();
+    return own != null && own.isNotEmpty && own == viewed;
+  }
 
   @override
   void initState() {
@@ -127,9 +129,13 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
       final prefs = await SharedPreferences.getInstance();
       final saved = await prefs.setString('movie_nick_$_key', result);
       if (!saved) throw StateError('Could not save nickname');
-      if (mounted) setState(() => _nickname = result);
-    } catch (_) {
-      _editError('Could not save movie nickname. Please try again.');
+      if (mounted) {
+        setState(() => _nickname = result);
+        _editError('Movie nickname saved.');
+      }
+    } catch (error) {
+      debugPrint('Profile nickname error: $error');
+      _editError('Could not save movie nickname: $error');
     }
   }
 
@@ -148,6 +154,9 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
       final destination = File(
         '${dir.path}/avatar_${_key}_${DateTime.now().microsecondsSinceEpoch}.jpg',
       );
+      if (!await File(image.path).exists()) {
+        throw StateError('Selected image is unavailable');
+      }
       await File(image.path).copy(destination.path);
       final prefs = await SharedPreferences.getInstance();
       final previous = _avatarPath;
@@ -155,6 +164,7 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
       if (!saved) throw StateError('Could not save avatar');
       if (!mounted) return;
       setState(() => _avatarPath = destination.path);
+      _editError('Profile photo saved.');
       if (previous.isNotEmpty && previous != destination.path) {
         try {
           final oldFile = File(previous);
@@ -162,7 +172,8 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
         } catch (_) {}
       }
     } catch (error) {
-      _editError('Could not update profile photo. Please try another image.');
+      debugPrint('Profile photo error: $error');
+      _editError('Could not update profile photo: $error');
     }
   }
 
