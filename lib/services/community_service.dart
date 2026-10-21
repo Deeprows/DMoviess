@@ -486,6 +486,7 @@ class CommunityService extends ChangeNotifier {
   Future<Map<String, dynamic>> createWatchRoom({
     required Movie movie,
     required List<String> invitees,
+    bool isPublic = false,
   }) async {
     final d = await _request('/community/watch/rooms', body: {
       'movie': {
@@ -496,6 +497,7 @@ class CommunityService extends ChangeNotifier {
         'type': movie.isSeries ? 'tv' : 'movie',
       },
       'invitees': invitees,
+      'isPublic': isPublic,
     });
     if (d is! Map || d['room'] is! Map) {
       throw const CommunityException('watch_room_failed');
@@ -503,6 +505,17 @@ class CommunityService extends ChangeNotifier {
     return Map<String, dynamic>.from(d['room'] as Map);
   }
 
+  Future<List<Map<String, dynamic>>> publicWatchRooms() async {
+    final d = await _request('/community/watch/public');
+    final raw = d is Map ? d['rooms'] : null;
+    if (raw is! List) return [];
+    return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+  Future<Map<String, dynamic>> joinPublicWatchRoom(String id) async {
+    final d = await _request('/community/watch/join', body: {'roomId': id});
+    if (d is! Map || d['room'] is! Map) throw const CommunityException('watch_room_failed');
+    return Map<String, dynamic>.from(d['room'] as Map);
+  }
   Future<List<Map<String, dynamic>>> watchInvitations() async {
     final d = await _request('/community/watch/invitations');
     final raw = d is Map ? d['invitations'] : null;
