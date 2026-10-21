@@ -26,6 +26,11 @@ class CurrencyService extends ChangeNotifier {
   static const _ratesUrl = 'https://open.er-api.com/v6/latest/USD';
 
   Map<String, double> _rates = {};
+  bool _loadingRates = false;
+  bool get loadingRates => _loadingRates;
+  bool hasPrice(RemovePlan plan, RemoveAdsConfig config) =>
+      code == 'USD' || config.localPrices[code]?['${plan.days}'] != null || _rates[code] != null;
+
   String? _selectedCountry;
   String? get selectedCountry => _selectedCountry;
   static const _kCountry = 'damimovies_pricing_country';
@@ -118,39 +123,56 @@ class CurrencyService extends ChangeNotifier {
   String get code => _countryCurrency[country] ?? 'USD';
 
   Future<void> load() async {
+    if (_loadingRates) return;
+    _loadingRates = true;
+    notifyListeners();
     try {
       final prefs = await SharedPreferences.getInstance();
       final storedCountry = prefs.getString(_kCountry);
-      if (storedCountry != null &&
-          _countryCurrency.containsKey(storedCountry)) {
+      if (storedCountry != null && _countryCurrency.containsKey(storedCountry)) {
         _selectedCountry = storedCountry;
         notifyListeners();
       }
       final cached = prefs.getString(_kCache);
       var fresh = false;
       if (cached != null) {
-        final data = jsonDecode(cached);
-        _rates = _parse(data['rates']);
-        final t = data['t'] is int ? data['t'] as int : 0;
-        fresh = DateTime.now().millisecondsSinceEpoch - t < 86400000;
-        notifyListeners();
+        try {
+          final data = jsonDecode(cached);
+          _rates = _parse(data['rates']);
+          final t = data['t'] is int ? data['t'] as int : 0;
+          fresh = _rates.isNotEmpty &&
+              DateTime.now().millisecondsSinceEpoch - t < 86400000;
+          notifyListeners();
+        } catch (_) {}
       }
-      if (fresh) return;
-      final response = await http
-          .get(Uri.parse(_ratesUrl))
-          .timeout(const Duration(seconds: 6));
-      if (response.statusCode != 200) return;
-      final body = jsonDecode(utf8.decode(response.bodyBytes));
-      final rates = _parse(body['rates']);
-      if (rates.isEmpty) return;
-      _rates = rates;
-      await prefs.setString(
-          _kCache,
-          jsonEncode(
-              {'t': DateTime.now().millisecondsSinceEpoch, 'rates': rates}));
+      if (!fresh) {
+        // Use a second independent feed if the primary provider is unreachable.
+        for (final url in [
+          _ratesUrl,
+          'https://api.frankfurter.dev/v1/latest?base=USD',
+        ]) {
+          try {
+            final response = await http.get(Uri.parse(url))
+                .timeout(const Duration(seconds: 9));
+            if (response.statusCode != 200) continue;
+            final body = jsonDecode(utf8.decode(response.bodyBytes));
+            final rates = _parse(body['rates']);
+            if (rates.isEmpty) continue;
+            _rates = {..._rates, ...rates, 'USD': 1.0};
+            await prefs.setString(_kCache, jsonEncode({
+              't': DateTime.now().millisecondsSinceEpoch,
+              'rates': _rates,
+            }));
+            notifyListeners();
+            break;
+          } catch (error) {
+            debugPrint('DamiMovies: currency feed unavailable: $error');
+          }
+        }
+      }
+    } finally {
+      _loadingRates = false;
       notifyListeners();
-    } catch (error) {
-      debugPrint('DamiMovies: exchange rates unavailable: $error');
     }
   }
 
@@ -173,7 +195,7 @@ class CurrencyService extends ChangeNotifier {
           currency == 'USD' ? null : usdText, true);
     if (currency == 'USD') return PriceInfo(usdText, null, false);
     final rate = _rates[currency];
-    if (rate == null) return PriceInfo(usdText, null, false);
+    if (rate == null) return PriceInfo(_loadingRates ? 'Loading…' : 'Rate unavailable', null, false);
     return PriceInfo(_format(currency, _nice(plan.usd * rate)), usdText, false);
   }
 
