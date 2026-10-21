@@ -115,6 +115,56 @@ class RemoveAdsConfig {
   }
 }
 
+/// "notice" block of app_config.json: a message shown once to every user.
+/// Change "id" to send a new one; set "enabled" to false to stop showing it.
+class NoticeConfig {
+  final bool enabled;
+  final String id;
+  final String title;
+  final String message;
+  final String buttonText;
+  final String buttonUrl;
+  final bool dismissible;
+  final DateTime? expires;
+
+  const NoticeConfig({
+    this.enabled = false,
+    this.id = '',
+    this.title = '',
+    this.message = '',
+    this.buttonText = '',
+    this.buttonUrl = '',
+    this.dismissible = true,
+    this.expires,
+  });
+
+  bool get hasButton =>
+      buttonText.isNotEmpty &&
+      (buttonUrl.startsWith('http://') || buttonUrl.startsWith('https://'));
+
+  /// True when this notice should be shown to users right now.
+  bool get active =>
+      enabled &&
+      id.isNotEmpty &&
+      message.isNotEmpty &&
+      (expires == null || DateTime.now().isBefore(expires!));
+
+  factory NoticeConfig.fromJson(Object? raw) {
+    if (raw is! Map) return const NoticeConfig();
+    String text(Object? v) => '${v ?? ''}'.trim();
+    return NoticeConfig(
+      enabled: raw['enabled'] is bool ? raw['enabled'] as bool : false,
+      id: text(raw['id']),
+      title: text(raw['title']),
+      message: text(raw['message'] ?? raw['body'] ?? raw['text']),
+      buttonText: text(raw['buttonText']),
+      buttonUrl: text(raw['buttonUrl']),
+      dismissible: raw['dismissible'] is bool ? raw['dismissible'] as bool : true,
+      expires: DateTime.tryParse(text(raw['expires'])),
+    );
+  }
+}
+
 class RemoteConfig extends ChangeNotifier {
   RemoteConfig._();
   static final RemoteConfig instance = RemoteConfig._();
@@ -125,12 +175,15 @@ class RemoteConfig extends ChangeNotifier {
   AdsConfig get ads => _ads;
   RemoveAdsConfig _removeAds = const RemoveAdsConfig();
   RemoveAdsConfig get removeAds => _removeAds;
+  NoticeConfig _notice = const NoticeConfig();
+  NoticeConfig get notice => _notice;
 
   void _apply(String text) {
     final data = jsonDecode(text);
     if (data is Map) {
       _ads = AdsConfig.fromJson(data['ads']);
       _removeAds = RemoveAdsConfig.fromJson(data['removeAds']);
+      _notice = NoticeConfig.fromJson(data['notice']);
       notifyListeners();
     }
   }
