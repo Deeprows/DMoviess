@@ -25,7 +25,8 @@ class WatchTogetherScreen extends StatefulWidget {
 
   /// Pre-selects this title (used by the "Watch Together" button on a movie page).
   final Movie? movie;
-  const WatchTogetherScreen({super.key, this.inviteEmail, this.movie});
+  final bool publicMode;
+  const WatchTogetherScreen({super.key, this.inviteEmail, this.movie, this.publicMode = false});
 
   @override
   State<WatchTogetherScreen> createState() => _WatchTogetherScreenState();
@@ -178,7 +179,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
 
   Future<void> _createRoom() async {
     final movie = _selectedMovie;
-    if (movie == null || _selectedPeople.isEmpty) {
+    if (movie == null || (!widget.publicMode && _selectedPeople.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Pick a movie and at least one person.'.tr)));
       return;
@@ -186,7 +187,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
     setState(() => _busy = true);
     try {
       final room = await _community.createWatchRoom(
-          movie: movie, invitees: _selectedPeople.toList());
+          movie: movie, invitees: widget.publicMode ? [] : _selectedPeople.toList(), isPublic: widget.publicMode);
       if (!mounted) return;
       setState(() => _busy = false);
       await _openRoom(room);
@@ -293,20 +294,20 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
                         itemBuilder: (_, i) => _poster(movies[i]),
                       ),
                     ),
-                  _heading('2  Who is coming?', Icons.people_alt_rounded),
-                  _search(
+                  if (!widget.publicMode) _heading('2  Who is coming?', Icons.people_alt_rounded),
+                  if (!widget.publicMode) _search(
                       'Search people', (v) => setState(() => _personQuery = v)),
                   SizedBox(height: 12),
-                  if (_people.isEmpty)
+                  if (!widget.publicMode && _people.isEmpty)
                     _note('No other community members yet.')
-                  else
+                  else if (!widget.publicMode)
                     Wrap(
                       spacing: 12,
                       runSpacing: 14,
                       children: [for (final p in people) _person(p)],
                     ),
                   SizedBox(height: 22),
-                  _summary(),
+                  if (!widget.publicMode) _summary(),
                   SizedBox(height: 10),
                   FilledButton.icon(
                     onPressed: _busy ? null : _createRoom,
@@ -316,7 +317,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2))
                         : Icon(Icons.theaters_rounded),
-                    label: Text(_busy ? 'Opening…' : 'Open the theatre'),
+                    label: Text(_busy ? 'Opening…' : widget.publicMode ? 'Start Watching Now' : 'Open the theatre'),
                     style: FilledButton.styleFrom(
                       backgroundColor: _gold,
                       foregroundColor: Colors.black,
