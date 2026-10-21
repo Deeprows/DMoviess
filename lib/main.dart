@@ -7,6 +7,7 @@ import 'services/ad_service.dart';
 import 'services/app_preferences.dart';
 import 'utils/l10n.dart';
 import 'services/download_manager.dart';
+import 'services/push_service.dart';
 
 Color get appBg => AppPreferences.instance.palette.background;
 Color get appSurface => AppPreferences.instance.palette.surface;
@@ -38,6 +39,12 @@ Future<void> _initializeServices() async {
   } catch (error) {
     debugPrint(
         'DamiMovies: preferences could not be loaded at startup: $error');
+  }
+
+  try {
+    unawaited(PushService.instance.init());
+  } catch (error) {
+    debugPrint('DamiMovies: push unavailable at startup: $error');
   }
 
   try {
@@ -113,6 +120,7 @@ class DamiMoviesApp extends StatelessWidget {
               useMaterial3: true,
             ),
             navigatorKey: AdService.instance.navigatorKey,
+            scaffoldMessengerKey: PushService.messengerKey,
             home: const _DamiSplash(),
           );
         },
