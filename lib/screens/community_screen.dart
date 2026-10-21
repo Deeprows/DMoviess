@@ -7,6 +7,9 @@ import '../utils/l10n.dart';
 import '../widgets/community_widgets.dart';
 import 'community_composer.dart';
 import 'community_profile_screen.dart';
+import 'watch_together_screen.dart';
+import 'theatre_screen.dart';
+import 'dart:async';
 
 /// Movie Community: a feed of movie tweets and recommendations. Tap a name to
 /// open that person's profile, tap a post to like and comment.
@@ -26,6 +29,42 @@ class CommunityScreen extends StatefulWidget {
 class _CommunityScreenState extends State<CommunityScreen> {
   final _svc = CommunityService.instance;
   bool _started = false;
+  bool _showLive = false;
+  List<Map<String, dynamic>> _liveRooms = [];
+  Timer? _liveTimer;
+  bool _liveBusy = false;
+  String? _liveError;
+
+  Future<void> _loadLive() async {
+    if (_liveBusy) return;
+    _liveBusy = true;
+    try {
+      final rooms = await _svc.publicWatchRooms();
+      if (mounted) setState(() { _liveRooms = rooms; _liveError = null; });
+    } catch (e) {
+      if (mounted) setState(() => _liveError = 'Could not load live rooms. Update the Community Worker.');
+    } finally { _liveBusy = false; }
+  }
+
+  Future<void> _joinLive(Map<String, dynamic> room) async {
+    try {
+      final joined = await _svc.joinPublicWatchRoom('${room['id']}');
+      if (!mounted) return;
+      await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TheatreScreen(room: joined)));
+      _loadLive();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Unable to join room: $e')));
+    }
+  }
+
+  Future<void> _createLive() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const WatchTogetherScreen(publicMode: true)));
+    if (mounted) { setState(() => _showLive = true); _loadLive(); }
+  }
+
+  @override
+  void dispose() { _liveTimer?.cancel(); super.dispose(); }
+
 
   @override
   void initState() {
@@ -42,10 +81,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
   void _start() {
     _started = true;
     _svc.load();
+    _loadLive();
+    _liveTimer ??= Timer.periodic(const Duration(seconds: 12), (_) => _loadLive());
   }
 
   static const _filters = <(String, String)>[
     ('', 'All'),
+    ('live', 'Watching Now'),
     ('tweet', 'Tweets'),
     ('recommendation', 'Recommended'),
   ];
@@ -105,7 +147,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
                   SliverToBoxAdapter(child: _header(context)),
                   SliverToBoxAdapter(child: _composerTeaser(context)),
                   SliverToBoxAdapter(child: _chips()),
-                  ..._body(context, posts),
+                  if (_showLive) SliverToBoxAdapter(child: _liveSection()) else ...[
+                    SliverToBoxAdapter(child: _livePreview()),
+                    ..._body(context, posts),
+                  ],
                   const SliverToBoxAdapter(child: SizedBox(height: 96)),
                 ],
               ),
@@ -113,6 +158,42 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _livePreview() => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      OutlinedButton.icon(onPressed: _createLive, icon: const Icon(Icons.live_tv_rounded), label: const Text('Start Watching Now')),
+      for (final room in _liveRooms.take(3)) ListTile(
+        leading: const Icon(Icons.circle, color: Colors.green, size: 13),
+        title: Text('LIVE · ${roomTitle(room)}'),
+        subtitle: Text('${(room['people'] as List?)?.where((p) => p is Map && (p['state'] == 'host' || p['state'] == 'accepted')).length ?? 1} watching'),
+        trailing: const Icon(Icons.play_arrow),
+        onTap: () => _joinLive(room),
+      ),
+    ]),
+  );
+
+  Widget _liveSection() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        FilledButton.icon(onPressed: _createLive, icon: const Icon(Icons.live_tv_rounded), label: const Text('Start Watching Now')),
+        const SizedBox(height: 14),
+        if (_liveError != null) Text(_liveError!, style: const TextStyle(color: Colors.orangeAccent)),
+        if (_liveRooms.isEmpty) const Padding(padding: EdgeInsets.all(32), child: Center(child: Text('No public rooms yet. Start one!'))),
+        for (final room in _liveRooms) Card(
+          child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [const Icon(Icons.circle, color: Colors.green, size: 12), const SizedBox(width: 8), const Text('WATCHING NOW', style: TextStyle(fontWeight: FontWeight.bold)), const Spacer(), Text('${(room['people'] as List?)?.where((p) => p is Map && (p['state'] == 'host' || p['state'] == 'accepted')).length ?? 1} watching')]),
+            const SizedBox(height: 12),
+            Text(roomTitle(room), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('Hosted by ${room['hostName'] ?? 'Movie fan'}'),
+            const SizedBox(height: 10),
+            SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: () => _joinLive(room), icon: const Icon(Icons.play_arrow), label: const Text('Join Watch'))),
+          ])),
+        ),
+      ]),
     );
   }
 
@@ -201,16 +282,16 @@ class _CommunityScreenState extends State<CommunityScreen> {
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
                 label: Text(label.tr),
-                selected: _svc.kind == kind,
+                selected: kind == 'live' ? _showLive : (!_showLive && _svc.kind == kind),
                 showCheckmark: false,
                 selectedColor: Ui.red,
                 backgroundColor: Colors.white.withValues(alpha: .06),
                 side: BorderSide(color: Ui.glassLine),
                 labelStyle: TextStyle(
                   fontWeight: FontWeight.w800,
-                  color: _svc.kind == kind ? Ui.palette.onAccent : Ui.muted,
+                  color: (kind == 'live' ? _showLive : (!_showLive && _svc.kind == kind)) ? Ui.palette.onAccent : Ui.muted,
                 ),
-                onSelected: (_) => _svc.load(kind: kind),
+                onSelected: (_) { setState(() => _showLive = kind == 'live'); if (kind == 'live') { _loadLive(); } else { _svc.load(kind: kind); } },
               ),
             ),
         ],
