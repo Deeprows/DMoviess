@@ -26,6 +26,8 @@ dependencies:
   open_filex: ^4.7.0
   google_sign_in: ^6.2.2
   cryptography: ^2.7.0
+  firebase_core: ^4.0.0
+  firebase_messaging: ^16.0.0
 
 # shared_preferences_android 2.5.0 crashes release builds (NoSuchMethodError,
 # flutter/flutter#194649). Stay on 2.4.28 until that is fixed upstream.
