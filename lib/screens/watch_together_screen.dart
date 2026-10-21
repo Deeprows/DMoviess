@@ -252,13 +252,16 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
           IconButton(onPressed: _load, icon: Icon(Icons.refresh_rounded)),
         ],
       ),
-      body: _loading
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: _loading
           ? Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               color: _gold,
               onRefresh: _load,
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 48),
                 children: [
                   _hero(),
                   if (_error != null) _note(_error!),
@@ -327,6 +330,7 @@ class _WatchTogetherScreenState extends State<WatchTogetherScreen> {
                 ],
               ),
             ),
+      ),
     );
   }
 
