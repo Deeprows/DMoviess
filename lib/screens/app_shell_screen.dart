@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
+import '../services/app_remote_config.dart';
 import 'community_screen.dart';
 import 'movie_home_screen.dart';
 import 'library_screen.dart';
@@ -13,6 +18,68 @@ class AppShellScreen extends StatefulWidget {
 
 class _AppShellScreenState extends State<AppShellScreen> {
   int _index = 0;
+  static const _kSeenNotice = 'damimovies_seen_notice';
+  bool _noticeOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    RemoteConfig.instance.addListener(_checkNotice);
+    // The bundled/cached config is already applied; the online copy arrives
+    // a moment later and triggers _checkNotice again.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkNotice());
+  }
+
+  @override
+  void dispose() {
+    RemoteConfig.instance.removeListener(_checkNotice);
+    super.dispose();
+  }
+
+  /// Shows the "notice" from app_config.json once per notice id.
+  Future<void> _checkNotice() async {
+    if (_noticeOpen || !mounted) return;
+    final notice = RemoteConfig.instance.notice;
+    if (!notice.active) return;
+    _noticeOpen = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getString(_kSeenNotice) == notice.id) return;
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: notice.dismissible,
+        builder: (dialogContext) => PopScope(
+          canPop: notice.dismissible,
+          child: AlertDialog(
+            backgroundColor: appSurface,
+            title: Text(notice.title.isEmpty ? 'DamiMovies' : notice.title),
+            content: SingleChildScrollView(
+                child: Text(notice.message, style: const TextStyle(height: 1.5))),
+            actions: [
+              if (notice.dismissible || !notice.hasButton)
+                TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: Text('Close'.tr)),
+              if (notice.hasButton)
+                FilledButton(
+                  onPressed: () {
+                    unawaited(launchUrl(Uri.parse(notice.buttonUrl),
+                        mode: LaunchMode.externalApplication));
+                    if (notice.dismissible) Navigator.pop(dialogContext);
+                  },
+                  child: Text(notice.buttonText),
+                ),
+            ],
+          ),
+        ),
+      );
+      await prefs.setString(_kSeenNotice, notice.id);
+    } catch (_) {
+    } finally {
+      _noticeOpen = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
