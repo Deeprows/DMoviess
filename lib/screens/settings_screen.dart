@@ -8,6 +8,7 @@ import '../config.dart';
 import '../main.dart';
 import '../services/app_preferences.dart';
 import '../services/app_remote_config.dart';
+import '../widgets/push_switches.dart';
 import '../utils/external_link.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -316,6 +317,9 @@ class SettingsScreen extends StatelessWidget {
                   'Shows Android media controls while the player is open.'.tr),
               secondary: Icon(Icons.headphones_rounded),
             ),
+            SizedBox(height: 20),
+            _heading('Notifications'),
+            const PushSwitches(),
             SizedBox(height: 20),
             _heading('App'),
             _actionTile(Icons.campaign_outlined, 'Notice',
