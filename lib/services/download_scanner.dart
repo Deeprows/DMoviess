@@ -8,6 +8,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import '../config.dart';
+import 'ad_shield.dart';
 import 'download_manager.dart';
 
 /// A direct file found on a third-party download page.
@@ -78,13 +79,13 @@ class DownloadScanner extends ChangeNotifier {
   static const _entryTimeout = Duration(seconds: 40);
   static const _overallTimeout = Duration(minutes: 8);
 
-  final List<FoundFile> files = const [];
+  final List<FoundFile> files = [];
   bool scanning = false;
   String status = 'Looking for download links…';
   String cookie = '';
 
   late final WebViewController controller;
-  final Set<String> _probed = const {};
+  final Set<String> _probed = {};
   String _current = '';
   String _entryLabel = '';
   int _gen = 0; // changes with every page load
@@ -144,7 +145,9 @@ class DownloadScanner extends ChangeNotifier {
     }
     if (scheme != 'http' && scheme != 'https')
       return NavigationDecision.prevent;
-    if (_adHost.hasMatch(uri.host)) return NavigationDecision.prevent;
+    if (_adHost.hasMatch(uri.host) || AdShield.isAdUrl(r.url)) {
+      return NavigationDecision.prevent;
+    }
     if (_fileExt.hasMatch(uri.path) ||
         uri.queryParameters.values.any(_fileExt.hasMatch)) {
       _addFile(r.url, _entryLabel, _current); // a file: list it, don't open it
@@ -217,6 +220,42 @@ class DownloadScanner extends ChangeNotifier {
     _probed.clear();
     _entryLabel = '';
     await start(pageUrl);
+  }
+
+  /// Follows ONE Download button the person tapped in the browser (so the
+  /// page's own click handler, and its ad redirects, never run in front of them).
+  Future<void> startSingle(String listUrl,
+      {String? url, String label = ''}) async {
+    final run = ++_run;
+    files.clear();
+    _probed.clear();
+    _entryLabel = label;
+    scanning = true;
+    status = 'Preparing your download…';
+    _overall?.cancel();
+    _overall = Timer(_overallTimeout, () {
+      if (run == _run) _finish();
+    });
+    _notify();
+    try {
+      await _resolveEntry(
+          _Entry(url != null && url.isNotEmpty ? url : null, label),
+          listUrl,
+          run);
+    } catch (_) {}
+    if (run == _run) _finish();
+  }
+
+  static String _norm(String v) =>
+      v.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+  static bool _sameLabel(String a, String b) {
+    final x = _norm(a), y = _norm(b);
+    if (x.isEmpty || y.isEmpty) return false;
+    if (x == y || x.contains(y) || y.contains(x)) return true;
+    final n = x.length < y.length ? x.length : y.length;
+    final k = n < 40 ? n : 40;
+    return x.substring(0, k) == y.substring(0, k);
   }
 
   void _finish() {
@@ -307,7 +346,8 @@ class DownloadScanner extends ChangeNotifier {
       await _js(_expandJs);
       await _wait(600);
       final now = await _collectEntries();
-      final idx = now.indexWhere((n) => n.label == e.label);
+      var idx = now.indexWhere((n) => n.label == e.label);
+      if (idx < 0) idx = now.indexWhere((n) => _sameLabel(n.label, e.label));
       if (idx < 0) return;
       final gen = _gen;
       await _js(
@@ -385,7 +425,7 @@ class DownloadScanner extends ChangeNotifier {
   /// Opens collapsed server sections. Returns how many it opened.
   static const _expandJs = r'''
 (function(){
-  var n=0, done=window.__damiExp||(window.__damiExp= const []);
+  var n=0, done=window.__damiExp||(window.__damiExp= []);
   function dl(el){
     var a=el.querySelectorAll('a,button,[role=button]');
     for(var i=0;i<a.length;i++){ if(/^\s*download/i.test(a[i].innerText||'')) return true; }
@@ -426,7 +466,7 @@ class DownloadScanner extends ChangeNotifier {
   static const _entriesJs = r'''
 (function(){
   var DL=/download|get\s+link|direct\s+download/i;
-  var all= const [].slice.call(document.querySelectorAll('a,button,[role=button],input[type=button],input[type=submit]'));
+  var all= [].slice.call(document.querySelectorAll('a,button,[role=button],input[type=button],input[type=submit]'));
   function text(el){return (el.innerText||el.textContent||el.value||el.getAttribute('aria-label')||'').replace(/\s+/g,' ').trim();}
   function isDl(el){var t=text(el);return t.length>0&&t.length<=55&&DL.test(t);}
   function visible(el){var r=el.getBoundingClientRect(),s=getComputedStyle(el);return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden';}
@@ -442,7 +482,7 @@ class DownloadScanner extends ChangeNotifier {
     }
     return best;
   }
-  var out= const [], seen= const {};
+  var out= [], seen= {};
   all.forEach(function(el){
     if(!isDl(el)||!visible(el))return;
     var url=null;
@@ -469,7 +509,7 @@ class DownloadScanner extends ChangeNotifier {
   var EXT=/\.(mp4|mkv|avi|mov|m4v|webm|zip|rar|7z|apk)(?:$|[?#&])/i;
   var PG=/download|server|mirror|direct|instant|fsl|pixel|gbps|cdn|\bhd\b|\b(2160|1080|720|480|360)p?\b|4k/i;
   var BAD=/telegram|whatsapp|join|login|register|trailer|torrent|magnet|facebook|twitter|instagram|youtube/i;
-  var out={files:[],pages:[]}, seen= const {};
+  var out={files:[],pages:[]}, seen= {};
   function abs(u){ try{ return new URL(u, location.href).href; }catch(e){ return null; } }
   function txt(el){
     var t=(el.innerText||el.textContent||el.getAttribute('title')||el.getAttribute('aria-label')||'').replace(/\s+/g,' ').trim();
@@ -510,8 +550,8 @@ class DownloadScanner extends ChangeNotifier {
     /^(continue|proceed|verify|go\s+to\s+(link|download)|get\s+started|next)\b/i,
     /download/i
   ];
-  var done=window.__damiDone||(window.__damiDone= const []);
-  var els= const [].slice.call(document.querySelectorAll('a,button,[role=button],input[type=button],input[type=submit]'));
+  var done=window.__damiDone||(window.__damiDone= []);
+  var els= [].slice.call(document.querySelectorAll('a,button,[role=button],input[type=button],input[type=submit]'));
   var best=null, bs=99, bt='';
   els.forEach(function(el){
     if(done.indexOf(el)>=0) return;
