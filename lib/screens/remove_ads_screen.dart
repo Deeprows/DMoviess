@@ -69,6 +69,7 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
 
   Future<void> _request(RemoveAdsConfig config, RemovePlan plan) async {
     if (_requesting) return;
+    if (!CurrencyService.instance.hasPrice(plan, config)) return;
     setState(() {
       _requesting = true;
       _requestMsg = null;
@@ -88,6 +89,7 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
   }
 
   Future<void> _buyOnWhatsApp(RemoveAdsConfig config, RemovePlan plan) async {
+    if (!CurrencyService.instance.hasPrice(plan, config)) return;
     final price = CurrencyService.instance.priceFor(plan, config);
     final text = 'Hi, I want to remove ads on DamiMovies.\n'
         'Plan: ${plan.days} days (${price.text})\n'
@@ -153,6 +155,22 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
                   onChanged: (value) => CurrencyService.instance
                       .setCountry(value == 'AUTO' ? null : value),
                 ),
+                if (!CurrencyService.instance.hasPrice(plans[_plan], config)) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    CurrencyService.instance.loadingRates
+                        ? 'Fetching exchange rates…'
+                        : 'Exchange rate unavailable. Check your connection and retry.',
+                    style: const TextStyle(color: Colors.orangeAccent),
+                  ),
+                  TextButton.icon(
+                    onPressed: CurrencyService.instance.loadingRates
+                        ? null
+                        : () => CurrencyService.instance.load(),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry currency conversion'),
+                  ),
+                ],
                 SizedBox(height: 14),
                 Text('Choose a plan'.tr,
                     style:
@@ -232,7 +250,8 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
               backgroundColor: const Color(0xFF1FAF5A),
               minimumSize: const Size.fromHeight(52),
             ),
-            onPressed: () => _buyOnWhatsApp(config, plan),
+            onPressed: CurrencyService.instance.hasPrice(plan, config)
+                ? () => _buyOnWhatsApp(config, plan) : null,
             icon: Icon(Icons.chat_rounded),
             label: Text('Buy token on WhatsApp'.tr,
                 style: TextStyle(fontWeight: FontWeight.w800)),
@@ -274,7 +293,8 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
         FilledButton(
           style: FilledButton.styleFrom(
               backgroundColor: okColor, minimumSize: const Size.fromHeight(52)),
-          onPressed: _requesting ? null : () => _request(config, plan),
+          onPressed: _requesting || !CurrencyService.instance.hasPrice(plan, config)
+                  ? null : () => _request(config, plan),
           child: _requesting
               ? SizedBox(
                   width: 22,
@@ -304,7 +324,8 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton(
-              onPressed: () => _buyOnWhatsApp(config, plan),
+              onPressed: CurrencyService.instance.hasPrice(plan, config)
+                ? () => _buyOnWhatsApp(config, plan) : null,
               child: Text('Or message us on WhatsApp'.tr),
             ),
           ),
