@@ -37,6 +37,7 @@ jobs:
           python3 tool/patch_background_playback.py
           python3 tool/patch_android_manifest.py
           python3 tool/patch_release_signing.py
+          python3 tool/patch_android_push.py
 
       - name: Get dependencies
         run: flutter pub get
@@ -116,7 +117,10 @@ jobs:
           GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
           COMMUNITY_API_URL: ${{ secrets.COMMUNITY_API_URL }}
           CONFIG_URL: ${{ secrets.CONFIG_URL }}
+          FIREBASE_ANDROID_APP_ID: ${{ vars.FIREBASE_ANDROID_APP_ID }}
+          FIREBASE_ANDROID_API_KEY: ${{ vars.FIREBASE_ANDROID_API_KEY }}
         run: |
+          test -n "$FIREBASE_ANDROID_APP_ID" || echo "::warning::FIREBASE_ANDROID_APP_ID is not set, so push notifications will be off in this build."
           flutter build apk \
             --release \
             --no-shrink \
@@ -125,7 +129,9 @@ jobs:
             --dart-define=AUTH_API_URL="$AUTH_API_URL" \
             --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
             --dart-define=COMMUNITY_API_URL="$COMMUNITY_API_URL" \
-            --dart-define=CONFIG_URL="$CONFIG_URL"
+            --dart-define=CONFIG_URL="$CONFIG_URL" \
+            --dart-define=FIREBASE_ANDROID_APP_ID="$FIREBASE_ANDROID_APP_ID" \
+            --dart-define=FIREBASE_ANDROID_API_KEY="$FIREBASE_ANDROID_API_KEY"
 
       - name: Upload DamiMovies APK
         uses: actions/upload-artifact@v4
