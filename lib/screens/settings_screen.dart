@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config.dart';
 import '../main.dart';
 import '../services/app_preferences.dart';
+import '../services/app_remote_config.dart';
 import '../utils/external_link.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -15,7 +16,12 @@ class SettingsScreen extends StatelessWidget {
   Future<void> _notice(BuildContext context) async {
     var title = 'DamiMovies Notice';
     var body = 'No update for now. Check back later';
-    if (AppConfig.noticeUrl.trim().isNotEmpty) {
+    final remote = RemoteConfig.instance.notice;
+    if (remote.active) {
+      title = remote.title.isEmpty ? title : remote.title;
+      body = remote.message;
+    }
+    if (!remote.active && AppConfig.noticeUrl.trim().isNotEmpty) {
       try {
         final response = await http
             .get(Uri.parse(AppConfig.noticeUrl))
