@@ -12,6 +12,7 @@ import 'external_download_screen.dart';
 import '../services/profile_data.dart';
 import 'community_composer.dart';
 import 'profile_collections_screen.dart';
+import 'actor_profile_screen.dart';
 import 'movie_player_screen.dart';
 import 'watch_together_screen.dart';
 import 'trailer_player_screen.dart';
@@ -367,7 +368,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
                             ? _movie.overview
                             : (_loadingDetails
                                 ? 'Loading story and movie information…'
-                                : 'No synopsis is available from TMDB for this title.'),
+                                : 'No synopsis is available for this title.'),
                         style: const TextStyle(
                             color: Colors.white70, height: 1.55, fontSize: 14)),
                     if (_loadingDetails)
@@ -411,6 +412,12 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
         ]),
       ),
     );
+  }
+
+  void _openActor(MovieCastMember person) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => ActorProfileScreen(person: person),
+    ));
   }
 
   Future<void> _toggleFavoritePerson(MovieCastMember person) async {
@@ -629,7 +636,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
       ('Title', _movie.title),
       ('Type', _movie.isSeries ? 'TV Series' : 'Movie'),
       if (date.isNotEmpty) ('Release date', date),
-      if (_movie.rating.isNotEmpty) ('TMDB rating', '${_movie.rating}/10'),
+      if (_movie.rating.isNotEmpty) ('Rating', '${_movie.rating}/10'),
       if (_movie.runtimeText.isNotEmpty) ('Runtime', _movie.runtimeText),
       if (_movie.isSeries && _movie.seasons != null)
         ('Seasons', '${_movie.seasons}'),
@@ -667,6 +674,9 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
                 fontWeight: FontWeight.w900,
                 letterSpacing: 1.2,
                 fontSize: 11)),
+        SizedBox(height: 6),
+        Text('Tap an actor to view their profile · Hold to add to favorites',
+            style: const TextStyle(color: Colors.white54, fontSize: 10)),
         SizedBox(height: 12),
         SizedBox(
             height: 124,
@@ -677,7 +687,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
                 itemBuilder: (_, i) {
                   final person = _movie.cast[i];
                   return GestureDetector(
-                      onTap: () => _toggleFavoritePerson(person),
+                      onTap: () => _openActor(person),
+                      onLongPress: () => _toggleFavoritePerson(person),
                       child: SizedBox(
                           width: 78,
                           child: Column(children: [
