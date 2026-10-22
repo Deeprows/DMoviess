@@ -1,0 +1,28 @@
+{
+  "title": "Support DamiMovies",
+  "headline": "Help keep the movie magic alive",
+  "message": "DamiMovies is built for movie lovers. Your voluntary contribution helps us improve the app, maintain our services, and bring more features to the community.",
+  "currency": "NGN",
+  "currencySymbol": "₦",
+  "amounts": [500, 1000, 2000, 5000, 10000],
+  "allowCustomAmount": true,
+  "wallets": [
+    {
+      "label": "Bank transfer",
+      "provider": "YOUR BANK NAME",
+      "accountName": "YOUR ACCOUNT NAME",
+      "accountNumber": "YOUR ACCOUNT NUMBER",
+      "instructions": "Transfer your chosen amount to this account."
+    },
+    {
+      "label": "Crypto wallet (optional)",
+      "provider": "USDT",
+      "network": "TRC20",
+      "accountName": "",
+      "accountNumber": "YOUR WALLET ADDRESS",
+      "instructions": "Only send funds on the listed network."
+    }
+  ],
+  "thankYou": "Thank you for supporting DamiMovies! Every contribution is appreciated.",
+  "disclaimer": "Support is optional. Payments are made outside the app. DamiMovies does not automatically confirm transfers or issue refunds. Verify the recipient before sending funds."
+}
