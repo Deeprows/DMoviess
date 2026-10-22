@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -45,6 +46,7 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
   String? _error;
   String _nickname = '';
   String _avatarPath = '';
+  Map<String, dynamic>? _publicData;
   String get _key =>
       widget.email.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
   bool get _mine {
@@ -58,6 +60,7 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
     super.initState();
     _load();
     _loadEdits();
+    _loadPublicData();
   }
 
   @override
@@ -66,12 +69,44 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
     if (widget.asTab && widget.active && !old.active) {
       _load();
       _loadEdits();
+      _loadPublicData();
+      _loadPublicData();
     }
     if (widget.email != old.email) {
       _nickname = '';
       _avatarPath = '';
       _load();
       _loadEdits();
+      _loadPublicData();
+      _loadPublicData();
+    }
+  }
+
+  Future<void> _loadPublicData() async {
+    try {
+      final data = await CommunityService.instance.profileData(widget.email);
+      if (mounted) setState(() => _publicData = data);
+    } catch (e) {
+      debugPrint('Public profile load: $e');
+    }
+  }
+
+  Future<void> _publishMyProfile() async {
+    if (!_mine) return;
+    try {
+      await Future.wait([ProfileData.instance.load(), MovieLibrary.instance.load()]);
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('damimovies_profile_v1');
+      final details = raw == null ? <String, dynamic>{} :
+          Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      final library = MovieLibrary.instance;
+      details['watchlist'] = library.saved.map((m) => m.toJson()).toList();
+      details['history'] = library.history.map((m) => m.toJson()).toList();
+      details['badges'] = ProfileData.instance.badgesEarned;
+      await CommunityService.instance.pushProfileData(details);
+      if (mounted) setState(() => _publicData = details);
+    } catch (e) {
+      debugPrint('Public profile publish: $e');
     }
   }
 
@@ -198,6 +233,7 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
   Future<void> _load() async {
     try {
       final p = await CommunityService.instance.profile(widget.email);
+      if (p.mine) await _publishMyProfile();
       if (mounted) {
         setState(() {
           _profile = p;
@@ -443,6 +479,77 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
     );
   }
 
+  Widget _publicStatGrid() {
+    final d = _publicData;
+    final sections = <(IconData, String, String)>[
+      (Icons.star_rounded, 'Ratings', 'ratings'),
+      (Icons.history_rounded, 'Watch history', 'history'),
+      (Icons.category_rounded, 'Interests', 'interests'),
+      (Icons.bookmark_rounded, 'Watchlist', 'watchlist'),
+      (Icons.rate_review_rounded, 'Reviews', 'reviews'),
+      (Icons.workspace_premium_rounded, 'Badges', 'badges'),
+      (Icons.format_list_bulleted_rounded, 'Lists', 'lists'),
+      (Icons.check_circle_outline_rounded, 'Check-ins', 'checkIns'),
+      (Icons.people_alt_rounded, 'Favorite people', 'people'),
+    ];
+    int count(String key) {
+      final value = d?[key];
+      return value is List ? value.length : value is num ? value.toInt() : 0;
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: GridView.count(
+        crossAxisCount: 3,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: .98,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          for (final item in sections)
+            _tile(item.$1, item.$2, count(item.$3), () {
+              final value = d?[item.$3];
+              _openPublicDetails(item.$2, value);
+            }),
+        ],
+      ),
+    );
+  }
+
+  void _openPublicDetails(String title, dynamic value) {
+    final entries = value is List ? value : const [];
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (ctx) => Scaffold(
+        backgroundColor: Ui.bg,
+        appBar: AppBar(title: Text(title), backgroundColor: Ui.bg),
+        body: entries.isEmpty
+            ? Center(child: Text('Nothing shared yet', style: TextStyle(color: Ui.muted)))
+            : ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: entries.length,
+                separatorBuilder: (_, __) => const Divider(),
+                itemBuilder: (_, i) {
+                  final entry = entries[i];
+                  if (entry is String) return ListTile(title: Text(entry));
+                  if (entry is Map) {
+                    final movie = entry['movie'];
+                    final details = movie is Map ? movie : entry;
+                    final name = details['title'] ?? details['name'] ??
+                        entry['name'] ?? 'Movie';
+                    final extra = entry['text'] ??
+                        (entry['stars'] == null ? null : '${entry['stars']}/5 stars');
+                    return ListTile(
+                      title: Text('$name'),
+                      subtitle: extra == null ? null : Text('$extra'),
+                    );
+                  }
+                  return ListTile(title: Text('$entry'));
+                },
+              ),
+      ),
+    ));
+  }
+
   Widget _tile(IconData icon, String label, int count, VoidCallback onTap) {
     return Material(
       color: Ui.card,
@@ -511,7 +618,7 @@ class _CommunityProfileScreenState extends State<CommunityProfileScreen> {
               likes: p.likeCount,
               email: null,
               badges: p.mine),
-          if (p.mine) _statGrid(),
+          if (p.mine) _statGrid() else _publicStatGrid(),
           if (p.mine)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
