@@ -26,13 +26,6 @@ dependencies:
   open_filex: ^4.7.0
   google_sign_in: ^6.2.2
   cryptography: ^2.7.0
-  firebase_core: ^4.0.0
-  firebase_messaging: ^16.0.0
-
-# shared_preferences_android 2.5.0 crashes release builds (NoSuchMethodError,
-# flutter/flutter#194649). Stay on 2.4.28 until that is fixed upstream.
-dependency_overrides:
-  shared_preferences_android: 2.4.28
 
 dev_dependencies:
   flutter_test:
@@ -45,6 +38,8 @@ flutter:
   assets:
     - assets/data/movies.json
     - assets/data/app_config.json
+    - assets/data/support_damimovies.json
+    - assets/data/share_damimovies.json
     - assets/icon/home_logo.png
     - assets/splash/splash.png
 
