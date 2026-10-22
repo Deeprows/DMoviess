@@ -1,22 +1,30 @@
 import '../config.dart';
 
 class MovieCastMember {
+  final int? id;
   final String name;
   final String character;
   final String photo;
 
   const MovieCastMember(
-      {required this.name, required this.character, this.photo = ''});
+      {this.id, required this.name, required this.character, this.photo = ''});
 
   factory MovieCastMember.fromJson(Map<String, dynamic> json) =>
       MovieCastMember(
+        id: json['id'] is num
+            ? (json['id'] as num).toInt()
+            : int.tryParse('${json['id'] ?? ''}'),
         name: (json['name'] ?? '').toString(),
         character: (json['character'] ?? '').toString(),
         photo: (json['photo'] ?? '').toString(),
       );
 
-  Map<String, dynamic> toJson() =>
-      {'name': name, 'character': character, 'photo': photo};
+  Map<String, dynamic> toJson() => {
+        if (id != null) 'id': id,
+        'name': name,
+        'character': character,
+        'photo': photo,
+      };
 }
 
 /// Movie or series model. The original catalogue fields remain compatible with
