@@ -604,6 +604,21 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
         ),
       ]);
 
+  /// Pull down at the top of the homepage to reload movie data.
+  /// Preserve search text, selected filters, and the user's current view.
+  Future<void> _refreshHome() async {
+    await _refreshLocalLibrary();
+    if (!mounted) return;
+
+    // If startup loading is still active, wait for it to finish before
+    // starting another fetch instead of silently skipping the refresh.
+    while (mounted && _homeRequestInFlight) {
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    }
+    if (!mounted) return;
+    await _loadHome();
+  }
+
   @override
   Widget build(BuildContext context) {
     final searching = _query.trim().isNotEmpty || _watchlistOnly;
@@ -612,7 +627,14 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
       key: _scaffoldKey,
       drawer: const AppDrawer(),
       body: SafeArea(
-          child: CustomScrollView(slivers: [
+        child: RefreshIndicator(
+          color: appRed,
+          backgroundColor: appSurface,
+          displacement: 65,
+          onRefresh: _refreshHome,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
         SliverToBoxAdapter(
             child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
@@ -853,7 +875,10 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
             )),
           const SliverToBoxAdapter(child: SizedBox(height: 26)),
         ],
-      ])),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
