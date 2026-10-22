@@ -313,6 +313,7 @@ class TmdbService {
           if (name.isEmpty) continue;
           final photo = (item['profile_path'] ?? '').toString();
           cast.add(MovieCastMember(
+              id: (item['id'] as num?)?.toInt(),
               name: name,
               character: (item['character'] ?? '').toString(),
               photo: photo.isEmpty ? '' : '${_imageBase}w185$photo'));
@@ -502,6 +503,62 @@ class TmdbService {
     return out;
   }
 
+  /// Fetch an actor's biography and their acting filmography.
+  /// A movie or series carries its original ID so it opens in MovieDetailScreen.
+  Future<TmdbActorDetails?> actorDetails(int personId) async {
+    if (personId <= 0) return null;
+    final responses = await Future.wait<Map<String, dynamic>?>([
+      _get('/person/$personId'),
+      _get('/person/$personId/combined_credits'),
+    ]);
+    final data = responses[0];
+    if (data == null) return null;
+
+    final photoPath = (data['profile_path'] ?? '').toString();
+    final filmography = <Movie>[];
+    final credits = responses[1]?['cast'];
+    if (credits is List) {
+      final entries = credits.whereType<Map>().where((row) {
+        final type = (row['media_type'] ?? '').toString();
+        return type == 'movie' || type == 'tv';
+      }).toList()
+        ..sort((a, b) {
+          final aPopularity = (a['popularity'] as num?)?.toDouble() ?? 0;
+          final bPopularity = (b['popularity'] as num?)?.toDouble() ?? 0;
+          return bPopularity.compareTo(aPopularity);
+        });
+
+      final seen = <String>{};
+      for (final entry in entries) {
+        final media = (entry['media_type'] ?? 'movie').toString();
+        final movie = _movie(entry, type: media);
+        if (movie != null && seen.add(movie.key)) {
+          filmography.add(movie);
+        }
+        if (filmography.length >= 40) break;
+      }
+    }
+
+    return TmdbActorDetails(
+      id: personId,
+      name: (data['name'] ?? '').toString(),
+      photo: photoPath.isEmpty ? '' : '${_imageBase}w500$photoPath',
+      biography: (data['biography'] ?? '').toString(),
+      birthday: (data['birthday'] ?? '').toString(),
+      deathday: (data['deathday'] ?? '').toString(),
+      placeOfBirth: (data['place_of_birth'] ?? '').toString(),
+      knownFor: (data['known_for_department'] ?? '').toString(),
+      alsoKnownAs: data['also_known_as'] is List
+          ? (data['also_known_as'] as List)
+              .map((value) => value.toString())
+              .where((value) => value.trim().isNotEmpty)
+              .take(4)
+              .toList()
+          : const <String>[],
+      filmography: filmography,
+    );
+  }
+
   Future<List<TmdbPerson>> searchPeople(String query) async {
     final q = query.trim();
     if (q.isEmpty) return [];
@@ -531,6 +588,27 @@ class TmdbService {
     return _list(
         '/search/multi', {'query': query.trim(), 'include_adult': 'false'});
   }
+}
+
+class TmdbActorDetails {
+  final int id;
+  final String name, photo, biography, birthday, deathday, placeOfBirth;
+  final String knownFor;
+  final List<String> alsoKnownAs;
+  final List<Movie> filmography;
+
+  const TmdbActorDetails({
+    required this.id,
+    required this.name,
+    required this.photo,
+    required this.biography,
+    required this.birthday,
+    required this.deathday,
+    required this.placeOfBirth,
+    required this.knownFor,
+    required this.alsoKnownAs,
+    required this.filmography,
+  });
 }
 
 class TmdbPerson {
