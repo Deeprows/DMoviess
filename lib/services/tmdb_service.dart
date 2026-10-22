@@ -158,7 +158,17 @@ class TmdbService {
         .toList();
   }
 
-  /// TMDB's current-day trending catalogue includes both films and series.
+  /// Resolve the exact movie attached to a push notification using its ID.
+  /// Returns null (without exposing backend errors to the viewer) when the
+  /// film is missing or the connection is unavailable.
+  Future<Movie?> movieById(int id, {String mediaType = 'movie'}) async {
+    if (id <= 0) return null;
+    final type = mediaType == 'tv' ? 'tv' : 'movie';
+    final data = await _get('/$type/$id');
+    return _movie(data, type: type);
+  }
+
+  /// Current-day trending films.
   Future<List<Movie>> trending() => _list('/trending/movie/day');
 
   /// Combine popular-rated films and shows, then rank by TMDB's rating order.
