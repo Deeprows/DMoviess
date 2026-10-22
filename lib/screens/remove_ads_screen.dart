@@ -122,122 +122,127 @@ class _RemoveAdsScreenState extends State<RemoveAdsScreen> {
           if (_plan >= plans.length) _plan = 0;
           return Scaffold(
             appBar: AppBar(title: Text('Remove ads'.tr)),
-            body: ListView(
-              padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
-              children: [
-                if (premium.active) _activeCard(premium),
-                if (premium.active) SizedBox(height: 18),
-                Text(
-                    'Prices for ${CurrencyService.instance.countryLabel} (${CurrencyService.instance.code})',
-                    style: const TextStyle(
-                        color: Colors.white70, fontWeight: FontWeight.w700)),
-                SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: CurrencyService.instance.selectedCountry ?? 'AUTO',
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Pricing country / currency',
-                    prefixIcon: Icon(Icons.public_rounded),
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                        value: 'AUTO',
-                        child: Text('Automatic (device region)')),
-                    ...CurrencyService.countryNames.entries
-                        .map((entry) => DropdownMenuItem(
-                              value: entry.key,
-                              child: Text(
-                                  '${entry.value} (${CurrencyService.instance.currencyForCountry(entry.key)})',
-                                  overflow: TextOverflow.ellipsis),
-                            )),
-                  ],
-                  onChanged: (value) => CurrencyService.instance
-                      .setCountry(value == 'AUTO' ? null : value),
-                ),
-                if (!CurrencyService.instance.hasPrice(plans[_plan], config)) ...[
-                  const SizedBox(height: 10),
+            body: SafeArea(
+              top: false,
+              bottom: true,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(18, 8, 18, 30),
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  if (premium.active) _activeCard(premium),
+                  if (premium.active) SizedBox(height: 18),
                   Text(
-                    CurrencyService.instance.loadingRates
-                        ? 'Fetching exchange rates…'
-                        : 'Exchange rate unavailable. Check your connection and retry.',
-                    style: const TextStyle(color: Colors.orangeAccent),
+                      'Prices for ${CurrencyService.instance.countryLabel} (${CurrencyService.instance.code})',
+                      style: const TextStyle(
+                          color: Colors.white70, fontWeight: FontWeight.w700)),
+                  SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: CurrencyService.instance.selectedCountry ?? 'AUTO',
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Pricing country / currency',
+                      prefixIcon: Icon(Icons.public_rounded),
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                          value: 'AUTO',
+                          child: Text('Automatic (device region)')),
+                      ...CurrencyService.countryNames.entries
+                          .map((entry) => DropdownMenuItem(
+                                value: entry.key,
+                                child: Text(
+                                    '${entry.value} (${CurrencyService.instance.currencyForCountry(entry.key)})',
+                                    overflow: TextOverflow.ellipsis),
+                              )),
+                    ],
+                    onChanged: (value) => CurrencyService.instance
+                        .setCountry(value == 'AUTO' ? null : value),
                   ),
-                  TextButton.icon(
-                    onPressed: CurrencyService.instance.loadingRates
-                        ? null
-                        : () => CurrencyService.instance.load(),
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Retry currency conversion'),
-                  ),
-                ],
-                SizedBox(height: 14),
-                Text('Choose a plan'.tr,
-                    style:
-                        TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-                SizedBox(height: 10),
-                for (var i = 0; i < plans.length; i++)
-                  _planTile(i, plans[i], config),
-                SizedBox(height: 14),
-                _requestSection(config, plans[_plan]),
-                SizedBox(height: 12),
-                _deviceId(premium),
-                SizedBox(height: 26),
-                Text('Already have a token?'.tr,
-                    style:
-                        TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-                SizedBox(height: 10),
-                TextField(
-                  controller: _token,
-                  minLines: 2,
-                  maxLines: 4,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  decoration:
-                      const InputDecoration(hintText: 'Paste your token here'),
-                ),
-                SizedBox(height: 12),
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                      backgroundColor: appRed,
-                      minimumSize: const Size.fromHeight(52)),
-                  onPressed: _busy ? null : _redeem,
-                  child: _busy
-                      ? SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2.4, color: Colors.white))
-                      : Text('Remove ads now'.tr,
-                          style: TextStyle(fontWeight: FontWeight.w800)),
-                ),
-                if (_message != null) ...[
+                  if (!CurrencyService.instance.hasPrice(plans[_plan], config)) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      CurrencyService.instance.loadingRates
+                          ? 'Fetching exchange rates…'
+                          : 'Exchange rate unavailable. Check your connection and retry.',
+                      style: const TextStyle(color: Colors.orangeAccent),
+                    ),
+                    TextButton.icon(
+                      onPressed: CurrencyService.instance.loadingRates
+                          ? null
+                          : () => CurrencyService.instance.load(),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry currency conversion'),
+                    ),
+                  ],
+                  SizedBox(height: 14),
+                  Text('Choose a plan'.tr,
+                      style:
+                          TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                  SizedBox(height: 10),
+                  for (var i = 0; i < plans.length; i++)
+                    _planTile(i, plans[i], config),
+                  SizedBox(height: 14),
+                  _requestSection(config, plans[_plan]),
                   SizedBox(height: 12),
-                  Row(children: [
-                    Icon(
-                        _messageOk
-                            ? Icons.check_circle_rounded
-                            : Icons.error_outline_rounded,
-                        color: _messageOk
-                            ? const Color(0xFF1FAF5A)
-                            : appAccentSoft,
-                        size: 20),
-                    SizedBox(width: 8),
-                    Expanded(
-                        child: Text(_message!,
-                            style: TextStyle(
-                                color: _messageOk
-                                    ? const Color(0xFF1FAF5A)
-                                    : appAccentSoft))),
-                  ]),
+                  _deviceId(premium),
+                  SizedBox(height: 26),
+                  Text('Already have a token?'.tr,
+                      style:
+                          TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                  SizedBox(height: 10),
+                  TextField(
+                    controller: _token,
+                    minLines: 2,
+                    maxLines: 4,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    decoration:
+                        const InputDecoration(hintText: 'Paste your token here'),
+                  ),
+                  SizedBox(height: 12),
+                  FilledButton(
+                    style: FilledButton.styleFrom(
+                        backgroundColor: appRed,
+                        minimumSize: const Size.fromHeight(52)),
+                    onPressed: _busy ? null : _redeem,
+                    child: _busy
+                        ? SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2.4, color: Colors.white))
+                        : Text('Remove ads now'.tr,
+                            style: TextStyle(fontWeight: FontWeight.w800)),
+                  ),
+                  if (_message != null) ...[
+                    SizedBox(height: 12),
+                    Row(children: [
+                      Icon(
+                          _messageOk
+                              ? Icons.check_circle_rounded
+                              : Icons.error_outline_rounded,
+                          color: _messageOk
+                              ? const Color(0xFF1FAF5A)
+                              : appAccentSoft,
+                          size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
+                          child: Text(_message!,
+                              style: TextStyle(
+                                  color: _messageOk
+                                      ? const Color(0xFF1FAF5A)
+                                      : appAccentSoft))),
+                    ]),
+                  ],
+                  SizedBox(height: 22),
+                  Text(
+                    'A token only works on the phone whose Device ID it was made for, and adds days on top of any time you already have.',
+                    style: TextStyle(
+                        color: Colors.white38, fontSize: 11, height: 1.45),
+                  ),
                 ],
-                SizedBox(height: 22),
-                Text(
-                  'A token only works on the phone whose Device ID it was made for, and adds days on top of any time you already have.',
-                  style: TextStyle(
-                      color: Colors.white38, fontSize: 11, height: 1.45),
-                ),
-              ],
+              ),
             ),
           );
         },
