@@ -458,8 +458,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
     for (final movie in source) {
       unique.putIfAbsent(movie.key, () => movie);
     }
-    // Keep hero loading light but provide several titles, not just one.
-    return unique.values.take(8).toList();
+    // Show up to 15 unique trending titles in the swipeable hero carousel.
+    return unique.values.take(15).toList();
   }
 
   void _resetHeroCarousel() {
