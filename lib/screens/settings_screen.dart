@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+import 'support_damimovies_screen.dart';
 import '../services/auth_service.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -7,8 +9,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config.dart';
 import '../main.dart';
 import '../services/app_preferences.dart';
-import '../services/app_remote_config.dart';
-import '../widgets/push_switches.dart';
 import '../utils/external_link.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -17,12 +17,7 @@ class SettingsScreen extends StatelessWidget {
   Future<void> _notice(BuildContext context) async {
     var title = 'DamiMovies Notice';
     var body = 'No update for now. Check back later';
-    final remote = RemoteConfig.instance.notice;
-    if (remote.active) {
-      title = remote.title.isEmpty ? title : remote.title;
-      body = remote.message;
-    }
-    if (!remote.active && AppConfig.noticeUrl.trim().isNotEmpty) {
+    if (AppConfig.noticeUrl.trim().isNotEmpty) {
       try {
         final response = await http
             .get(Uri.parse(AppConfig.noticeUrl))
@@ -137,14 +132,21 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<void> _support(BuildContext context) async {
-    final link = AppConfig.supportUrl.trim();
-    if (link.isEmpty) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('No support link is configured for this build.'.tr)));
-      return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => const SupportDamiMoviesScreen(),
+    ));
+  }
+
+  Future<void> _shareDamiMovies(BuildContext context) async {
+    try {
+      final source = await rootBundle.loadString('assets/data/share_damimovies.json');
+      final config = jsonDecode(source) as Map<String, dynamic>;
+      final message = (config['message'] ?? 'Discover DamiMovies!').toString();
+      final url = (config['url'] ?? AppConfig.appUrl).toString();
+      await Share.share('$message\n$url');
+    } catch (_) {
+      await Share.share('Discover movies with DamiMovies.\n${AppConfig.appUrl}');
     }
-    await openInExternalBrowser(context, link);
   }
 
   @override
@@ -318,9 +320,6 @@ class SettingsScreen extends StatelessWidget {
               secondary: Icon(Icons.headphones_rounded),
             ),
             SizedBox(height: 20),
-            _heading('Notifications'),
-            const PushSwitches(),
-            SizedBox(height: 20),
             _heading('App'),
             _actionTile(Icons.campaign_outlined, 'Notice',
                 'Read the current DamiMovies notice', () => _notice(context)),
@@ -330,14 +329,13 @@ class SettingsScreen extends StatelessWidget {
                 'Check a configured update source',
                 () => _checkUpdate(context)),
             _actionTile(Icons.favorite_border_rounded, 'Support DamiMovies',
-                'Open the configured support page', () => _support(context)),
+                'Send a token of appreciation', () => _support(context)),
             if (AuthService.instance.user != null) _accountTile(context),
             _actionTile(
                 Icons.share_rounded,
                 'Share DamiMovies',
                 'Share the app link',
-                () => Share.share(
-                    'Discover movies with DamiMovies.\n${AppConfig.appUrl}')),
+                () => _shareDamiMovies(context)),
             _actionTile(Icons.info_outline_rounded, 'About',
                 'Movie hub for movie lovers', () => _about(context)),
           ],
