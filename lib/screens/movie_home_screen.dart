@@ -167,15 +167,16 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
       setState(() {
         _remoteSearchResults = remote;
         _searchLoading = false;
-        _searchError = remote.isEmpty ? (_tmdb.lastError ?? '') : '';
+        _searchError = remote.isEmpty && _tmdb.lastError != null
+            ? 'Search is temporarily unavailable. Please try again.'
+            : '';
       });
     } catch (_) {
       if (!mounted || requestId != _searchRequestId || query != _query.trim())
         return;
       setState(() {
         _searchLoading = false;
-        _searchError = _tmdb.lastError ??
-            'Could not search TMDB. Check your internet connection and retry.';
+        _searchError = 'Search is temporarily unavailable. Please try again.';
       });
     }
   }
@@ -298,7 +299,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
           _tmdbLoading = false;
           _tmdbAvailable = false;
           _tmdbError =
-              _tmdb.lastError ?? 'TMDB did not return any movies. Tap Retry.';
+              'Unable to refresh movies. Please try again.';
           if (_top10.isEmpty) _top10 = _local.take(10).toList();
         });
         return;
@@ -345,7 +346,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
           _tmdbLoading = false;
           _tmdbAvailable = _trending.isNotEmpty || _top10.isNotEmpty;
           _tmdbError =
-              _tmdb.lastError ?? 'Could not connect to TMDB. Tap Retry.';
+              'Unable to refresh movies. Please try again.';
         });
     } finally {
       _homeRequestInFlight = false;
@@ -709,7 +710,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
           SliverToBoxAdapter(
             child: _sectionTitle(
               _watchlistOnly ? 'My Watchlist' : 'Search Results',
-              _searchLoading ? 'SEARCHING TMDB…' : '${results.length} titles',
+              _searchLoading ? 'SEARCHING…' : '${results.length} titles',
             ),
           ),
           if (_searchLoading)
@@ -735,7 +736,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                     children: [
                       const CircularProgressIndicator(),
                       SizedBox(height: 12),
-                      Text('Searching TMDB for “${_query.trim()}”…',
+                      Text('Searching for “${_query.trim()}”…',
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: Colors.white60)),
                     ],
@@ -758,7 +759,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                       Icon(Icons.cloud_off_rounded,
                           size: 34, color: Colors.white54),
                       SizedBox(height: 10),
-                      Text('TMDB search failed: $_searchError',
+                      Text(_searchError,
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: Colors.white70)),
                       SizedBox(height: 10),
@@ -779,7 +780,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                 child: Center(
                   child: Text(
                     _query.trim().length < 2
-                        ? 'Enter at least 2 characters to search TMDB.'
+                        ? 'Enter at least 2 characters to search movies.'
                         : 'No movies found. Try another title.',
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.white60),
@@ -793,7 +794,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
                   child: Text(
-                      'TMDB unavailable: $_searchError. Showing matching saved titles.',
+                      'Search is temporarily unavailable. Showing matching saved titles.',
                       style: const TextStyle(
                           color: Colors.orangeAccent, fontSize: 11)),
                 ),
@@ -849,9 +850,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                   SizedBox(width: 10),
                   Expanded(
                       child: Text(
-                    _tmdbError.isEmpty
-                        ? 'TMDB is unavailable. Showing your saved movie catalogue.'
-                        : 'TMDB unavailable: $_tmdbError Showing your saved catalogue.',
+                    'Unable to refresh movies. Your available movies are still here. Please try again.',
                     style: const TextStyle(color: Colors.white70, fontSize: 11),
                   )),
                   TextButton(onPressed: _loadHome, child: Text('Retry'.tr)),
@@ -1059,7 +1058,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                       SizedBox(width: 4),
                       Text(
                           movie.rating.isEmpty
-                              ? 'Trending on TMDB'
+                              ? 'Trending now'
                               : '${movie.rating} / 10',
                           style: const TextStyle(
                               fontSize: 12, color: Colors.white70)),
