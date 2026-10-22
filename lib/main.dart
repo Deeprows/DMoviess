@@ -143,6 +143,11 @@ class _DamiSplashState extends State<_DamiSplash> {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(builder: (_) => const AuthGate()),
       );
+      // Cold-start notifications may have been received during the splash.
+      // Open their movie only after the app navigator is on the auth/home route.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        PushService.instance.onNavigationReady();
+      });
     });
   }
 
