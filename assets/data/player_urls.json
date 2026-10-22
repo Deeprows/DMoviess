@@ -1,0 +1,10 @@
+{
+  "primary": {
+    "movie": "https://vsembed.su/embed/movie/{id}",
+    "tv": "https://vsembed.su/embed/tv/{id}"
+  },
+  "secondary": {
+    "movie": "https://web.nxsha.app/embed/movie/{id}",
+    "tv": "https://web.nxsha.app/embed/tv/{id}/{season}/{episode}"
+  }
+}
