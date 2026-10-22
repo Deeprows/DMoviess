@@ -18,6 +18,7 @@ import '../services/background_playback.dart';
 import '../utils/external_link.dart';
 import '../services/movie_library.dart';
 import '../services/stream_resolver.dart';
+import '../services/player_urls_config.dart';
 
 /// Lets a parent (the Watch Together theatre) drive an embedded player.
 class PlayerHandle {
@@ -61,7 +62,7 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
   Timer? _controlsHideTimer;
   bool _nativeControlsVisible = true;
   DateTime _lastNativeProgressSave = DateTime.fromMillisecondsSinceEpoch(0);
-  late final List<({String url, String referer, String agent})> _sources;
+  late List<({String url, String referer, String agent})> _sources;
   int _sourceIndex = 0;
   bool _loading = true;
   bool _error = false;
@@ -90,20 +91,90 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
   bool get _isImmersive =>
       _fullscreen || _landscape || _fullscreenWidget != null;
 
-  List<({String url, String referer, String agent})> _buildSources() {
+  // Each movie keeps its own ID and any specifically configured playback URLs.
+  // The remote JSON controls provider-generated primary/secondary URLs only.
+  List<({String url, String referer, String agent})> _buildSources(
+      PlayerUrlsConfig config) {
     final m = widget.movie;
     final result = <({String url, String referer, String agent})>[];
+
     void add(String url, String referer, String agent) {
       final clean = url.trim();
       if (clean.isEmpty || result.any((entry) => entry.url == clean)) return;
       result.add((url: clean, referer: referer.trim(), agent: agent.trim()));
     }
 
-    add(m.url, m.referer, m.userAgent);
-    add(m.altUrl, m.altReferer.isNotEmpty ? m.altReferer : m.referer,
+    final parsed = Uri.tryParse(m.url.trim());
+    final primaryBase = Uri.tryParse(AppConfig.embedBase);
+    final secondaryBase = Uri.tryParse(AppConfig.altEmbedBase);
+    final providerHosts = <String>{
+      if (primaryBase != null) primaryBase.host.toLowerCase(),
+      if (secondaryBase != null) secondaryBase.host.toLowerCase(),
+      ...AppConfig.replaceHosts,
+    };
+    final path = parsed?.path ?? '';
+    final isProviderUrl = parsed != null &&
+        providerHosts.contains(parsed.host.toLowerCase()) &&
+        RegExp(r'^/embed/(movie|tv)/', caseSensitive: false).hasMatch(path);
+
+    // Some titles use IMDb IDs (tt...), which should not be replaced with
+    // their different numeric catalogue IDs.
+    final match = RegExp(
+      r'/(?:embed/)?(?:movie|tv)/(tt\d+|\d+)(?:/(\d+))?(?:/(\d+))?',
+      caseSensitive: false,
+    ).firstMatch(path);
+    final id = match?.group(1) ?? m.tmdbId?.toString();
+    final season = match?.group(2) ?? '1';
+    final episode = match?.group(3) ?? '1';
+
+    final generatedPrimary = id == null
+        ? ''
+        : config.urlFor(
+            primary: true,
+            isTv: m.isSeries,
+            id: id,
+            season: season,
+            episode: episode,
+          );
+    final generatedSecondary = id == null
+        ? ''
+        : config.urlFor(
+            primary: false,
+            isTv: m.isSeries,
+            id: id,
+            season: season,
+            episode: episode,
+          );
+
+    // Respect explicit custom sources. Replace only the standard generated
+    // player link with the current primary URL from the JSON configuration.
+    add((m.url.trim().isEmpty || isProviderUrl) && generatedPrimary.isNotEmpty
+        ? generatedPrimary
+        : m.url, m.referer, m.userAgent);
+
+    // A custom alternate URL in movies.json takes priority over the default.
+    final alternate = m.backupUrl.trim().isNotEmpty
+        ? m.backupUrl
+        : (generatedSecondary.isNotEmpty ? generatedSecondary : m.altUrl);
+    add(alternate,
+        m.altReferer.isNotEmpty ? m.altReferer : m.referer,
         m.altUserAgent.isNotEmpty ? m.altUserAgent : m.userAgent);
     add(m.thirdUrl, m.thirdReferer, m.thirdUserAgent);
     return result;
+  }
+
+  Future<void> _initializePlayerSources() async {
+    // Fallback URLs remain available when GitHub or the network is offline.
+    final config = await PlayerUrlsConfig.load();
+    if (!mounted) return;
+    setState(() {
+      _sources = _buildSources(config);
+      final nativeIndex = _sources.indexWhere(
+        (source) => StreamResolver.resolve(source.url).usesNativePlayer,
+      );
+      _sourceIndex = nativeIndex >= 0 ? nativeIndex : 0;
+    });
+    await _loadSource();
   }
 
   @override
@@ -119,11 +190,8 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       handle.fullscreen = () => _setFullscreen(true);
       handle.cast = _cast;
     }
-    _sources = _buildSources();
-    final nativeSourceIndex = _sources.indexWhere(
-      (source) => StreamResolver.resolve(source.url).usesNativePlayer,
-    );
-    if (nativeSourceIndex >= 0) _sourceIndex = nativeSourceIndex;
+    // Initialize with hardcoded fallbacks while remote JSON is fetched.
+    _sources = _buildSources(PlayerUrlsConfig.defaults);
     unawaited(MovieLibrary.instance.recordOpened(widget.movie));
     _checkPip();
     if (AppPreferences.instance.keepScreenAwake)
@@ -191,7 +259,7 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
     if (AppPreferences.instance.backgroundPlayback) {
       _startBackgroundControls();
     }
-    _loadSource();
+    unawaited(_initializePlayerSources());
   }
 
   Future<void> _startBackgroundControls() async {
