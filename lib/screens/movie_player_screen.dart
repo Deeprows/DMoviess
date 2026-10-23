@@ -13,6 +13,7 @@ import '../config.dart';
 import '../main.dart';
 import '../models/movie.dart';
 import '../services/ad_shield.dart';
+import '../services/app_analytics.dart';
 import '../services/app_preferences.dart';
 import '../services/background_playback.dart';
 import '../utils/external_link.dart';
@@ -180,6 +181,8 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
   @override
   void initState() {
     super.initState();
+    // Opening the player is counted, not proof that video playback succeeded.
+    AppAnalytics.instance.playerOpened(widget.movie);
     WidgetsBinding.instance.addObserver(this);
     final handle = widget.handle;
     if (handle != null) {
