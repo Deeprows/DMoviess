@@ -9,6 +9,7 @@ import '../services/app_analytics.dart';
 import '../services/auth_service.dart';
 import 'community_screen.dart';
 import 'movie_home_screen.dart';
+import 'tv_shows_screen.dart';
 import 'library_screen.dart';
 import '../services/app_preferences.dart';
 
@@ -20,6 +21,7 @@ class AppShellScreen extends StatefulWidget {
 
 class _AppShellScreenState extends State<AppShellScreen> {
   int _index = 0;
+  bool _tvVisited = false;
   static const _kSeenNotice = 'damimovies_seen_notice';
   bool _noticeOpen = false;
   bool _welcomeOpen = false;
@@ -216,7 +218,8 @@ class _AppShellScreenState extends State<AppShellScreen> {
   Widget build(BuildContext context) => Scaffold(
         body: IndexedStack(index: _index, children: [
           const MovieHomeScreen(),
-          CommunityScreen(active: _index == 1),
+          _tvVisited ? const TvShowsScreen() : const SizedBox.shrink(),
+          CommunityScreen(active: _index == 2),
           const LibraryScreen(),
         ]),
         bottomNavigationBar: NavigationBar(
@@ -226,8 +229,11 @@ class _AppShellScreenState extends State<AppShellScreen> {
           selectedIndex: _index,
           onDestinationSelected: (value) {
             if (value == _index) return;
-            setState(() => _index = value);
-            const screens = ['movies', 'community', 'library'];
+            setState(() {
+              _index = value;
+              if (value == 1) _tvVisited = true;
+            });
+            const screens = ['movies', 'tv_shows', 'community', 'library'];
             AppAnalytics.instance.screenViewed(screens[value]);
           },
           destinations: [
@@ -235,6 +241,10 @@ class _AppShellScreenState extends State<AppShellScreen> {
                 icon: Icon(Icons.movie_outlined),
                 selectedIcon: Icon(Icons.movie_filter_rounded),
                 label: 'Movies'.tr),
+            NavigationDestination(
+                icon: Icon(Icons.live_tv_outlined),
+                selectedIcon: Icon(Icons.live_tv_rounded),
+                label: 'TV Shows'.tr),
             NavigationDestination(
                 icon: Icon(Icons.forum_outlined),
                 selectedIcon: Icon(Icons.forum_rounded),
