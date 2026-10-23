@@ -156,8 +156,10 @@ class AppDrawer extends StatelessWidget {
 
     return Drawer(
       width: MediaQuery.sizeOf(context).width * .78,
-      backgroundColor: Colors.black,
-      shape: const RoundedRectangleBorder(),
+      backgroundColor: appBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(28)),
+      ),
       child: Column(
         children: [
           ListenableBuilder(
@@ -192,7 +194,13 @@ class AppDrawer extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [appSurface, appBg],
+          colors: [appRed.withValues(alpha: .28), appSurface, appBg],
+          stops: const [0, .55, 1],
+        ),
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(28),
+          bottomLeft: Radius.circular(32),
+          bottomRight: Radius.circular(32),
         ),
       ),
       child: Column(
@@ -222,13 +230,19 @@ class AppDrawer extends StatelessWidget {
 
           const SizedBox(height: 18),
 
-          Align(
-            alignment: Alignment.centerLeft,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .07),
+              border: Border.all(color: Colors.white12),
+              borderRadius: BorderRadius.circular(99),
+            ),
             child: Text(
-              'Version: ${AppConfig.appVersion}',
+              'Version ${AppConfig.appVersion}',
               style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: Colors.white70,
               ),
             ),
           ),
@@ -313,21 +327,32 @@ class AppDrawer extends StatelessWidget {
   }
 
   /// Navigation menu item.
-  Widget _tile(_Item item) => InkWell(
+  Widget _tile(_Item item) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        child: InkWell(
+        borderRadius: BorderRadius.circular(18),
         onTap: item.onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(
-            horizontal: 22,
-            vertical: 15,
+            horizontal: 10,
+            vertical: 9,
           ),
           child: Row(
             children: [
-              Icon(
-                item.icon,
-                size: 30,
-                color: Colors.white,
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: appRed.withValues(alpha: .14),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  item.icon,
+                  size: 22,
+                  color: appAccentSoft,
+                ),
               ),
-              const SizedBox(width: 24),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -338,7 +363,7 @@ class AppDrawer extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 15,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     if (item.subtitle != null)
@@ -355,8 +380,11 @@ class AppDrawer extends StatelessWidget {
                   ],
                 ),
               ),
+              const Icon(Icons.chevron_right_rounded,
+                  size: 20, color: Colors.white24),
             ],
           ),
+        ),
         ),
       );
 }
