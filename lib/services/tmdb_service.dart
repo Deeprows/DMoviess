@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/movie.dart';
+import '../models/tv_show.dart';
 import '../config.dart';
 import 'app_preferences.dart';
 
@@ -166,6 +167,52 @@ class TmdbService {
     final type = mediaType == 'tv' ? 'tv' : 'movie';
     final data = await _get('/$type/$id');
     return _movie(data, type: type);
+  }
+
+  // Dedicated TV catalogue. These endpoints are intentionally separate
+  // from the movie home feed and search.
+  Future<List<Movie>> tvPopular({int page = 1}) => _list(
+      '/tv/popular', {'page': '${page.clamp(1, 500)}'}, 'tv');
+
+  Future<List<Movie>> tvTrending() => _list('/trending/tv/week', {}, 'tv');
+
+  Future<List<Movie>> tvSearch(String query) {
+    final q = query.trim();
+    if (q.isEmpty) return Future.value(<Movie>[]);
+    return _list('/search/tv',
+        {'query': q, 'include_adult': 'false', 'page': '1'}, 'tv');
+  }
+
+  /// Includes season 0 (specials) only when TMDB lists it. The UI can
+  /// distinguish Specials from numbered seasons.
+  Future<TvSeriesInfo?> tvSeries(int id) async {
+    if (id <= 0) return null;
+    final json = await _get('/tv/$id');
+    final show = _movie(json, type: 'tv');
+    if (show == null) return null;
+    final rawSeasons = json?['seasons'];
+    final seasons = rawSeasons is List
+        ? rawSeasons
+            .whereType<Map>()
+            .map((e) => TvSeason.fromTmdb(Map<String, dynamic>.from(e)))
+            .toList()
+        : <TvSeason>[];
+    seasons.sort((a, b) => a.number.compareTo(b.number));
+    return TvSeriesInfo(show: show, seasons: seasons);
+  }
+
+  Future<List<TvEpisode>> tvSeasonEpisodes(int showId, int season) async {
+    if (showId <= 0 || season < 0) return [];
+    final json = await _get('/tv/$showId/season/$season');
+    final episodes = json?['episodes'];
+    if (episodes is! List) return [];
+    final result = episodes
+        .whereType<Map>()
+        .map((e) => TvEpisode.fromTmdb(Map<String, dynamic>.from(e)))
+        .where((e) => e.number > 0)
+        .toList();
+    result.sort((a, b) => a.number.compareTo(b.number));
+    return result;
   }
 
   /// Current-day trending films.
