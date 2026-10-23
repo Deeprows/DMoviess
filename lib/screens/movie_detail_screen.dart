@@ -196,13 +196,15 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                    const Color(0x33000000),
-                    const Color(0x6B080B10),
+                    const Color(0x44000000),
+                    const Color(0x00000000),
+                    appBg.withValues(alpha: .7),
                     appBg
                   ],
                           stops: [
                     0,
-                    .42,
+                    .3,
+                    .7,
                     1
                   ]))),
               Positioned(
@@ -215,16 +217,19 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
                         Container(
                             width: 105,
                             height: 154,
+                            foregroundDecoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(color: Colors.white24)),
                             decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(13),
+                                borderRadius: BorderRadius.circular(18),
                                 boxShadow: [
                                   BoxShadow(
-                                      color: Colors.black.withValues(alpha: .5),
-                                      blurRadius: 17,
-                                      offset: const Offset(0, 7))
+                                      color: Colors.black.withValues(alpha: .55),
+                                      blurRadius: 24,
+                                      offset: const Offset(0, 10))
                                 ]),
                             child: ClipRRect(
-                                borderRadius: BorderRadius.circular(13),
+                                borderRadius: BorderRadius.circular(18),
                                 child: _movie.image.startsWith('http')
                                     ? CachedNetworkImage(
                                         imageUrl: _movie.image,
@@ -245,18 +250,23 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 8, vertical: 4),
                                           decoration: BoxDecoration(
-                                              color: appRed,
+                                              gradient: LinearGradient(
+                                                  colors: [appRed, appAccentSoft]),
                                               borderRadius:
-                                                  BorderRadius.circular(6)),
+                                                  BorderRadius.circular(99)),
                                           child: Text(
                                               _movie.isSeries
-                                                  ? 'SERIES'
-                                                  : 'MOVIE',
-                                              style: const TextStyle(
-                                                  fontSize: 9,
-                                                  letterSpacing: 1,
+                                                  ? 'Series'
+                                                  : 'Movie',
+                                              style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  color: appRed
+                                                              .computeLuminance() >
+                                                          .5
+                                                      ? Colors.black
+                                                      : Colors.white,
                                                   fontWeight:
-                                                      FontWeight.w900))),
+                                                      FontWeight.w800))),
                                       SizedBox(height: 9),
                                       Text(_movie.title,
                                           maxLines: 3,
@@ -301,13 +311,13 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
               child: Row(children: [
                 Expanded(
                     child: SizedBox(
-                        height: 51,
+                        height: 54,
                         child: FilledButton.icon(
                             style: FilledButton.styleFrom(
                                 backgroundColor: Colors.white,
                                 foregroundColor: Colors.black,
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14))),
+                                    borderRadius: BorderRadius.circular(18))),
                             onPressed: _play,
                             icon: Icon(Icons.play_arrow_rounded, size: 25),
                             label: Text('Play'.tr,
@@ -317,13 +327,14 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
                 SizedBox(width: 10),
                 Expanded(
                     child: SizedBox(
-                        height: 51,
+                        height: 54,
                         child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.white,
+                                backgroundColor: Colors.white.withValues(alpha: .05),
                                 side: const BorderSide(color: Colors.white24),
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14))),
+                                    borderRadius: BorderRadius.circular(18))),
                             onPressed: _download,
                             icon: Icon(Icons.download_rounded),
                             label: Text('Download'.tr,
@@ -335,13 +346,14 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
               child: Row(children: [
                 Expanded(
                     child: SizedBox(
-                        height: 46,
+                        height: 50,
                         child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.white,
+                                backgroundColor: Colors.white.withValues(alpha: .05),
                                 side: const BorderSide(color: Colors.white24),
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14))),
+                                    borderRadius: BorderRadius.circular(18))),
                             onPressed: () =>
                                 showCommunityComposer(context, movie: _movie),
                             icon: Icon(Icons.chat_bubble_outline_rounded,
@@ -352,13 +364,14 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
                 SizedBox(width: 10),
                 Expanded(
                     child: SizedBox(
-                        height: 46,
+                        height: 50,
                         child: OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.white,
+                                backgroundColor: Colors.white.withValues(alpha: .05),
                                 side: const BorderSide(color: Colors.white24),
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14))),
+                                    borderRadius: BorderRadius.circular(18))),
                             onPressed: () => Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -798,8 +811,8 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
           color: appSurface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white.withValues(alpha: .06))),
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(color: Colors.white.withValues(alpha: .08))),
       child: Text(text,
           style: const TextStyle(
               color: Colors.white70,
