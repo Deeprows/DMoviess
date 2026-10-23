@@ -902,6 +902,193 @@ async function cleanup(env) {
   ]);
 }
 
+// ---------------- ANONYMOUS APP ANALYTICS ----------------
+// Uses the existing DB binding. Required Worker secrets:
+// ANALYTICS_HASH_KEY (random secret for server-side visitor hashing)
+// ANALYTICS_ADMIN_SECRET (private password for dashboard and report).
+// D1 schema: cloudflare/analytics-schema.sql
+
+const ANALYTICS_EVENTS = new Set([
+  'app_open', 'screen_view', 'movie_detail_view',
+  'movie_player_open', 'movies_refresh',
+]);
+const ANALYTICS_SCREENS = new Set([
+  '', 'movies', 'community', 'library', 'movie_details', 'movie_player',
+]);
+
+function analyticsAdmin(request, env) {
+  const secret = String(env.ANALYTICS_ADMIN_SECRET || '');
+  const provided = (request.headers.get('authorization') || '')
+    .replace(/^Bearer\s+/i, '');
+  if (secret.length < 16 || provided.length !== secret.length) return false;
+  let diff = 0;
+  for (let i = 0; i < secret.length; i++) {
+    diff |= secret.charCodeAt(i) ^ provided.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
+async function analyticsVisitorHash(visitorId, secret) {
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const bytes = await crypto.subtle.sign(
+    'HMAC', key, new TextEncoder().encode(visitorId)
+  );
+  return [...new Uint8Array(bytes)]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function analyticsReport(env) {
+  // Retain at most 90 days of pseudonymous visits/aggregated activity.
+  const since = new Date(Date.now() - 29 * 86400000)
+    .toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [visitorTotals, eventTotals, daily, countries, movies, screens] = await Promise.all([
+    env.DB.prepare(`SELECT
+      COUNT(DISTINCT CASE WHEN day = ?1 THEN visitor_hash END) AS today,
+      COUNT(DISTINCT CASE WHEN day >= date(?1, '-6 days') THEN visitor_hash END) AS last7,
+      COUNT(DISTINCT CASE WHEN day >= ?2 THEN visitor_hash END) AS last30
+      FROM analytics_daily_visitors WHERE day >= ?2`)
+      .bind(today, since).first(),
+    env.DB.prepare(`SELECT event, SUM(total) AS total
+      FROM analytics_daily_events
+      WHERE day >= ? GROUP BY event ORDER BY total DESC`)
+      .bind(since).all(),
+    env.DB.prepare(`SELECT day, COUNT(*) AS visitors
+      FROM analytics_daily_visitors
+      WHERE day >= ? GROUP BY day ORDER BY day DESC`)
+      .bind(since).all(),
+    env.DB.prepare(`SELECT country, COUNT(DISTINCT visitor_hash) AS visitors
+      FROM analytics_daily_visitors WHERE day >= ?
+      GROUP BY country ORDER BY visitors DESC LIMIT 20`)
+      .bind(since).all(),
+    env.DB.prepare(`SELECT movie_id AS movieId, SUM(total) AS views
+      FROM analytics_daily_events
+      WHERE day >= ? AND event = 'movie_detail_view' AND movie_id != ''
+      GROUP BY movie_id ORDER BY views DESC LIMIT 20`)
+      .bind(since).all(),
+    env.DB.prepare(`SELECT screen, SUM(total) AS views
+      FROM analytics_daily_events
+      WHERE day >= ? AND event = 'screen_view'
+      GROUP BY screen ORDER BY views DESC`)
+      .bind(since).all(),
+  ]);
+
+  return {
+    timezone: 'UTC', period: { from: since, to: today },
+    uniqueInstallations: {
+      today: Number(visitorTotals?.today || 0),
+      last7Days: Number(visitorTotals?.last7 || 0),
+      last30Days: Number(visitorTotals?.last30 || 0),
+    },
+    events: eventTotals.results,
+    daily: daily.results,
+    countries: countries.results,
+    topMovies: movies.results,
+    screens: screens.results,
+    note: 'Unique installations are estimates based on anonymous app IDs, not individual people. A player-open event does not confirm successful playback.',
+  };
+}
+
+const ANALYTICS_DASHBOARD = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DamiMovies Analytics</title><style>
+:root{color-scheme:dark}body{font:14px system-ui,sans-serif;max-width:980px;margin:auto;background:#0b0c11;color:#f4f4f5;padding:18px}
+h1{font-size:24px}h2{font-size:17px;margin:26px 0 10px}p{color:#a6a7b0;line-height:1.5}
+input,button{font:inherit;padding:11px;border-radius:9px}input{background:#1c1e26;border:1px solid #424451;color:#fff;max-width:380px;width:95%}
+button{background:#e8214a;color:white;border:0;cursor:pointer;font-weight:700}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px}
+.card{background:#191b24;border:1px solid #30313a;border-radius:12px;padding:15px}.big{font-size:28px;font-weight:800;margin-top:8px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:10px 7px;border-bottom:1px solid #34343e}th{color:#a6a7b0}
+section{overflow-x:auto}small{color:#a6a7b0}.error{color:#ff9da7}#data{display:none}
+</style></head><body>
+<h1>DamiMovies Analytics</h1><p>Private Cloudflare Worker dashboard. No account emails or IP addresses are stored in the analytics tables.</p>
+<form id="login"><input id="secret" type="password" placeholder="Analytics admin secret" autocomplete="off" required> <button>View traffic</button></form>
+<p id="status"></p><div id="data"><p id="period"></p><div id="cards" class="grid"></div>
+<section><h2>Daily unique installations</h2><table id="daily"></table></section>
+<section><h2>Most viewed movies</h2><p>Movie IDs are displayed; they identify catalogue titles.</p><table id="movies"></table></section>
+<section><h2>Country traffic</h2><table id="countries"></table></section>
+<section><h2>Screen visits</h2><table id="screens"></table></section>
+<section><h2>Events</h2><table id="events"></table></section>
+<p><small>Visitor counts are approximate unique app installations. Player opens are not guaranteed video plays.</small></p></div>
+<script>
+const el=id=>document.getElementById(id);
+function table(id,headers,rows){const target=el(id);target.replaceChildren();const thead=document.createElement('tr');for(const h of headers){const th=document.createElement('th');th.textContent=h;thead.append(th)}target.append(thead);for(const row of rows){const tr=document.createElement('tr');for(const v of row){const td=document.createElement('td');td.textContent=String(v??'');tr.append(td)}target.append(tr)}}
+function card(name,value){const div=document.createElement('div');div.className='card';const label=document.createElement('small');label.textContent=name;const number=document.createElement('div');number.className='big';number.textContent=Number(value||0).toLocaleString();div.append(label,number);return div}
+el('login').addEventListener('submit',async e=>{e.preventDefault();el('status').textContent='Loading...';el('data').style.display='none';try{
+const response=await fetch('/analytics/report',{headers:{authorization:'Bearer '+el('secret').value},cache:'no-store'});if(!response.ok)throw Error(response.status===401?'Incorrect analytics password':'Report unavailable ('+response.status+')');const d=await response.json();el('status').textContent='';el('data').style.display='block';el('period').textContent='Reporting period: '+d.period.from+' to '+d.period.to+' (UTC)';
+const events=Object.fromEntries(d.events.map(x=>[x.event,x.total]));const c=el('cards');c.replaceChildren(card('Today’s unique installations',d.uniqueInstallations.today),card('Last 7 days',d.uniqueInstallations.last7Days),card('Last 30 days',d.uniqueInstallations.last30Days),card('App opens',events.app_open),card('Movie details viewed',events.movie_detail_view),card('Player opens',events.movie_player_open));
+table('daily',['Date','Unique installations'],d.daily.map(x=>[x.day,x.visitors]));table('movies',['Movie ID','Detail views'],d.topMovies.map(x=>[x.movieId,x.views]));table('countries',['Country','Unique installations'],d.countries.map(x=>[x.country,x.visitors]));table('screens',['Screen','Visits'],d.screens.map(x=>[x.screen,x.views]));table('events',['Event','Count'],d.events.map(x=>[x.event,x.total]));
+}catch(err){el('status').textContent=err.message;el('status').className='error'}});
+</script></body></html>`;
+
+async function handleAnalytics(request, env, ctx, path) {
+  if (path === '/analytics/dashboard' && request.method === 'GET') {
+    return new Response(ANALYTICS_DASHBOARD, {
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+        'x-frame-options': 'DENY',
+        'x-content-type-options': 'nosniff',
+        'referrer-policy': 'no-referrer',
+      },
+    });
+  }
+
+  if (path === '/analytics/report' && request.method === 'GET') {
+    if (!analyticsAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
+    return json(await analyticsReport(env));
+  }
+
+  if (path !== '/analytics/event' || request.method !== 'POST') {
+    return json({ error: 'not_found' }, 404);
+  }
+  if (String(env.ANALYTICS_HASH_KEY || '').length < 24) {
+    return json({ error: 'analytics_not_configured' }, 503);
+  }
+  const declaredSize = Number(request.headers.get('content-length') || 0);
+  if (declaredSize > 1024) return json({ error: 'too_large' }, 413);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'bad_json' }, 400); }
+  if (JSON.stringify(body).length > 1024) return json({ error: 'too_large' }, 413);
+
+  const event = String(body.event || '');
+  const screen = String(body.screen || '');
+  const movieId = String(body.movieId || '');
+  const visitorId = String(body.visitorId || '');
+  if (!ANALYTICS_EVENTS.has(event) || !ANALYTICS_SCREENS.has(screen) ||
+      (movieId && !/^\d{1,12}$/.test(movieId)) ||
+      !/^[A-Za-z0-9_-]{20,64}$/.test(visitorId)) {
+    return json({ error: 'invalid_analytics_event' }, 400);
+  }
+  const country = /^[A-Z]{2}$/.test(String(request.cf?.country || ''))
+    ? String(request.cf.country) : 'XX';
+  const day = new Date().toISOString().slice(0, 10);
+  const hash = await analyticsVisitorHash(visitorId, env.ANALYTICS_HASH_KEY);
+
+  await env.DB.batch([
+    env.DB.prepare(`INSERT OR IGNORE INTO analytics_daily_visitors
+      (day, visitor_hash, country) VALUES (?, ?, ?)`).bind(day, hash, country),
+    env.DB.prepare(`INSERT INTO analytics_daily_events
+      (day, event, screen, movie_id, country, total)
+      VALUES (?, ?, ?, ?, ?, 1)
+      ON CONFLICT(day, event, screen, movie_id, country)
+      DO UPDATE SET total = total + 1`)
+      .bind(day, event, screen, movieId, country),
+  ]);
+
+  if (Math.random() < 0.001) {
+    ctx.waitUntil(env.DB.batch([
+      env.DB.prepare("DELETE FROM analytics_daily_visitors WHERE day < date('now','-90 days')"),
+      env.DB.prepare("DELETE FROM analytics_daily_events WHERE day < date('now','-90 days')"),
+    ]));
+  }
+  return json({ ok: true });
+}
+
 // ---------------- MAIN ROUTER ----------------
 
 export default {
@@ -929,6 +1116,14 @@ export default {
 
     if (!env.DB) {
       return json({ error: 'worker_not_configured' }, 503);
+    }
+
+    if (path.startsWith('/analytics/')) {
+      try {
+        return await handleAnalytics(request, env, ctx, path);
+      } catch (e) {
+        return json({ error: 'analytics_unavailable' }, 503);
+      }
     }
 
     if (!path.startsWith('/community/')) {
