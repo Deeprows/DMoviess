@@ -118,6 +118,27 @@ class AdService with WidgetsBindingObserver {
     proceed();
   }
 
+  /// Gate an actual Download tap for non-premium users.
+  ///
+  /// Unlike movie-card ads, this loads a fresh support ad on every Download
+  /// tap. Once the ad is loaded, the normal Skip in N -> Skip Ad control is
+  /// used; the download destination opens only after the user skips the ad.
+  /// A failed ad must NEVER prevent the requested download page.
+  Future<void> guardDownload(
+    BuildContext context,
+    Future<void> Function() proceed,
+  ) async {
+    if (_showing || !context.mounted) return;
+    if (_active && _holds == 0) {
+      try {
+        await _present(context, freshDownloadAd: true);
+      } catch (error) {
+        debugPrint('DamiMovies: download ad could not open: $error');
+      }
+    }
+    if (context.mounted) await proceed();
+  }
+
   // --------------------------------------------------------------- timer
 
   void _onTick() {
@@ -147,7 +168,10 @@ class AdService with WidgetsBindingObserver {
 
   // ------------------------------------------------------------ showing
 
-  Future<void> _present(BuildContext context) async {
+  Future<void> _present(
+    BuildContext context, {
+    bool freshDownloadAd = false,
+  }) async {
     if (_showing) return;
     final ads = _ads;
     _showing = true;
@@ -159,7 +183,9 @@ class AdService with WidgetsBindingObserver {
         builder: (_) => SupportAdScreen(
           url: ads.supportUrl,
           skipAfterSeconds: ads.skipAfterSeconds,
-          preloaded: AdPreloader.instance.take(),
+          // Preserve the existing Skip Ad countdown for every ad, including
+          // downloads. Download taps start a fresh load each time.
+          preloaded: freshDownloadAd ? null : AdPreloader.instance.take(),
         ),
       ));
     } finally {
