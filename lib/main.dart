@@ -60,6 +60,185 @@ Future<void> _initializeServices() async {
   }
 }
 
+/// App-wide look: softer surfaces, rounded shapes, floating snackbars,
+/// smooth page transitions and a refined type scale.
+ThemeData _buildTheme(DamiPalette palette) {
+  final onAccent =
+      palette.accent.computeLuminance() > .5 ? Colors.black : Colors.white;
+  const hairline = Color(0x1FFFFFFF);
+  final base = ThemeData(brightness: Brightness.dark, useMaterial3: true);
+  return base.copyWith(
+    scaffoldBackgroundColor: palette.background,
+    splashFactory: InkRipple.splashFactory,
+    highlightColor: Colors.transparent,
+    colorScheme: ColorScheme.dark(
+      primary: palette.accent,
+      onPrimary: onAccent,
+      secondary: palette.accentSoft,
+      surface: palette.surface,
+    ),
+    textTheme: base.textTheme.apply(
+      bodyColor: Colors.white,
+      displayColor: Colors.white,
+    ),
+    pageTransitionsTheme: const PageTransitionsTheme(builders: {
+      TargetPlatform.android: ZoomPageTransitionsBuilder(),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+    }),
+    appBarTheme: AppBarTheme(
+      backgroundColor: palette.background,
+      foregroundColor: Colors.white,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      centerTitle: false,
+      titleTextStyle: const TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -.3,
+        color: Colors.white,
+      ),
+    ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: palette.deepSurface,
+      indicatorColor: palette.accent.withValues(alpha: .18),
+      labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
+            color: states.contains(WidgetState.selected)
+                ? Colors.white
+                : Colors.white60,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w800
+                : FontWeight.w500,
+            fontSize: 11,
+          )),
+    ),
+    cardTheme: CardThemeData(
+      color: palette.surface,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: hairline),
+      ),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: palette.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(26),
+        side: const BorderSide(color: hairline),
+      ),
+      titleTextStyle: const TextStyle(
+        fontSize: 19,
+        fontWeight: FontWeight.w800,
+        letterSpacing: -.3,
+        color: Colors.white,
+      ),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: palette.surface,
+      surfaceTintColor: Colors.transparent,
+      modalBackgroundColor: palette.surface,
+      showDragHandle: true,
+      dragHandleColor: Colors.white24,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: palette.surface,
+      contentTextStyle: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w600,
+      ),
+      insetPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: hairline),
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: Colors.white.withValues(alpha: .06),
+      selectedColor: palette.accent.withValues(alpha: .22),
+      showCheckmark: false,
+      side: const BorderSide(color: hairline),
+      shape: const StadiumBorder(),
+      labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: palette.accent,
+        foregroundColor: onAccent,
+        minimumSize: const Size(0, 48),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.white,
+        minimumSize: const Size(0, 48),
+        side: const BorderSide(color: Color(0x33FFFFFF)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: palette.accentSoft,
+        textStyle: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: palette.surface,
+      hintStyle: const TextStyle(color: Colors.white54),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: Color(0x14FFFFFF)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide(
+            color: palette.accent.withValues(alpha: .8), width: 1.4),
+      ),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected) ? onAccent : null),
+      trackColor: WidgetStateProperty.resolveWith((states) =>
+          states.contains(WidgetState.selected) ? palette.accent : null),
+    ),
+    progressIndicatorTheme: ProgressIndicatorThemeData(
+      color: palette.accent,
+      linearTrackColor: Colors.white12,
+    ),
+    dividerTheme: const DividerThemeData(color: Color(0x14FFFFFF), space: 1),
+    listTileTheme: ListTileThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    ),
+    drawerTheme: DrawerThemeData(
+      backgroundColor: palette.deepSurface,
+      surfaceTintColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(28)),
+      ),
+    ),
+  );
+}
+
 class DamiMoviesApp extends StatelessWidget {
   const DamiMoviesApp({super.key});
 
@@ -72,53 +251,7 @@ class DamiMoviesApp extends StatelessWidget {
             title: 'DamiMovies',
             locale: Locale(AppPreferences.instance.languageCode),
             debugShowCheckedModeBanner: false,
-            theme: ThemeData(
-              brightness: Brightness.dark,
-              scaffoldBackgroundColor: palette.background,
-              colorScheme: ColorScheme.dark(
-                primary: palette.accent,
-                surface: palette.surface,
-              ),
-              appBarTheme: AppBarTheme(
-                backgroundColor: palette.background,
-                foregroundColor: Colors.white,
-                elevation: 0,
-              ),
-              navigationBarTheme: NavigationBarThemeData(
-                backgroundColor: palette.deepSurface,
-                indicatorColor: palette.accent.withValues(alpha: .18),
-                labelTextStyle:
-                    WidgetStateProperty.resolveWith((states) => TextStyle(
-                          color: states.contains(WidgetState.selected)
-                              ? Colors.white
-                              : Colors.white60,
-                          fontWeight: states.contains(WidgetState.selected)
-                              ? FontWeight.w800
-                              : FontWeight.w500,
-                          fontSize: 11,
-                        )),
-              ),
-              inputDecorationTheme: InputDecorationTheme(
-                filled: true,
-                fillColor: palette.surface,
-                hintStyle: const TextStyle(color: Colors.white54),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              switchTheme: SwitchThemeData(
-                thumbColor: WidgetStateProperty.resolveWith((states) =>
-                    states.contains(WidgetState.selected)
-                        ? palette.accent
-                        : null),
-                trackColor: WidgetStateProperty.resolveWith((states) =>
-                    states.contains(WidgetState.selected)
-                        ? palette.accent.withValues(alpha: .35)
-                        : null),
-              ),
-              useMaterial3: true,
-            ),
+            theme: _buildTheme(palette),
             navigatorKey: AdService.instance.navigatorKey,
             scaffoldMessengerKey: PushService.messengerKey,
             home: const _DamiSplash(),
