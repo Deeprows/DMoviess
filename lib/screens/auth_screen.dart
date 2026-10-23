@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../main.dart';
 import '../services/auth_service.dart';
@@ -58,6 +59,28 @@ class _AuthScreenState extends State<AuthScreen> {
       _failure = failure;
       if (failure?.switchTo != null) _signUp = failure!.switchTo == 'signup';
     });
+  }
+
+  Future<void> _messageAdmin() async {
+    final uri = Uri.https('wa.me', '/2348164887683', {
+      'text': 'Hello Admin, I need help with DamiMovies login or sign up.',
+    });
+    try {
+      final opened = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to open WhatsApp. Please try again.')),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open WhatsApp. Please try again.')),
+      );
+    }
   }
 
   @override
@@ -202,7 +225,9 @@ class _AuthScreenState extends State<AuthScreen> {
                     SizedBox(height: 14),
                     _error(_failure!),
                   ],
-                  SizedBox(height: 16),
+                  SizedBox(height: 12),
+                  _adminHelpButton(),
+                  SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -311,6 +336,31 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
           ),
         ),
+      );
+
+  Widget _adminHelpButton() => Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 4,
+        children: [
+          const Text(
+            'Stuck here?',
+            style: TextStyle(color: Colors.white70, fontSize: 13),
+          ),
+          TextButton.icon(
+            onPressed: _messageAdmin,
+            icon: const Icon(Icons.chat_rounded, size: 18),
+            label: const Text(
+              'Message Admin',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF25D366),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              minimumSize: const Size(0, 40),
+            ),
+          ),
+        ],
       );
 
   Widget _error(AuthFailure failure) => Column(
