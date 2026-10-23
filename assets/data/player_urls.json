@@ -1,10 +1,185 @@
+
 {
-  "primary": {
-    "movie": "https://vsembed.su/embed/movie/{id}",
-    "tv": "https://vsembed.su/embed/tv/{id}"
-  },
-  "secondary": {
-    "movie": "https://web.nxsha.app/embed/movie/{id}",
-    "tv": "https://web.nxsha.app/embed/tv/{id}/{season}/{episode}"
-  }
+  "players": [
+    {
+      "id": "primary",
+      "name": "Player 1",
+      "enabled": true,
+      "movie": "https://vsembed.su/embed/movie/{id}",
+      "tv": "https://vsembed.su/embed/tv/{id}",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "secondary",
+      "name": "Player 2",
+      "enabled": true,
+      "movie": "https://web.nxsha.app/embed/movie/{id}",
+      "tv": "https://web.nxsha.app/embed/tv/{id}/{season}/{episode}",
+      "idType": "auto",
+      "blockHeaderActions": true
+    },
+    {
+      "id": "third",
+      "name": "Player 3",
+      "enabled": true,
+      "movie": "https://vidsrc.sh/embed/movie/{id}",
+      "tv": "https://vidsrc.sh/embed/tv/{id}/{season}/{episode}",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player4",
+      "name": "Player 4",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player5",
+      "name": "Player 5",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player6",
+      "name": "Player 6",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player7",
+      "name": "Player 7",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player8",
+      "name": "Player 8",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player9",
+      "name": "Player 9",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player10",
+      "name": "Player 10",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player11",
+      "name": "Player 11",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player12",
+      "name": "Player 12",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player13",
+      "name": "Player 13",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player14",
+      "name": "Player 14",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player15",
+      "name": "Player 15",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player16",
+      "name": "Player 16",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player17",
+      "name": "Player 17",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player18",
+      "name": "Player 18",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player19",
+      "name": "Player 19",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    },
+    {
+      "id": "player20",
+      "name": "Player 20",
+      "enabled": false,
+      "movie": "",
+      "tv": "",
+      "idType": "auto",
+      "blockHeaderActions": false
+    }
+  ]
 }
