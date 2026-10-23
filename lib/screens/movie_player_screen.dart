@@ -1117,6 +1117,22 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
             _buildNativeVideo(native)
           else
             WebViewWidget(controller: _controller),
+          // Player 2 embeds its own header actions (Download, video, cloud,
+          // expand, etc.). Keep the buttons visible but block touch input on
+          // that top-right area. This overlay is ONLY active for Player 2;
+          // it never covers the video controls or DamiMovies' bottom toolbar.
+          // Switching back to Player 1 removes the blocker immediately.
+          if (_sourceIndex == 1 && native == null)
+            Positioned(
+              top: 0,
+              right: 0,
+              width: MediaQuery.sizeOf(context).width * 0.59,
+              height: _isImmersive ? 126 : 235,
+              child: const AbsorbPointer(
+                absorbing: true,
+                child: ColoredBox(color: Colors.transparent),
+              ),
+            ),
           if (_loading)
             Positioned.fill(
                 child: IgnorePointer(
