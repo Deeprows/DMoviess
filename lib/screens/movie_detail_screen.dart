@@ -41,6 +41,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
   List<Movie> _similar = [];
   TmdbTrailer? _trailer;
   bool _loadingDetails = true, _loadingSimilar = true, _loadingTrailer = true;
+  bool _openingPlayer = false;
 
   @override
   void initState() {
@@ -139,8 +140,21 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
     );
   }
 
-  void _play() => Navigator.push(context,
-      MaterialPageRoute(builder: (_) => MoviePlayerScreen(movie: _movie)));
+  Future<void> _play() async {
+    // Push the player FIRST. Its WebView begins loading while the support-ad
+    // route is on top, so Skip Ad reveals the existing player immediately.
+    if (_openingPlayer || !mounted) return;
+    _openingPlayer = true;
+    try {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => _PlayerBehindPlayAd(movie: _movie),
+        ),
+      );
+    } finally {
+      _openingPlayer = false;
+    }
+  }
 
   @override
   void dispose() {
@@ -791,4 +805,62 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
               color: Colors.white70,
               fontSize: 11,
               fontWeight: FontWeight.w700)));
+}
+
+/// Keeps the real movie player mounted beneath the usual support-ad route.
+/// Unlike the old "ad -> Navigator.push(player)" sequence, this allows the
+/// player WebView to resolve its URL and load while the user watches the ad.
+/// The black interaction shield stops touches leaking into the player before
+/// the ad has been skipped; it is removed only after guardPlay completes.
+class _PlayerBehindPlayAd extends StatefulWidget {
+  const _PlayerBehindPlayAd({required this.movie});
+
+  final Movie movie;
+
+  @override
+  State<_PlayerBehindPlayAd> createState() => _PlayerBehindPlayAdState();
+}
+
+class _PlayerBehindPlayAdState extends State<_PlayerBehindPlayAd> {
+  bool _adCompleted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Wait one frame so MoviePlayerScreen can mount/start loading before
+    // opening the ad route above it. The shield prevents a visible flash.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_presentAd());
+    });
+  }
+
+  Future<void> _presentAd() async {
+    try {
+      // Reuses exactly the same ad loading, countdown, Skip Ad, and Continue
+      // on failure logic as the existing Download button. Premium bypasses it.
+      await AdService.instance.guardPlay(context, () async {});
+    } catch (error) {
+      debugPrint('DamiMovies: unable to show Play ad: $error');
+    } finally {
+      if (mounted) setState(() => _adCompleted = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Built even while covered: do not rebuild it when the ad ends.
+        MoviePlayerScreen(movie: widget.movie),
+        if (!_adCompleted)
+          const Positioned.fill(
+            child: AbsorbPointer(
+              absorbing: true,
+              child: ColoredBox(color: Colors.black),
+            ),
+          ),
+      ],
+    );
+  }
 }
