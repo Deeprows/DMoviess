@@ -160,7 +160,14 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
         : null;
     final season = match?.group(2) ?? '1';
     final episode = match?.group(3) ?? '1';
-    final providers = config.players.where((p) => p.enabled).toList();
+    // An explicit TV episode must use providers that support episode-level
+    // paths. A generic /tv/{id} template may load the wrong episode.
+    final selectingEpisode = m.isSeries &&
+        match?.group(2) != null && match?.group(3) != null;
+    final providers = config.players.where((p) => p.enabled &&
+        (!selectingEpisode ||
+            (p.tv.contains('{season}') && p.tv.contains('{episode}'))))
+        .toList();
 
     String generated(PlayerProvider p) =>
         p.urlFor(
