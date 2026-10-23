@@ -10,6 +10,7 @@ import '../services/movie_library.dart';
 import '../services/profile_data.dart';
 import '../services/tmdb_service.dart';
 import 'movie_detail_screen.dart';
+import 'tv_show_detail_screen.dart';
 
 /// Opens from any cast member on a movie or series details page.
 /// Older saved cast items without a person ID are resolved by exact name.
@@ -93,13 +94,15 @@ class _ActorProfileScreenState extends State<ActorProfileScreen> {
     unawaited(AdService.instance.guard(context, () {
       if (!mounted) return;
       Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => MovieDetailScreen(
-          movie: movie,
-          saved: MovieLibrary.instance.isSaved(movie),
-          onToggleSaved: () async {
-            await MovieLibrary.instance.toggleSaved(movie);
-          },
-        ),
+        builder: (_) => movie.isSeries
+            ? TvShowDetailScreen(show: movie)
+            : MovieDetailScreen(
+                movie: movie,
+                saved: MovieLibrary.instance.isSaved(movie),
+                onToggleSaved: () async {
+                  await MovieLibrary.instance.toggleSaved(movie);
+                },
+              ),
       ));
     }));
   }
