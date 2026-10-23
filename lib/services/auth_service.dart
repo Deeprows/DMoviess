@@ -46,6 +46,59 @@ class AuthService extends ChangeNotifier {
   static const _kBackup = 'damimovies_auth_session';
   static const _kRegistered = 'damimovies_registered_emails';
 
+  // Local, per-Gmail welcome guide state. Only a confirmed NEW registration
+  // creates a pending welcome. A normal login or session restore never does.
+  static const _welcomePendingPrefix = 'damimovies_welcome_pending_v2:';
+  static const _welcomeSeenPrefix = 'damimovies_welcome_seen_v2:';
+
+  static String _welcomeAccountKey(String email) =>
+      email.trim().toLowerCase();
+
+  Future<void> _queueWelcomeForNewAccount(String email) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = _welcomeAccountKey(email);
+      if (prefs.getBool('$_welcomeSeenPrefix$key') != true) {
+        await prefs.setBool('$_welcomePendingPrefix$key', true);
+      }
+    } catch (error) {
+      // A local preference failure should never undo a valid registration.
+      debugPrint('DamiMovies: could not queue welcome guide: $error');
+    }
+  }
+
+  Future<bool> shouldShowWelcomeGuide() async {
+    final email = _user?.email;
+    if (email == null || email.isEmpty) return false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = _welcomeAccountKey(email);
+      return prefs.getBool('$_welcomePendingPrefix$key') == true &&
+          prefs.getBool('$_welcomeSeenPrefix$key') != true;
+    } catch (error) {
+      debugPrint('DamiMovies: could not check welcome guide: $error');
+      return false;
+    }
+  }
+
+  /// Returns true only when dismissal was saved, so a storage error doesn't
+  /// falsely promise the card will never appear again.
+  Future<bool> dismissWelcomeGuide() async {
+    final email = _user?.email;
+    if (email == null || email.isEmpty) return false;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = _welcomeAccountKey(email);
+      final saved = await prefs.setBool('$_welcomeSeenPrefix$key', true);
+      if (saved) await prefs.remove('$_welcomePendingPrefix$key');
+      return saved;
+    } catch (error) {
+      debugPrint('DamiMovies: could not save welcome dismissal: $error');
+      return false;
+    }
+  }
+
+
   final GoogleSignIn _google = GoogleSignIn(
     scopes: ['email', 'profile'],
     serverClientId: _webClientId.isEmpty ? null : _webClientId,
@@ -259,6 +312,11 @@ class AuthService extends ChangeNotifier {
       }
       _user = _fromAccount(account);
       await _save();
+      if (signUp) {
+        // Reaching here means the Auth Worker confirmed a NEW registration
+        // (HTTP 200). Existing accounts attempting signup receive HTTP 409.
+        await _queueWelcomeForNewAccount(account.email);
+      }
       notifyListeners();
       return null;
     } on PlatformException catch (error) {
