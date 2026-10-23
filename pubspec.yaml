@@ -55,6 +55,7 @@ flutter:
     - assets/data/app_config.json
     - assets/data/support_damimovies.json
     - assets/data/share_damimovies.json
+    - assets/data/telegram_popup.json
     - assets/icon/home_logo.png
     - assets/splash/splash.png
 
