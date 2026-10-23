@@ -539,14 +539,14 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   }
 
   Widget _circleIcon(IconData icon) => Container(
-        width: 52,
-        height: 52,
+        width: 46,
+        height: 46,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.black.withValues(alpha: .25),
-          border: Border.all(color: Colors.white24),
+          color: appSurface,
+          border: Border.all(color: Colors.white.withValues(alpha: .08)),
         ),
-        child: Icon(icon, size: 26),
+        child: Icon(icon, size: 22),
       );
 
   Widget _brandHeader() => Row(children: [
@@ -560,13 +560,18 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
             width: 44, height: 44, fit: BoxFit.contain),
         SizedBox(width: 11),
         Expanded(
-            child: Text('DamiMovies'.tr,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    fontSize: 23,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -.7))),
+            child: ShaderMask(
+                blendMode: BlendMode.srcIn,
+                shaderCallback: (rect) => LinearGradient(
+                        colors: [Colors.white, appAccentSoft])
+                    .createShader(rect),
+                child: Text('DamiMovies'.tr,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -.8)))),
         InkWell(
             customBorder: const CircleBorder(),
             onTap: _openSearch,
@@ -596,11 +601,20 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                       icon: Icon(Icons.close)),
               filled: true,
               fillColor: appSurface,
+              prefixIcon: Icon(Icons.search_rounded, color: Colors.white54),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30),
                   borderSide: BorderSide.none),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(
+                      color: Colors.white.withValues(alpha: .08))),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(
+                      color: appRed.withValues(alpha: .8), width: 1.4)),
             ),
           ),
         ),
@@ -884,17 +898,27 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   }
 
   Widget _sectionTitle(String title, [String? subtitle]) => Padding(
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 13),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
       child: Row(children: [
+        Container(
+            width: 4,
+            height: 20,
+            margin: const EdgeInsets.only(right: 10),
+            decoration: BoxDecoration(
+                gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [appAccentSoft, appRed]),
+                borderRadius: BorderRadius.circular(99))),
         Expanded(
             child: Text(title.tr,
                 style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: -.3))),
+                    letterSpacing: -.5))),
         if (subtitle != null)
           Text(subtitle.tr,
-              style: const TextStyle(color: Colors.white54, fontSize: 11))
+              style: const TextStyle(color: Colors.white54, fontSize: 11.5))
       ]));
 
   Widget _heroCarousel(List<Movie> movies) {
@@ -933,8 +957,15 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                     width: selected ? 22 : 6,
                     height: 6,
                     decoration: BoxDecoration(
-                      color: selected ? appRed : Colors.white30,
+                      color: selected ? appRed : Colors.white24,
                       borderRadius: BorderRadius.circular(99),
+                      boxShadow: selected
+                          ? [
+                              BoxShadow(
+                                  color: appRed.withValues(alpha: .6),
+                                  blurRadius: 8)
+                            ]
+                          : null,
                     ),
                   ),
                 );
@@ -952,11 +983,19 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
     return GestureDetector(
       onTap: () => _open(movie),
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 1),
+        margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: appSurface,
-          borderRadius: BorderRadius.circular(26),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: Colors.white.withValues(alpha: .08)),
+          boxShadow: [
+            BoxShadow(
+              color: appRed.withValues(alpha: .22),
+              blurRadius: 28,
+              offset: const Offset(0, 12),
+            ),
+          ],
         ),
         child: Stack(
           fit: StackFit.expand,
@@ -969,17 +1008,18 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
               )
             else
               Container(color: appSurface),
-            const DecoratedBox(
+            DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0x11000000),
-                    Color(0x44000000),
-                    Color(0xF2080B10)
+                    const Color(0x22000000),
+                    const Color(0x00000000),
+                    appBg.withValues(alpha: .55),
+                    appBg.withValues(alpha: .96),
                   ],
-                  stops: [0, .35, 1],
+                  stops: const [0, .30, .62, 1],
                 ),
               ),
             ),
@@ -990,19 +1030,30 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
                 decoration: BoxDecoration(
-                    color: appRed, borderRadius: BorderRadius.circular(9)),
+                    gradient: LinearGradient(colors: [appRed, appAccentSoft]),
+                    borderRadius: BorderRadius.circular(99),
+                    boxShadow: [
+                      BoxShadow(
+                          color: appRed.withValues(alpha: .45),
+                          blurRadius: 14,
+                          offset: const Offset(0, 4))
+                    ]),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.local_fire_department_rounded,
-                        size: 15, color: Colors.white),
+                        size: 15,
+                        color: appRed.computeLuminance() > .5
+                            ? Colors.black
+                            : Colors.white),
                     SizedBox(width: 5),
-                    Text('TRENDING NOW'.tr,
+                    Text('Trending now'.tr,
                         style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: .8,
-                            color: Colors.white)),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: appRed.computeLuminance() > .5
+                                ? Colors.black
+                                : Colors.white)),
                   ],
                 ),
               ),
@@ -1013,7 +1064,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
                 decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: .55),
+                    color: Colors.black.withValues(alpha: .45),
+                    border: Border.all(color: Colors.white24),
                     borderRadius: BorderRadius.circular(20)),
                 child: Text(
                   '${index + 1} / $total',
@@ -1032,14 +1084,14 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    movie.genres.take(3).join('  •  ').toUpperCase(),
+                    movie.genres.take(3).join('  •  '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Color(0xFFFFB8C5),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1),
+                    style: TextStyle(
+                        color: appAccentSoft,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: .2),
                   ),
                   SizedBox(height: 9),
                   Text(
@@ -1047,10 +1099,13 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontSize: 31,
-                        height: 1.02,
+                        fontSize: 32,
+                        height: 1.04,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: -.7),
+                        letterSpacing: -1,
+                        shadows: [
+                          Shadow(color: Colors.black54, blurRadius: 16)
+                        ]),
                   ),
                   SizedBox(height: 9),
                   Row(
@@ -1078,10 +1133,12 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                         style: FilledButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: Colors.black,
+                            minimumSize: const Size(0, 46),
+                            shape: const StadiumBorder(),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 19, vertical: 12)),
+                                horizontal: 22, vertical: 12)),
                         onPressed: () => _playNow(movie),
-                        icon: Icon(Icons.play_arrow_rounded),
+                        icon: Icon(Icons.play_arrow_rounded, size: 24),
                         label: Text('Play'.tr,
                             style:
                                 const TextStyle(fontWeight: FontWeight.w900)),
@@ -1090,9 +1147,13 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.white54),
+                            backgroundColor:
+                                Colors.white.withValues(alpha: .12),
+                            minimumSize: const Size(0, 46),
+                            shape: const StadiumBorder(),
+                            side: const BorderSide(color: Colors.white30),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 12)),
+                                horizontal: 18, vertical: 12)),
                         onPressed: () => _toggleSaved(movie),
                         icon: Icon(_saved.contains(movie.key)
                             ? Icons.bookmark
@@ -1133,8 +1194,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                             children: [
                               Expanded(
                                   child: Stack(fit: StackFit.expand, children: [
-                                ClipRRect(
-                                    borderRadius: BorderRadius.circular(15),
+                                _posterFrame(
+                                    radius: 18,
                                     child: _image(movies[i].image)),
                                 Positioned(
                                     right: 7,
@@ -1160,8 +1221,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
                                       height: 1.2)),
                               if (showProgress)
                                 Padding(
@@ -1194,8 +1255,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                               right: 0,
                               top: 2,
                               bottom: 0,
-                              child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(14),
+                              child: _posterFrame(
+                                  radius: 18,
                                   child: _image(_top10[i].image))),
                           Positioned(
                               left: 0,
@@ -1255,8 +1316,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(15),
+                          child: _posterFrame(
+                            radius: 18,
                             child: Stack(
                               fit: StackFit.expand,
                               children: [
@@ -1274,10 +1335,20 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                                   ),
                                 ),
                                 Center(
-                                  child: Icon(
-                                    Icons.play_circle_fill_rounded,
-                                    color: Colors.white,
-                                    size: 52,
+                                  child: Container(
+                                    width: 50,
+                                    height: 50,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.black.withValues(alpha: .45),
+                                      border: Border.all(
+                                          color: Colors.white54, width: 1.5),
+                                    ),
+                                    child: const Icon(
+                                      Icons.play_arrow_rounded,
+                                      color: Colors.white,
+                                      size: 30,
+                                    ),
                                   ),
                                 ),
                                 Positioned(
@@ -1289,14 +1360,15 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                                       vertical: 4,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: appRed,
-                                      borderRadius: BorderRadius.circular(6),
+                                      color: Colors.black.withValues(alpha: .55),
+                                      border: Border.all(color: Colors.white24),
+                                      borderRadius: BorderRadius.circular(99),
                                     ),
                                     child: Text(
-                                      'TRAILER',
+                                      'Trailer'.tr,
                                       style: TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w900,
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w800,
                                       ),
                                     ),
                                   ),
@@ -1331,9 +1403,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
             child: Stack(fit: StackFit.expand, children: [
-          ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: _image(movie.image)),
+          _posterFrame(radius: 18, child: _image(movie.image)),
           Positioned(top: 6, right: 6, child: _bookmarkButton(movie)),
           if (movie.rating.isNotEmpty)
             Positioned(
@@ -1343,11 +1413,12 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                     decoration: BoxDecoration(
-                        color: Colors.black87,
-                        borderRadius: BorderRadius.circular(6)),
+                        color: Colors.black.withValues(alpha: .6),
+                        border: Border.all(color: Colors.white24),
+                        borderRadius: BorderRadius.circular(99)),
                     child: Text('★ ${movie.rating}',
                         style: const TextStyle(
-                            fontSize: 9, fontWeight: FontWeight.bold))))
+                            fontSize: 10, fontWeight: FontWeight.w800))))
         ])),
         SizedBox(height: 7),
         Text(movie.title,
@@ -1361,6 +1432,26 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(color: Colors.white54, fontSize: 10))
       ]));
+
+  /// Poster/thumbnail frame: rounded corners, hairline border, soft shadow.
+  Widget _posterFrame({required double radius, required Widget child}) =>
+      Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(radius),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: .35),
+                blurRadius: 12,
+                offset: const Offset(0, 6)),
+          ],
+        ),
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(color: Colors.white.withValues(alpha: .08)),
+        ),
+        child: ClipRRect(
+            borderRadius: BorderRadius.circular(radius), child: child),
+      );
 
   Widget _image(String url) => url.startsWith('http')
       ? CachedNetworkImage(
@@ -1378,7 +1469,8 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
       child: Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: .75),
+              color: Colors.black.withValues(alpha: .5),
+              border: Border.all(color: Colors.white24),
               shape: BoxShape.circle),
           child: Icon(
               _saved.contains(movie.key)
