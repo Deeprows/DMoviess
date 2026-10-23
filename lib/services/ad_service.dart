@@ -118,25 +118,49 @@ class AdService with WidgetsBindingObserver {
     proceed();
   }
 
-  /// Gate an actual Download tap for non-premium users.
-  ///
-  /// Unlike movie-card ads, this loads a fresh support ad on every Download
-  /// tap. Once the ad is loaded, the normal Skip in N -> Skip Ad control is
-  /// used; the download destination opens only after the user skips the ad.
-  /// A failed ad must NEVER prevent the requested download page.
+  /// Gate an actual Download tap for non-premium users. A fresh ad loads,
+  /// then the existing Skip in N -> Skip Ad control lets them continue.
+  /// If the ad cannot load, the requested download can still proceed.
   Future<void> guardDownload(
     BuildContext context,
     Future<void> Function() proceed,
+  ) => _guardIntent(context, proceed, 'download');
+
+  /// Gate Play on the movie detail page using the SAME ad / Skip Ad flow.
+  /// Premium users bypass the ad. There is no auto-continue on load.
+  Future<void> guardPlay(
+    BuildContext context,
+    Future<void> Function() proceed,
+  ) => _guardIntent(context, proceed, 'play');
+
+  bool _intentInProgress = false;
+
+  Future<void> _guardIntent(
+    BuildContext context,
+    Future<void> Function() proceed,
+    String action,
   ) async {
-    if (_showing || !context.mounted) return;
-    if (_active && _holds == 0) {
+    // Prevent repeat taps opening multiple ads or destination pages.
+    if (_showing || _intentInProgress || !context.mounted) return;
+    _intentInProgress = true;
+    try {
       try {
-        await _present(context, freshDownloadAd: true);
+        // Avoid showing ads to subscribers whose status is still loading.
+        await PremiumService.instance.ensureLoaded();
+        if (_active && _holds == 0 && context.mounted) {
+          // A fresh ad prevents a previously preloaded page from short-
+          // circuiting the Skip Ad countdown on each user action.
+          await _present(context, freshIntentAd: true);
+        }
       } catch (error) {
-        debugPrint('DamiMovies: download ad could not open: $error');
+        debugPrint('DamiMovies: $action ad could not open: $error');
       }
+      // SupportAdScreen only returns on Skip Ad / Continue after an error.
+      // Never navigate merely because the ad page has finished loading.
+      if (context.mounted) await proceed();
+    } finally {
+      _intentInProgress = false;
     }
-    if (context.mounted) await proceed();
   }
 
   // --------------------------------------------------------------- timer
@@ -170,7 +194,7 @@ class AdService with WidgetsBindingObserver {
 
   Future<void> _present(
     BuildContext context, {
-    bool freshDownloadAd = false,
+    bool freshIntentAd = false,
   }) async {
     if (_showing) return;
     final ads = _ads;
@@ -183,9 +207,9 @@ class AdService with WidgetsBindingObserver {
         builder: (_) => SupportAdScreen(
           url: ads.supportUrl,
           skipAfterSeconds: ads.skipAfterSeconds,
-          // Preserve the existing Skip Ad countdown for every ad, including
-          // downloads. Download taps start a fresh load each time.
-          preloaded: freshDownloadAd ? null : AdPreloader.instance.take(),
+          // Preserve the Skip Ad countdown on Play and Download actions.
+          // Do not use the special autoContinueOnLoad mode.
+          preloaded: freshIntentAd ? null : AdPreloader.instance.take(),
         ),
       ));
     } finally {
