@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "campaignId": "join-telegram-001",
+  "frequency": "once",
+  "delaySeconds": 2,
+  "title": "JOIN OUR",
+  "highlight": "TELEGRAM CHANNEL",
+  "subtitle": "Get movie and TV show updates, announcements and community news.",
+  "buttonText": "JOIN CHANNEL",
+  "telegramUrl": "https://t.me/deeprows",
+  "imageUrl": ""
+}
