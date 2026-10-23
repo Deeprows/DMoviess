@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../main.dart';
 import '../models/movie.dart';
 import '../services/ad_service.dart';
+import '../services/app_analytics.dart';
 import '../services/app_preferences.dart';
 import '../services/tmdb_service.dart';
 import '../services/movie_library.dart';
@@ -44,6 +45,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
   void initState() {
     super.initState();
     _movie = widget.movie;
+    AppAnalytics.instance.movieDetailsViewed(widget.movie);
     _saved = widget.saved;
     _tabs = TabController(length: 2, vsync: this);
     ProfileData.instance.load();
