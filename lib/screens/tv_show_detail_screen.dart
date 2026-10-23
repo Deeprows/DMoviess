@@ -7,6 +7,7 @@ import '../models/movie.dart';
 import '../models/tv_show.dart';
 import '../services/movie_library.dart';
 import '../services/tmdb_service.dart';
+import 'actor_profile_screen.dart';
 import 'movie_player_screen.dart';
 import 'trailer_player_screen.dart';
 
@@ -191,6 +192,28 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
                     ),
                   ),
                 ]),
+                if (show.cast.isNotEmpty) ...[
+                  const SizedBox(height: 26),
+                  Row(children: [
+                    const Expanded(child: Text('Top Cast',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900))),
+                    Text('${show.cast.length} actors',
+                      style: const TextStyle(fontSize: 11, color: Colors.white54)),
+                  ]),
+                  const SizedBox(height: 5),
+                  const Text('Tap an actor to explore their profile',
+                    style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  const SizedBox(height: 13),
+                  SizedBox(
+                    height: 172,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: show.cast.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      itemBuilder: (_, i) => _castTile(show.cast[i]),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 28),
                 Row(children: [
                   Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -247,6 +270,50 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
       : CachedNetworkImage(imageUrl: url, fit: BoxFit.cover,
           placeholder: (_, __) => Container(color: appSurface),
           errorWidget: (_, __, ___) => Container(color: appSurface, child: const Icon(Icons.broken_image_outlined)));
+
+  Widget _castTile(MovieCastMember person) => SizedBox(
+    width: 96,
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(13),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => ActorProfileScreen(person: person),
+        )),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              width: 96,
+              height: 112,
+              child: person.photo.startsWith('http')
+                ? CachedNetworkImage(
+                    imageUrl: person.photo,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => _actorFallback(),
+                    errorWidget: (_, __, ___) => _actorFallback(),
+                  )
+                : _actorFallback(),
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(person.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+          if (person.character.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(person.character, maxLines: 2, overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10, color: Colors.white60, height: 1.2)),
+          ],
+        ]),
+      ),
+    ),
+  );
+
+  Widget _actorFallback() => Container(
+    color: appSurface,
+    alignment: Alignment.center,
+    child: const Icon(Icons.person_rounded, size: 38, color: Colors.white38),
+  );
 
   Widget _topButton(IconData icon, VoidCallback onTap) => Material(
     color: Colors.black54, borderRadius: BorderRadius.circular(20),
