@@ -254,7 +254,7 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
                     ..._episodes.map(_episodeTile),
                 ],
                 const SizedBox(height: 20),
-                const Text('TV information and episode listings from TMDB. Playback availability depends on your configured sources.',
+                const Text('TV information and episode listings.',
                   style: TextStyle(color: Colors.white38, fontSize: 10, height: 1.4),
                   textAlign: TextAlign.center),
               ])),
