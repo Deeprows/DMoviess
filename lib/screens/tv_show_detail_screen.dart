@@ -6,6 +6,12 @@ import '../main.dart';
 import '../models/movie.dart';
 import '../models/tv_show.dart';
 import '../services/movie_library.dart';
+import '../services/profile_data.dart';
+import '../services/download_upgrade_service.dart';
+import 'external_download_screen.dart';
+import 'community_composer.dart';
+import 'profile_collections_screen.dart';
+import 'watch_together_screen.dart';
 import '../services/tmdb_service.dart';
 import 'actor_profile_screen.dart';
 import 'movie_player_screen.dart';
@@ -28,6 +34,7 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
   bool _loading = true;
   bool _episodeLoading = false;
   String _error = '';
+  TvEpisode? _selectedEpisode;
 
   Movie get _show => _info?.show ?? widget.show;
   int get _id => widget.show.tmdbId ?? -1;
@@ -36,6 +43,7 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
   void initState() {
     super.initState();
     MovieLibrary.instance.load().then((_) { if (mounted) setState(() {}); });
+    ProfileData.instance.load();
     _loadDetails();
   }
 
@@ -69,7 +77,7 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
     List<TvEpisode> episodes = [];
     try { episodes = await _tmdb.tvSeasonEpisodes(_id, season); } catch (_) {}
     if (!mounted || request != _request) return;
-    setState(() { _episodeLoading = false; _episodes = episodes; });
+    setState(() { _episodeLoading = false; _episodes = episodes; _selectedEpisode = episodes.isEmpty ? null : episodes.first; });
   }
 
   Future<void> _toggleSaved() async {
@@ -80,9 +88,9 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
   /// Keep season and episode in the URL so the JSON-based provider selection
   /// can generate /tv/{id}/{season}/{episode}. Do not use the TMDB episode id
   /// in place of the *series* id: embed providers generally expect series id.
-  void _watch(TvEpisode episode) {
+  Movie _episodeMovie(TvEpisode episode) {
     final id = _show.tmdbId;
-    if (id == null) return;
+    if (id == null) return _show;
     final season = episode.seasonNumber;
     final ep = episode.number;
     final route = '${AppConfig.embedBase}/tv/$id/$season/$ep';
@@ -99,10 +107,115 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
       overview: episode.overview,
       releaseDate: episode.airDate,
     );
+    return entry;
+  }
+
+  void _watch(TvEpisode episode) {
+    final entry = _episodeMovie(episode);
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => MoviePlayerScreen(movie: entry),
     ));
   }
+
+  // Downloads require an explicitly configured episode-specific template.
+  // TMDB supplies metadata, not a downloadable episode file.
+  String _episodeDownloadUrl(TvEpisode episode) {
+    final template = _show.downloadUrl.trim();
+    if (!template.startsWith('https://') && !template.startsWith('http://')) return '';
+    if (!template.contains('{season}') || !template.contains('{episode}')) return '';
+    return template
+        .replaceAll('{id}', '${_id}')
+        .replaceAll('{season}', '${episode.seasonNumber}')
+        .replaceAll('{episode}', '${episode.number}');
+  }
+
+  Future<void> _downloadEpisode() async {
+    final episode = _selectedEpisode;
+    if (episode == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Choose a season and episode first.'),
+      ));
+      return;
+    }
+    final url = _episodeDownloadUrl(episode);
+    if (url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('An episode download link is not available for this series.'),
+      ));
+      return;
+    }
+    await DownloadUpgradeService.onDownloadTap(
+      context,
+      continueDownload: () async {
+        if (!mounted) return;
+        await Navigator.of(context).push<void>(MaterialPageRoute<void>(
+          builder: (_) => ExternalDownloadScreen(
+            movieTitle: _episodeMovie(episode).title,
+            downloadUrl: url,
+          ),
+        ));
+      },
+    );
+  }
+
+  Widget _engagementActions() {
+    final data = ProfileData.instance;
+    return ListenableBuilder(
+      listenable: data,
+      builder: (context, _) {
+        final rating = data.ratingFor(_show);
+        final reviewed = data.reviewFor(_show) != null;
+        Widget action(IconData icon, String label, VoidCallback onTap, {bool active = false}) =>
+            Expanded(child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(icon, color: active ? appRed : Colors.white70, size: 23),
+                  const SizedBox(height: 5),
+                  Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                      color: active ? appRed : Colors.white70)),
+                ]),
+              ),
+            ));
+        return Container(
+          decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(14)),
+          child: Row(children: [
+            action(rating == null ? Icons.star_border_rounded : Icons.star_rounded,
+              rating == null ? 'Rate' : 'Rated $rating★',
+              () => showRatingSheet(context, _show), active: rating != null),
+            action(reviewed ? Icons.rate_review_rounded : Icons.rate_review_outlined,
+              reviewed ? 'Reviewed' : 'Review',
+              () => showReviewDialog(context, _show), active: reviewed),
+            action(Icons.check_circle_outline_rounded, 'Check in',
+              () => checkInMovie(context, _show)),
+            action(Icons.playlist_add_rounded, 'Add to list',
+              () => showAddToListSheet(context, _show)),
+          ]),
+        );
+      },
+    );
+  }
+
+  Widget _socialActions() => Row(children: [
+    Expanded(child: OutlinedButton.icon(
+      onPressed: () => showCommunityComposer(context, movie: _show),
+      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+      label: const Text('Tweet', style: TextStyle(fontWeight: FontWeight.w800)),
+    )),
+    const SizedBox(width: 10),
+    Expanded(child: OutlinedButton.icon(
+      onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => WatchTogetherScreen(movie: _selectedEpisode == null
+          ? _show : _episodeMovie(_selectedEpisode!)),
+      )),
+      icon: const Icon(Icons.theaters_rounded, size: 18),
+      label: const Text('Watch Together', maxLines: 1,
+        overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w800)),
+    )),
+  ]);
 
   Future<void> _trailer() async {
     final trailer = await _tmdb.trailerFor(_show);
@@ -192,6 +305,18 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
                     ),
                   ),
                 ]),
+                const SizedBox(height: 10),
+                SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                  onPressed: _downloadEpisode,
+                  icon: const Icon(Icons.download_rounded),
+                  label: Text(_selectedEpisode == null ? 'Download episode' :
+                    'Download S${_selectedEpisode!.seasonNumber}E${_selectedEpisode!.number}'),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 46)),
+                )),
+                const SizedBox(height: 13),
+                _socialActions(),
+                const SizedBox(height: 13),
+                _engagementActions(),
                 if (show.cast.isNotEmpty) ...[
                   const SizedBox(height: 26),
                   Row(children: [
@@ -254,7 +379,7 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
                     ..._episodes.map(_episodeTile),
                 ],
                 const SizedBox(height: 20),
-                const Text('TV information and episode listings.',
+                const Text('TV information and episode listings from TMDB. Playback availability depends on your configured sources.',
                   style: TextStyle(color: Colors.white38, fontSize: 10, height: 1.4),
                   textAlign: TextAlign.center),
               ])),
@@ -331,7 +456,7 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
     child: Material(
       color: appSurface, borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        onTap: () => _watch(episode),
+        onTap: () { setState(() => _selectedEpisode = episode); _watch(episode); },
         borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.all(10),
@@ -365,6 +490,15 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
                   style: const TextStyle(color: Colors.white54, fontSize: 10, height: 1.25)),
               ],
             ])),
+            IconButton(
+              tooltip: 'Select episode for download or Watch Together',
+              onPressed: () => setState(() => _selectedEpisode = episode),
+              icon: Icon(_selectedEpisode?.number == episode.number &&
+                      _selectedEpisode?.seasonNumber == episode.seasonNumber
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_off_rounded,
+                color: appRed),
+            ),
           ]),
         ),
       ),
