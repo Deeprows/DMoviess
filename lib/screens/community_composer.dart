@@ -115,93 +115,101 @@ class _ComposerState extends State<_Composer> {
       duration: const Duration(milliseconds: 150),
       padding:
           EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CommunityAvatar(
-                    url: user?.photoUrl ?? '',
-                    name: user?.name ?? '',
-                    radius: 20),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(user?.name ?? 'Movie fan'.tr,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w900)),
-                ),
-              ],
-            ),
-            SizedBox(height: 14),
-            Glass(
-              radius: 16,
-              padding: const EdgeInsets.all(4),
-              child: Row(
+      // showModalBottomSheet(useSafeArea: true) does not protect its bottom
+      // edge. Keep the composer (especially the Post button) clear of the
+      // Android navigation bar, including on edge-to-edge Android layouts.
+      child: SafeArea(
+        top: false,
+        maintainBottomViewPadding: true,
+        minimum: const EdgeInsets.only(bottom: 12),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  _segment('Movie tweet', Icons.chat_bubble_rounded,
-                      !_recommend, () => setState(() => _recommend = false)),
-                  _segment('Recommendation', Icons.thumb_up_alt_rounded,
-                      _recommend, () => setState(() => _recommend = true)),
+                  CommunityAvatar(
+                      url: user?.photoUrl ?? '',
+                      name: user?.name ?? '',
+                      radius: 20),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(user?.name ?? 'Movie fan'.tr,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w900)),
+                  ),
                 ],
               ),
-            ),
-            SizedBox(height: 14),
-            TextField(
-              controller: _text,
-              autofocus: widget.movie == null,
-              minLines: 4,
-              maxLines: 8,
-              maxLength: 500,
-              onChanged: (_) => setState(() {}),
-              textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(
-                hintText: (_recommend
-                        ? 'Why should people watch it?'
-                        : 'What are you watching?')
-                    .tr,
-                filled: true,
-                fillColor: Colors.white.withValues(alpha: .05),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: Ui.glassLine),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: Ui.glassLine),
+              SizedBox(height: 14),
+              Glass(
+                radius: 16,
+                padding: const EdgeInsets.all(4),
+                child: Row(
+                  children: [
+                    _segment('Movie tweet', Icons.chat_bubble_rounded,
+                        !_recommend, () => setState(() => _recommend = false)),
+                    _segment('Recommendation', Icons.thumb_up_alt_rounded,
+                        _recommend, () => setState(() => _recommend = true)),
+                  ],
                 ),
               ),
-            ),
-            SizedBox(height: 6),
-            if (_movie == null)
-              OutlinedButton.icon(
-                onPressed: _pickMovie,
-                icon: Icon(Icons.movie_filter_rounded, size: 20),
-                label: Text(
-                    (_recommend ? 'Pick a movie (required)' : 'Attach a movie')
-                        .tr),
-              )
-            else
-              _attached(),
-            if (_error != null) ...[
-              SizedBox(height: 10),
-              Text(_error!.tr,
-                  style: TextStyle(color: Ui.red, fontWeight: FontWeight.w700)),
+              SizedBox(height: 14),
+              TextField(
+                controller: _text,
+                autofocus: widget.movie == null,
+                minLines: 4,
+                maxLines: 8,
+                maxLength: 500,
+                onChanged: (_) => setState(() {}),
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  hintText: (_recommend
+                          ? 'Why should people watch it?'
+                          : 'What are you watching?')
+                      .tr,
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: .05),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Ui.glassLine),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Ui.glassLine),
+                  ),
+                ),
+              ),
+              SizedBox(height: 6),
+              if (_movie == null)
+                OutlinedButton.icon(
+                  onPressed: _pickMovie,
+                  icon: Icon(Icons.movie_filter_rounded, size: 20),
+                  label: Text(
+                      (_recommend ? 'Pick a movie (required)' : 'Attach a movie')
+                          .tr),
+                )
+              else
+                _attached(),
+              if (_error != null) ...[
+                SizedBox(height: 10),
+                Text(_error!.tr,
+                    style: TextStyle(color: Ui.red, fontWeight: FontWeight.w700)),
+              ],
+              SizedBox(height: 16),
+              Opacity(
+                opacity: _ready && !_sending ? 1 : .45,
+                child: GradientButton(
+                  label: _sending ? 'Posting…'.tr : 'Post'.tr,
+                  icon: Icons.send_rounded,
+                  onTap: _send,
+                ),
+              ),
             ],
-            SizedBox(height: 16),
-            Opacity(
-              opacity: _ready && !_sending ? 1 : .45,
-              child: GradientButton(
-                label: _sending ? 'Posting…'.tr : 'Post'.tr,
-                icon: Icons.send_rounded,
-                onTap: _send,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
