@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../main.dart';
 import '../services/auth_service.dart';
+import '../services/app_analytics.dart';
 import 'app_shell_screen.dart';
 import 'auth_screen.dart';
 
@@ -16,10 +17,13 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
+  bool _wasBackgrounded = false;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Count an app launch even if the visitor has not signed in.
+    AppAnalytics.instance.appOpened();
     unawaited(AuthService.instance.restore());
   }
 
@@ -31,8 +35,17 @@ class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Coming back from the background must never log the user out.
-    if (state == AppLifecycleState.resumed) {
+    // Count a new visit when the app returns from the background.
+    // A normal foreground transition should not count twice.
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _wasBackgrounded = true;
+    } else if (state == AppLifecycleState.resumed) {
+      if (_wasBackgrounded) {
+        _wasBackgrounded = false;
+        AppAnalytics.instance.appOpened();
+      }
+      // Coming back from the background must never log the user out.
       unawaited(AuthService.instance.recheck());
     }
   }
