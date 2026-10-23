@@ -12,6 +12,7 @@ import '../main.dart';
 import '../models/movie.dart';
 import '../services/tmdb_service.dart';
 import '../services/movie_library.dart';
+import '../services/app_analytics.dart';
 import '../services/app_preferences.dart';
 import '../config.dart';
 import 'library_screen.dart';
@@ -608,6 +609,7 @@ class _MovieHomeScreenState extends State<MovieHomeScreen> {
   /// Pull down at the top of the homepage to reload movie data.
   /// Preserve search text, selected filters, and the user's current view.
   Future<void> _refreshHome() async {
+    AppAnalytics.instance.movieListRefreshed();
     await _refreshLocalLibrary();
     if (!mounted) return;
 
