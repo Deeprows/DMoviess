@@ -1,0 +1,35 @@
+name: Test DamiMovies analytics
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-analytics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test Cloudflare Analytics event endpoint
+        shell: bash
+        env:
+          WORKER_URL: https://damimovies-community.deeprows.workers.dev
+        run: |
+          set -euo pipefail
+          visitor_id="test_$(openssl rand -hex 16)"
+          payload="$(printf '{"event":"app_open","screen":"movies","movieId":"","visitorId":"%s"}' "$visitor_id")"
+          result="$(curl --silent --show-error --max-time 20 \
+            --header 'Content-Type: application/json' \
+            --request POST \
+            --data "$payload" \
+            --write-out $'\n%{http_code}' \
+            "$WORKER_URL/analytics/event")"
+          status="${result##*$'\n'}"
+          body="${result%$'\n'*}"
+          echo "HTTP status: $status"
+          echo "Worker response: $body"
+          if [[ "$status" != "200" ]] || [[ "$body" != *'"ok":true'* ]]; then
+            echo '::error::Analytics endpoint did not accept the test event. Check Worker Logs and ANALYTICS_HASH_KEY.'
+            exit 1
+          fi
+          echo 'Analytics endpoint accepted the test event. Verify app_open appears in D1.'
