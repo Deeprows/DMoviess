@@ -15,6 +15,7 @@ import '../models/movie.dart';
 import '../services/ad_shield.dart';
 import '../services/app_analytics.dart';
 import '../services/app_preferences.dart';
+import '../services/download_upgrade_service.dart';
 import '../services/background_playback.dart';
 import '../utils/external_link.dart';
 import '../services/movie_library.dart';
@@ -818,20 +819,25 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
 
   Future<void> _downloadPage() async {
     final url = widget.movie.downloadUrl.trim();
-    // A direct video file opens straight in the user's browser, otherwise the
-    // provider's download page does. Nothing is downloaded inside the app.
-    if (_stream.kind == StreamKind.video &&
-        isDirectMovieDownload(_stream.url)) {
-      await openInExternalBrowser(context, _stream.url);
-      return;
-    }
-    if (url.isEmpty) {
-      if (mounted)
+    // Direct video files and configured download pages both count as a tap.
+    // We cannot verify a completed download inside an external browser.
+    final destination = (_stream.kind == StreamKind.video &&
+            isDirectMovieDownload(_stream.url))
+        ? _stream.url
+        : url;
+    if (destination.isEmpty) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('No download page is available for this title.'.tr)));
+      }
       return;
     }
-    await openInExternalBrowser(context, url);
+    await DownloadUpgradeService.onDownloadTap(
+      context,
+      continueDownload: () async {
+        if (mounted) await openInExternalBrowser(context, destination);
+      },
+    );
   }
 
   Future<void> _openBrowser() async {
