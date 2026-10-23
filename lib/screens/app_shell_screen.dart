@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../services/app_remote_config.dart';
+import '../services/app_analytics.dart';
 import 'community_screen.dart';
 import 'movie_home_screen.dart';
 import 'library_screen.dart';
@@ -24,6 +25,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
   @override
   void initState() {
     super.initState();
+    AppAnalytics.instance.screenViewed('movies');
     RemoteConfig.instance.addListener(_checkNotice);
     // The bundled/cached config is already applied; the online copy arrives
     // a moment later and triggers _checkNotice again.
@@ -93,7 +95,12 @@ class _AppShellScreenState extends State<AppShellScreen> {
           backgroundColor: appSurface,
           indicatorColor: appRed.withValues(alpha: .18),
           selectedIndex: _index,
-          onDestinationSelected: (value) => setState(() => _index = value),
+          onDestinationSelected: (value) {
+            if (value == _index) return;
+            setState(() => _index = value);
+            const screens = ['movies', 'community', 'library'];
+            AppAnalytics.instance.screenViewed(screens[value]);
+          },
           destinations: [
             NavigationDestination(
                 icon: Icon(Icons.movie_outlined),
