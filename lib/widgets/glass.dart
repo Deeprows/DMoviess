@@ -29,7 +29,17 @@ class Glass extends StatelessWidget {
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: tint ?? Colors.white.withValues(alpha: .07),
+            gradient: tint == null
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: .10),
+                      Colors.white.withValues(alpha: .04),
+                    ],
+                  )
+                : null,
+            color: tint,
             borderRadius: BorderRadius.circular(radius),
             border: Border.all(color: Ui.glassLine),
           ),
@@ -90,19 +100,19 @@ class GradientButton extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: Ui.gradient,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Ui.red.withValues(alpha: .45),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
+            color: Ui.red.withValues(alpha: .38),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           onTap: onTap,
           child: SizedBox(
             height: height,
@@ -176,7 +186,8 @@ class RatingPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: .55),
+        color: Colors.black.withValues(alpha: .6),
+        border: Border.all(color: Colors.white24),
         borderRadius: BorderRadius.circular(99),
       ),
       child: Row(
