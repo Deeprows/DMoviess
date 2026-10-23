@@ -187,7 +187,7 @@ class TmdbService {
   /// distinguish Specials from numbered seasons.
   Future<TvSeriesInfo?> tvSeries(int id) async {
     if (id <= 0) return null;
-    final json = await _get('/tv/$id');
+    final json = await _get('/tv/$id', {'append_to_response': 'credits'});
     final show = _movie(json, type: 'tv');
     if (show == null) return null;
     final rawSeasons = json?['seasons'];
@@ -198,7 +198,25 @@ class TmdbService {
             .toList()
         : <TvSeason>[];
     seasons.sort((a, b) => a.number.compareTo(b.number));
-    return TvSeriesInfo(show: show, seasons: seasons);
+
+    // Fetch the series' cast in the same request as its details. Person IDs
+    // allow the existing ActorProfileScreen to open exact TMDB profiles.
+    final cast = <MovieCastMember>[];
+    final credits = json?['credits'];
+    if (credits is Map && credits['cast'] is List) {
+      for (final person in (credits['cast'] as List).whereType<Map>().take(18)) {
+        final name = (person['name'] ?? '').toString().trim();
+        if (name.isEmpty) continue;
+        final profilePath = (person['profile_path'] ?? '').toString();
+        cast.add(MovieCastMember(
+          id: (person['id'] as num?)?.toInt(),
+          name: name,
+          character: (person['character'] ?? '').toString(),
+          photo: profilePath.isEmpty ? '' : '${_imageBase}w185$profilePath',
+        ));
+      }
+    }
+    return TvSeriesInfo(show: show.copyWith(cast: cast), seasons: seasons);
   }
 
   Future<List<TvEpisode>> tvSeasonEpisodes(int showId, int season) async {
