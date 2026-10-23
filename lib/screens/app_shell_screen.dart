@@ -272,12 +272,19 @@ class _AppShellScreenState extends State<AppShellScreen> {
           CommunityScreen(active: _index == 2),
           const LibraryScreen(),
         ]),
-        bottomNavigationBar: NavigationBar(
-          height: 66,
-          backgroundColor: appSurface,
-          indicatorColor: appRed.withValues(alpha: .18),
+        bottomNavigationBar: _ModernNavBar(
           selectedIndex: _index,
-          onDestinationSelected: (value) {
+          items: [
+            _NavItem(Icons.movie_outlined, Icons.movie_filter_rounded,
+                'Movies'.tr),
+            _NavItem(Icons.live_tv_outlined, Icons.live_tv_rounded,
+                'TV Shows'.tr),
+            _NavItem(Icons.forum_outlined, Icons.forum_rounded,
+                'Community'.tr),
+            _NavItem(Icons.video_library_outlined,
+                Icons.video_library_rounded, 'Library'.tr),
+          ],
+          onSelected: (value) {
             if (value == _index) return;
             setState(() {
               _index = value;
@@ -286,24 +293,142 @@ class _AppShellScreenState extends State<AppShellScreen> {
             const screens = ['movies', 'tv_shows', 'community', 'library'];
             AppAnalytics.instance.screenViewed(screens[value]);
           },
-          destinations: [
-            NavigationDestination(
-                icon: Icon(Icons.movie_outlined),
-                selectedIcon: Icon(Icons.movie_filter_rounded),
-                label: 'Movies'.tr),
-            NavigationDestination(
-                icon: Icon(Icons.live_tv_outlined),
-                selectedIcon: Icon(Icons.live_tv_rounded),
-                label: 'TV Shows'.tr),
-            NavigationDestination(
-                icon: Icon(Icons.forum_outlined),
-                selectedIcon: Icon(Icons.forum_rounded),
-                label: 'Community'.tr),
-            NavigationDestination(
-                icon: Icon(Icons.video_library_outlined),
-                selectedIcon: Icon(Icons.video_library_rounded),
-                label: 'Library'.tr),
-          ],
         ),
       );
+}
+
+class _NavItem {
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  const _NavItem(this.icon, this.selectedIcon, this.label);
+}
+
+/// Bottom bar: a dark panel with a glowing hairline on top. The selected tab
+/// grows into an accent pill that shows its label; the others show only icons.
+class _ModernNavBar extends StatelessWidget {
+  final int selectedIndex;
+  final List<_NavItem> items;
+  final ValueChanged<int> onSelected;
+  const _ModernNavBar({
+    required this.selectedIndex,
+    required this.items,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    return Container(
+      padding: EdgeInsets.fromLTRB(12, 10, 12, 10 + bottomInset),
+      decoration: BoxDecoration(
+        color: appBg,
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: .07)),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: appRed.withValues(alpha: .10),
+            blurRadius: 30,
+            offset: const Offset(0, -6),
+          ),
+        ],
+      ),
+      child: Container(
+        height: 62,
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: appSurface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white.withValues(alpha: .07)),
+        ),
+        child: Row(
+          children: [
+            for (var i = 0; i < items.length; i++)
+              Expanded(
+                flex: i == selectedIndex ? 25 : 14,
+                child: _NavButton(
+                  item: items[i],
+                  selected: i == selectedIndex,
+                  onTap: () => onSelected(i),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavButton extends StatelessWidget {
+  final _NavItem item;
+  final bool selected;
+  final VoidCallback onTap;
+  const _NavButton({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final onAccent =
+        appRed.computeLuminance() > .5 ? Colors.black : Colors.white;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: item.label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          decoration: BoxDecoration(
+            gradient: selected
+                ? LinearGradient(colors: [appRed, appAccentSoft])
+                : null,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: appRed.withValues(alpha: .35),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  selected ? item.selectedIcon : item.icon,
+                  size: 22,
+                  color: selected ? onAccent : Colors.white60,
+                ),
+                if (selected) ...[
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                        color: onAccent,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
