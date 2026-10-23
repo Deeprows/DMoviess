@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../services/app_remote_config.dart';
 import '../services/app_analytics.dart';
+import '../services/auth_service.dart';
 import 'community_screen.dart';
 import 'movie_home_screen.dart';
 import 'library_screen.dart';
@@ -21,15 +22,20 @@ class _AppShellScreenState extends State<AppShellScreen> {
   int _index = 0;
   static const _kSeenNotice = 'damimovies_seen_notice';
   bool _noticeOpen = false;
+  bool _welcomeOpen = false;
 
   @override
   void initState() {
     super.initState();
     AppAnalytics.instance.screenViewed('movies');
     RemoteConfig.instance.addListener(_checkNotice);
-    // The bundled/cached config is already applied; the online copy arrives
-    // a moment later and triggers _checkNotice again.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkNotice());
+    // Show the guide only to accounts newly registered on this device.
+    // Check other app announcements only after the welcome card closes,
+    // so two dialogs never compete for the user's attention.
+    _welcomeOpen = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_showWelcomeGuideIfNeeded());
+    });
   }
 
   @override
@@ -38,9 +44,132 @@ class _AppShellScreenState extends State<AppShellScreen> {
     super.dispose();
   }
 
+  /// Show only after confirmed signup, until this Gmail account taps Got it.
+  Future<void> _showWelcomeGuideIfNeeded() async {
+    try {
+      if (!await AuthService.instance.shouldShowWelcomeGuide() || !mounted) {
+        return;
+      }
+
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => PopScope(
+          canPop: false,
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 360),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+              decoration: BoxDecoration(
+                color: appSurface,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.auto_awesome_rounded, color: appRed, size: 22),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Text('Welcome to DamiMovies',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            )),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 17),
+                  _welcomeTip(
+                    Icons.movie_creation_outlined,
+                    'Watch & download',
+                    'Explore the latest movies and download your favorites.',
+                  ),
+                  const SizedBox(height: 13),
+                  _welcomeTip(
+                    Icons.groups_2_outlined,
+                    'Community',
+                    'Join discussions respectfully. Posts are moderated.',
+                  ),
+                  const SizedBox(height: 13),
+                  _welcomeTip(
+                    Icons.switch_video_outlined,
+                    'Player not working?',
+                    'Try another player or server if one fails to load.',
+                  ),
+                  const SizedBox(height: 19),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: appRed,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(0, 44),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      onPressed: () async {
+                        final saved = await AuthService.instance.dismissWelcomeGuide();
+                        if (!dialogContext.mounted) return;
+                        if (saved) {
+                          Navigator.of(dialogContext).pop();
+                        } else {
+                          ScaffoldMessenger.of(dialogContext).showSnackBar(
+                            const SnackBar(content: Text(
+                              'Could not save your preference. Please try again.',
+                            )),
+                          );
+                        }
+                      },
+                      child: const Text('Got it',
+                          style: TextStyle(fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      debugPrint('DamiMovies: welcome guide skipped: $error');
+    } finally {
+      _welcomeOpen = false;
+      if (mounted) unawaited(_checkNotice());
+    }
+  }
+
+  Widget _welcomeTip(IconData icon, String title, String message) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: appRed, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 3),
+                Text(message,
+                    style: const TextStyle(
+                        color: Colors.white70, fontSize: 12, height: 1.35)),
+              ],
+            ),
+          ),
+        ],
+      );
+
   /// Shows the "notice" from app_config.json once per notice id.
   Future<void> _checkNotice() async {
-    if (_noticeOpen || !mounted) return;
+    if (_noticeOpen || _welcomeOpen || !mounted) return;
     final notice = RemoteConfig.instance.notice;
     if (!notice.active) return;
     _noticeOpen = true;
