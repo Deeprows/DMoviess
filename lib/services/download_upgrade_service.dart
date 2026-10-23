@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../screens/download_upgrade_screen.dart';
+import 'ad_service.dart';
 import 'auth_service.dart';
 import 'premium_service.dart';
 
@@ -57,7 +58,12 @@ class DownloadUpgradeService {
         debugPrint('DamiMovies: download offer skipped: $error');
       }
 
-      if (context.mounted) await continueDownload();
+      // The optional 5th-download premium offer runs first. Then free users
+      // load a support ad before their selected download destination opens.
+      // Premium users and missing/broken ads proceed without a detour.
+      if (context.mounted) {
+        await AdService.instance.guardDownload(context, continueDownload);
+      }
     } finally {
       _handlingTap = false;
     }
