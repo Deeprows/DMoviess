@@ -27,10 +27,15 @@ enum SupportResult {
 ///     loads; Back is ignored until it can be skipped.
 ///  2. Once loaded: an "Ad" badge, a progress line and a "Skip in N" button
 ///     that turns into "Skip Ad" after [skipAfterSeconds].
-///  3. The ad never closes by itself; the person taps Skip Ad.
+///  3. Normal ads stay up until Skip Ad. Download-triggered ads instead
+///     auto-close when the page is ready (or fail open on a short timeout).
 class SupportAdScreen extends StatefulWidget {
   final String url;
   final int skipAfterSeconds;
+
+  /// Download flow: open the originally requested page as soon as this ad
+  /// reaches its loaded state, without displaying the normal Skip countdown.
+  final bool autoContinueOnLoad;
 
   /// Page loaded in the background by [AdPreloader] (null = load it here).
   final PreloadedAd? preloaded;
@@ -38,6 +43,7 @@ class SupportAdScreen extends StatefulWidget {
     super.key,
     required this.url,
     required this.skipAfterSeconds,
+    this.autoContinueOnLoad = false,
     this.preloaded,
   });
 
@@ -124,9 +130,15 @@ class _SupportAdScreenState extends State<SupportAdScreen> {
   /// showed anything) so it can never hold the person for ever.
   void _armMaxLoad() {
     _maxLoad?.cancel();
-    _maxLoad = Timer(const Duration(seconds: _maxLoadSeconds), () {
+    final timeout = widget.autoContinueOnLoad
+        ? const Duration(seconds: 12)
+        : const Duration(seconds: _maxLoadSeconds);
+    _maxLoad = Timer(timeout, () {
       if (_done || !mounted || _phase != _Phase.loading) return;
-      if (_started) {
+      if (widget.autoContinueOnLoad) {
+        // A slow or broken ad never holds the requested download hostage.
+        _continueAnyway();
+      } else if (_started) {
         _markLoaded();
       } else {
         _fail();
@@ -155,6 +167,13 @@ class _SupportAdScreenState extends State<SupportAdScreen> {
     _maxLoad?.cancel();
     if (_phase == _Phase.ready && _begin != null) return;
     setState(() => _phase = _Phase.ready);
+    if (widget.autoContinueOnLoad) {
+      // Pop on the next frame to avoid navigating during a WebView callback.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_done) _finish();
+      });
+      return;
+    }
     _startCountdown();
   }
 
@@ -171,6 +190,12 @@ class _SupportAdScreenState extends State<SupportAdScreen> {
 
   void _fail() {
     if (_done || !mounted) return;
+    if (widget.autoContinueOnLoad) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_done) _continueAnyway();
+      });
+      return;
+    }
     _tick?.cancel();
     _settle?.cancel();
     setState(() => _phase = _Phase.error);
