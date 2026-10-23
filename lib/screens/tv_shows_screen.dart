@@ -24,6 +24,11 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
   Timer? _debounce;
   List<Movie> _trending = [];
   List<Movie> _popular = [];
+  List<Movie> _airing = [];
+  List<Movie> _onAir = [];
+  List<Movie> _kDrama = [];
+  List<Movie> _anime = [];
+  List<Movie> _reality = [];
   List<Movie> _results = [];
   bool _loading = true;
   bool _searching = false;
@@ -34,11 +39,11 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
   int _request = 0;
   String _query = '';
   String _error = '';
-  String _genre = 'All';
+  String _genre = 'All Series';
 
   static const _categories = [
-    'All', 'Drama', 'Comedy', 'Crime', 'Action & Adventure',
-    'Animation', 'Documentary', 'Sci-Fi & Fantasy',
+    'All Series', 'Drama', 'Comedy', 'Crime', 'Animation',
+    'Documentary', 'Sci-Fi & Fantasy', 'Reality', 'Kids',
   ];
 
   @override
@@ -59,20 +64,30 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
   Future<void> _load() async {
     if (mounted) setState(() { _loading = true; _error = ''; });
     // The requests are independent: one failing should not hide the other.
-    List<Movie> trending = [], popular = [];
+    List<Movie> trending = [], popular = [], airing = [], onAir = [], kDrama = [], anime = [], reality = [];
     await Future.wait([
       () async { try { trending = await _tmdb.tvTrending(); } catch (_) {} }(),
       () async { try { popular = await _tmdb.tvPopular(); } catch (_) {} }(),
+      () async { try { airing = await _tmdb.tvAiringToday(); } catch (_) {} }(),
+      () async { try { onAir = await _tmdb.tvOnAir(); } catch (_) {} }(),
+      () async { try { kDrama = await _tmdb.tvDiscover(genreId: '18', language: 'ko'); } catch (_) {} }(),
+      () async { try { anime = await _tmdb.tvDiscover(genreId: '16', language: 'ja'); } catch (_) {} }(),
+      () async { try { reality = await _tmdb.tvDiscover(genreId: '10764'); } catch (_) {} }(),
     ]);
     if (!mounted) return;
     setState(() {
       _trending = trending;
       _popular = popular;
+      _airing = airing;
+      _onAir = onAir;
+      _kDrama = kDrama;
+      _anime = anime;
+      _reality = reality;
       _page = 1;
       _hasMore = popular.isNotEmpty;
       _featuredPage = 0;
       _loading = false;
-      _error = trending.isEmpty && popular.isEmpty
+      _error = trending.isEmpty && popular.isEmpty && airing.isEmpty && onAir.isEmpty
           ? 'Could not load TV shows. Check your connection and try again.' : '';
     });
   }
@@ -118,7 +133,7 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
       );
 
   List<Movie> _filter(List<Movie> input) {
-    if (_genre == 'All') return input;
+    if (_genre == 'All Series') return input;
     return input.where((show) => show.genres.contains(_genre)).toList();
   }
 
@@ -202,6 +217,13 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
                     )),
                     const SizedBox(height: 28),
                   ],
+                  if (!querying) ...[
+                    _seriesRail('New Episodes', 'AIRING TODAY', Icons.new_releases_rounded, _airing),
+                    _seriesRail('Currently Airing', 'FOLLOW THE STORY', Icons.live_tv_rounded, _onAir),
+                    _seriesRail('Korean Dramas', 'K-DRAMA COLLECTION', Icons.favorite_rounded, _kDrama),
+                    _seriesRail('Anime Series', 'ANIMATED STORIES', Icons.auto_awesome_rounded, _anime),
+                    _seriesRail('Reality TV', 'UNSCRIPTED SERIES', Icons.theater_comedy_rounded, _reality),
+                  ],
                   _heading(querying ? 'Search results' : 'Popular TV shows',
                       querying ? '${_results.length} SERIES FOUND' : 'DISCOVER YOUR NEXT SHOW',
                       querying ? Icons.search_rounded : Icons.auto_awesome_rounded),
@@ -247,13 +269,30 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
                   ],
                 ],
                 const SizedBox(height: 18),
-                const Text('TV show details and episodes', textAlign: TextAlign.center,
+                const Text('TV show details and episodes powered by TMDB', textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white38, fontSize: 10)),
               ],
             );
           }),
         ),
       ),
+    );
+  }
+
+  Widget _seriesRail(String label, String eyebrow, IconData icon, List<Movie> shows) {
+    if (shows.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 28),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _heading(label, eyebrow, icon),
+        const SizedBox(height: 13),
+        SizedBox(height: 222, child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: shows.length > 16 ? 16 : shows.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 11),
+          itemBuilder: (_, index) => SizedBox(width: 120, child: _posterCard(shows[index])),
+        )),
+      ]),
     );
   }
 
