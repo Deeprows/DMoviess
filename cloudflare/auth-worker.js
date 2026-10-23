@@ -1,4 +1,7 @@
-// DamiMovies account check (Cloudflare Worker + KV).
+// DamiMovies authentication (Cloudflare Worker + D1).
+// Primary account / token-request / signing-key storage: D1 binding DB.
+// Legacy accounts and original Ed25519 signing key are READ from KV USERS
+// during migration. This Worker never writes to KV.
 // POST { mode: "signup" | "login", idToken } -> verifies the Google ID token and
 // keeps the list of signed-up Gmail accounts.
 //   signup: 200 created, 409 already signed up
@@ -8,8 +11,10 @@
 //   stores the request and sends you a Telegram message with the customer's
 //   WhatsApp number so you can send them a token.
 //
-// Needs: KV namespace bound as USERS, variable GOOGLE_WEB_CLIENT_ID and
-// secret ADMIN_SECRET (password for the /admin token page).
+// Needs: D1 database bound as DB; original KV namespace bound as USERS
+// (read-only for legacy migration); GOOGLE_WEB_CLIENT_ID; ADMIN_SECRET.
+// Run cloudflare/auth-d1-schema.sql on the SAME D1 as your community app
+// BEFORE deploying. Keep the existing USERS KV binding until migrated.
 // For notifications: TELEGRAM_BOT_TOKEN (secret) and TELEGRAM_CHAT_ID.
 
 const json = (body, status = 200) =>
@@ -58,34 +63,78 @@ async function accountId(email) {
   return hex.slice(0, 4) + '-' + hex.slice(4, 8) + '-' + hex.slice(8, 12);
 }
 
+// Read a legacy account without modifying the old KV namespace.
+// A missing KV binding is treated as a configuration error during migration:
+// otherwise existing customers could accidentally be treated as new users.
+async function legacyAccount(env, email) {
+  if (!env.USERS) throw new Error('legacy_kv_binding_missing');
+  const raw = await env.USERS.get('user:' + email);
+  if (!raw) return null;
+  try {
+    const old = JSON.parse(raw);
+    return {
+      name: String(old.name || '').slice(0, 150),
+      created: Number.isFinite(Number(old.created)) && Number(old.created) > 0
+        ? Math.trunc(Number(old.created)) : Date.now(),
+    };
+  } catch {
+    return { name: '', created: Date.now() };
+  }
+}
+
+async function findAccount(env, info) {
+  const found = await env.DB.prepare('SELECT email FROM auth_users WHERE email = ?')
+    .bind(info.email).first();
+  if (found) return true;
+  const legacy = await legacyAccount(env, info.email);
+  if (!legacy) return false;
+  // Gradually copy existing signups to D1 at their next login.
+  await env.DB.prepare(
+    'INSERT OR IGNORE INTO auth_users (email, name, created_ms) VALUES (?, ?, ?)'
+  ).bind(info.email, legacy.name || info.name, legacy.created).run();
+  return true;
+}
+
+// A single conditional INSERT enforces the five-requests-per-Gmail daily
+// limit even under concurrent requests, without a separate KV counter.
 async function handleTokenRequest(body, info, env) {
-  if (!(await env.USERS.get('user:' + info.email))) return json({ error: 'not_registered' }, 403);
+  if (!(await findAccount(env, info))) return json({ error: 'not_registered' }, 403);
   const whatsapp = String(body.whatsapp || '').replace(/\D/g, '');
   if (whatsapp.length < 8 || whatsapp.length > 15) return json({ error: 'bad_whatsapp' }, 400);
   const days = parseInt(body.days, 10);
   if (!(days >= 1 && days <= 3650)) return json({ error: 'bad_days' }, 400);
-  // The ID is made here from the verified Gmail, so it cannot be spoofed by the client.
-  const deviceId = await accountId(info.email);
+  const deviceId = await accountId(info.email); // Verified Gmail, never client-supplied.
   const price = String(body.price || '').slice(0, 40);
+  const at = Date.now();
+  const day = new Date(at).toISOString().slice(0, 10);
+  const nonce = [...crypto.getRandomValues(new Uint8Array(16))]
+    .map((n) => n.toString(16).padStart(2, '0')).join('');
+  const record = { email: info.email, whatsapp, days, price, deviceId, at };
+  // Respect rate-limit usage made earlier today by the old KV-based Worker.
+  // This is a KV READ only; there are no KV writes after migration.
+  const legacyUses = Number.parseInt(
+    (await env.USERS.get('rl:' + info.email + ':' + day)) || '0', 10);
+  const allowance = Math.max(0, 5 - (Number.isFinite(legacyUses) ? legacyUses : 0));
+  if (allowance === 0) return json({ error: 'too_many' }, 429);
 
-  // At most 5 requests per Gmail per day.
-  const rlKey = 'rl:' + info.email + ':' + new Date().toISOString().slice(0, 10);
-  const count = parseInt((await env.USERS.get(rlKey)) || '0', 10);
-  if (count >= 5) return json({ error: 'too_many' }, 429);
-  await env.USERS.put(rlKey, String(count + 1), { expirationTtl: 172800 });
+  const result = await env.DB.prepare(`
+    INSERT INTO auth_token_requests
+      (id, email, whatsapp, days, price, device_id, created_ms, day_utc)
+    SELECT ?, ?, ?, ?, ?, ?, ?, ?
+    WHERE (SELECT COUNT(*) FROM auth_token_requests
+           WHERE email = ? AND day_utc = ?) < ?
+  `).bind(nonce, info.email, whatsapp, days, price, deviceId, at, day,
+          info.email, day, allowance).run();
+  if (!result.meta || result.meta.changes !== 1) return json({ error: 'too_many' }, 429);
 
-  const record = { email: info.email, whatsapp, days, price, deviceId, at: Date.now() };
-  await env.USERS.put('req:' + record.at + ':' + Math.random().toString(36).slice(2, 8), JSON.stringify(record), {
-    expirationTtl: 60 * 60 * 24 * 60,
-  });
   const notified = await notifyAdmin(env, record);
   return json({ ok: true, notified });
 }
 
-
 // ---------------------------------------------------------------- admin (tokens)
 // Tokens are signed HERE, so tool/token-admin.html is no longer needed.
-// The Ed25519 signing key is created on first use and kept in KV (signing:key).
+// The ORIGINAL Ed25519 signing key is copied once from KV to D1.
+// Never replace an existing key: installed APKs verify tokens with its public key.
 // Needs the secret ADMIN_SECRET (a long password only you know).
 // Open  https://<your-worker>/admin  to make tokens and see requests.
 
@@ -98,16 +147,71 @@ const unb64u = (s) => {
 };
 
 async function signingKeys(env) {
-  const saved = await env.USERS.get('signing:key');
-  if (saved) {
-    const k = JSON.parse(saved);
-    return { pub: k.pub, priv: await crypto.subtle.importKey('pkcs8', unb64u(k.priv), { name: 'Ed25519' }, false, ['sign']) };
+  let row = await env.DB.prepare(
+    "SELECT pub, priv FROM auth_signing_keys WHERE name = 'main'"
+  ).first();
+  if (!row) {
+    // Preserve the exact key that signed existing Remove Ads tokens.
+    // READ ONLY: there must be no env.USERS.put call anywhere in this Worker.
+    const saved = env.USERS ? await env.USERS.get('signing:key') : null;
+    if (saved) {
+      const legacy = JSON.parse(saved);
+      if (!legacy.pub || !legacy.priv) throw new Error('invalid_legacy_signing_key');
+      await env.DB.prepare(
+        "INSERT OR IGNORE INTO auth_signing_keys (name, pub, priv, created_ms) VALUES ('main', ?, ?, ?)"
+      ).bind(legacy.pub, legacy.priv, Date.now()).run();
+    } else if (env.ALLOW_NEW_SIGNING_KEY === 'yes') {
+      // For a completely new install ONLY. Never set this on an existing
+      // DamiMovies deployment unless you intend to rotate every app key.
+      const pair = await crypto.subtle.generateKey(
+        { name: 'Ed25519' }, true, ['sign', 'verify']);
+      const pub = b64u(await crypto.subtle.exportKey('raw', pair.publicKey));
+      const priv = b64u(await crypto.subtle.exportKey('pkcs8', pair.privateKey));
+      await env.DB.prepare(
+        "INSERT OR IGNORE INTO auth_signing_keys (name, pub, priv, created_ms) VALUES ('main', ?, ?, ?)"
+      ).bind(pub, priv, Date.now()).run();
+    } else {
+      // Fail safely instead of generating a key that would invalidate all
+      // existing ad-free tokens.
+      throw new Error('signing_key_missing');
+    }
+    row = await env.DB.prepare(
+      "SELECT pub, priv FROM auth_signing_keys WHERE name = 'main'"
+    ).first();
   }
-  const pair = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, ['sign', 'verify']);
-  const pub = b64u(await crypto.subtle.exportKey('raw', pair.publicKey));
-  const priv = b64u(await crypto.subtle.exportKey('pkcs8', pair.privateKey));
-  await env.USERS.put('signing:key', JSON.stringify({ pub, priv }));
-  return signingKeys(env);
+  if (!row) throw new Error('signing_key_unavailable');
+  return {
+    pub: row.pub,
+    priv: await crypto.subtle.importKey('pkcs8', unb64u(row.priv),
+      { name: 'Ed25519' }, false, ['sign']),
+  };
+}
+
+// Pull legacy users from KV in small admin-authorized batches. Reruns are
+// idempotent: imported users are not overwritten and KV is never modified.
+async function migrateLegacyUsers(env, cursor) {
+  if (!env.USERS) return { error: 'legacy_kv_binding_missing' };
+  const options = { prefix: 'user:', limit: 20 }; // Respect Workers Free subrequest limits.
+  if (cursor) options.cursor = cursor;
+  const page = await env.USERS.list(options);
+  const statements = [];
+  let skipped = 0;
+  for (const key of page.keys) {
+    const email = key.name.slice(5).toLowerCase();
+    if (!/^[^\s@]+@(gmail|googlemail)\.com$/.test(email)) { skipped++; continue; }
+    const legacy = await legacyAccount(env, email);
+    if (!legacy) { skipped++; continue; }
+    statements.push(env.DB.prepare(
+      'INSERT OR IGNORE INTO auth_users (email, name, created_ms) VALUES (?, ?, ?)'
+    ).bind(email, legacy.name, legacy.created));
+  }
+  const results = statements.length ? await env.DB.batch(statements) : [];
+  const added = results.reduce((n, r) => n + (r.meta?.changes || 0), 0);
+  return {
+    ok: true, scanned: page.keys.length, added,
+    skipped, complete: !!page.list_complete,
+    cursor: page.list_complete ? null : page.cursor,
+  };
 }
 
 async function makeToken(env, deviceId, days) {
@@ -129,26 +233,54 @@ function isAdmin(request, env) {
 
 async function handleAdmin(request, env, path) {
   if (path === '/admin' && request.method === 'GET') {
-    return new Response(ADMIN_PAGE, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
+    return new Response(ADMIN_PAGE, { headers: {
+      'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store',
+      'x-frame-options': 'DENY', 'referrer-policy': 'no-referrer',
+    } });
   }
-  if (!env.USERS) return json({ error: 'worker_not_configured' }, 500);
-  if (!env.ADMIN_SECRET) return json({ error: 'admin_secret_not_set' }, 500);
+  if (!env.DB || !env.USERS) return json({ error: 'worker_not_configured' }, 503);
+  if (!env.ADMIN_SECRET) return json({ error: 'admin_secret_not_set' }, 503);
   if (!isAdmin(request, env)) return json({ error: 'unauthorized' }, 401);
 
   if (path === '/admin/info' && request.method === 'GET') {
-    const { pub } = await signingKeys(env);
-    const list = await env.USERS.list({ prefix: 'req:' });
-    const requests = [];
-    for (const k of list.keys.slice(-40)) {
-      const v = await env.USERS.get(k.name);
-      if (v) requests.push(JSON.parse(v));
-    }
+    let publicKey = '';
+    let signingKeyError = null;
+    try { publicKey = (await signingKeys(env)).pub; }
+    catch (e) { signingKeyError = e.message || 'signing_key_unavailable'; }
+
+    const d1 = await env.DB.prepare(`
+      SELECT email, whatsapp, days, price, device_id, created_ms
+      FROM auth_token_requests ORDER BY created_ms DESC LIMIT 40
+    `).all();
+    const requests = (d1.results || []).map((r) => ({
+      email: r.email, whatsapp: r.whatsapp, days: r.days,
+      price: r.price, deviceId: r.device_id, at: r.created_ms,
+    }));
+    // Show old KV requests as well while you migrate; never write to KV.
+    try {
+      const list = await env.USERS.list({ prefix: 'req:', limit: 1000 });
+      for (const k of list.keys.slice(-25)) {
+        const raw = await env.USERS.get(k.name);
+        if (raw) requests.push(JSON.parse(raw));
+      }
+    } catch (_) { /* Admin can still see all new D1 requests. */ }
     requests.sort((a, b) => b.at - a.at);
-    return json({ publicKey: pub, requests });
+    const count = await env.DB.prepare('SELECT COUNT(*) AS total FROM auth_users').first();
+    return json({ publicKey, signingKeyError, registeredUsers: count.total,
+      requests: requests.slice(0, 40) });
+  }
+  if (path === '/admin/migrate-users' && request.method === 'POST') {
+    let body;
+    try { body = await request.json(); }
+    catch { return json({ error: 'bad_request' }, 400); }
+    const cursor = body.cursor == null ? '' : String(body.cursor);
+    if (cursor.length > 512) return json({ error: 'bad_cursor' }, 400);
+    return json(await migrateLegacyUsers(env, cursor));
   }
   if (path === '/admin/token' && request.method === 'POST') {
     let body;
-    try { body = await request.json(); } catch { return json({ error: 'bad_request' }, 400); }
+    try { body = await request.json(); }
+    catch { return json({ error: 'bad_request' }, 400); }
     const deviceId = String(body.deviceId || '').trim().toUpperCase();
     if (!/^[A-Z0-9-]{8,20}$/.test(deviceId)) return json({ error: 'bad_device' }, 400);
     const days = parseInt(body.days, 10);
@@ -176,6 +308,10 @@ code{word-break:break-all}
 <h2>App public key</h2>
 <p class="note">Paste into assets/data/app_config.json &rarr; removeAds.publicKey (one time).</p>
 <textarea id="pub" rows="2" readonly></textarea>
+<p id="keywarning" class="warn"></p>
+<h2>Registered users in D1: <span id="usercount">0</span></h2>
+<button class="alt" id="migrate">Copy existing KV accounts into D1</button>
+<p class="note" id="migration">This copies old Gmail registrations in batches without deleting or writing to KV.</p>
 <h2>Make a token</h2>
 <input id="dev" placeholder="Device ID  XXXX-XXXX-XXXX" autocapitalize="characters">
 <input id="days" type="number" min="1" max="3650" value="30">
@@ -189,7 +325,7 @@ const $=id=>document.getElementById(id);let pw='';
 const api=async(path,opt={})=>{const r=await fetch(path,{...opt,headers:{authorization:'Bearer '+pw,'content-type':'application/json'}});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||r.status);return d;};
 function show(r){$('dev').value=r.deviceId;$('days').value=r.days;$('dev').dataset.wa=r.whatsapp;window.scrollTo(0,0);}
 async function load(){
- const d=await api('/admin/info');$('pub').value=d.publicKey;$('main').style.display='block';
+ const d=await api('/admin/info');$('pub').value=d.publicKey;$('keywarning').textContent=d.signingKeyError?'Signing key: '+d.signingKeyError:'';$('usercount').textContent=d.registeredUsers;$('main').style.display='block';
  const box=$('reqs');box.textContent='';if(!d.requests.length)box.textContent='No requests yet.';
  for(const r of d.requests){const div=document.createElement('div');div.className='req';
   div.append('+'+r.whatsapp+' \\u00b7 '+r.days+' days \\u00b7 '+r.price+' \\u00b7 '+new Date(r.at).toLocaleString());
@@ -197,6 +333,22 @@ async function load(){
   const b=document.createElement('button');b.className='alt';b.textContent='Use this';b.onclick=()=>show(r);div.append(b);box.append(div);}
 }
 $('go').onclick=async()=>{$('err').textContent='';pw=$('pw').value;try{await load();$('pw').style.display=$('go').style.display='none';}catch(e){$('err').textContent=e.message==='unauthorized'?'Wrong password.':'Error: '+e.message;}};
+$('migrate').onclick=async()=>{
+ $('migrate').disabled=true;let cursor='',seen=0,added=0;
+ try{
+  for(let round=0;round<1000;round++){
+   const d=await api('/admin/migrate-users',{method:'POST',body:JSON.stringify({cursor})});
+   if(!d.ok)throw new Error(d.error||'migration_failed');
+   seen+=d.scanned;added+=d.added;
+   $('migration').textContent='Scanned '+seen+' legacy entries; copied '+added+' new accounts to D1.';
+   if(d.complete){$('migration').textContent+=' Finished.';break;}
+   if(!d.cursor)throw new Error('missing_migration_cursor');
+   cursor=d.cursor;
+  }
+  const stat=await api('/admin/info');$('usercount').textContent=stat.registeredUsers;
+ }catch(e){$('migration').textContent+=' Stopped: '+e.message+'. Safe to retry.';}
+ finally{$('migrate').disabled=false;}
+};
 $('mk').onclick=async()=>{$('err').textContent='';try{
  const d=await api('/admin/token',{method:'POST',body:JSON.stringify({deviceId:$('dev').value,days:$('days').value})});
  $('tok').value=d.token;$('res').style.display='block';
@@ -208,31 +360,45 @@ $('copy').onclick=async()=>{try{await navigator.clipboard.writeText($('tok').val
 
 export default {
   async fetch(request, env) {
-    const path = new URL(request.url).pathname.replace(/\/+$/, '') || '/';
-    if (path === '/admin' || path.startsWith('/admin/')) return handleAdmin(request, env, path);
-    if (request.method === 'GET') return json({ ok: true, service: 'damimovies-auth' });
-    if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
-    if (!env.USERS || !env.GOOGLE_WEB_CLIENT_ID) return json({ error: 'worker_not_configured' }, 500);
+    try {
+      const path = new URL(request.url).pathname.replace(/\/+$/, '') || '/';
+      if (path === '/admin' || path.startsWith('/admin/'))
+        return await handleAdmin(request, env, path);
+      if (path === '/health' && request.method === 'GET')
+        return json({ ok: true, service: 'damimovies-auth', db: !!env.DB,
+          legacyKv: !!env.USERS });
+      if (request.method === 'GET') return json({ ok: true, service: 'damimovies-auth' });
+      if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+      if (!env.DB || !env.USERS || !env.GOOGLE_WEB_CLIENT_ID)
+        return json({ error: 'worker_not_configured' }, 503);
 
-    let body;
-    try { body = await request.json(); } catch { return json({ error: 'bad_request' }, 400); }
-    const mode = body.mode === 'signup' ? 'signup' : 'login';
-    const idToken = String(body.idToken || '');
-    if (!idToken) return json({ error: 'missing_token' }, 400);
+      let body;
+      try { body = await request.json(); }
+      catch { return json({ error: 'bad_request' }, 400); }
+      const mode = body.mode === 'signup' ? 'signup' : 'login';
+      const idToken = String(body.idToken || '');
+      if (!idToken) return json({ error: 'missing_token' }, 400);
+      const info = await verifyGoogleToken(idToken, env);
+      if (!info) return json({ error: 'invalid_token' }, 401);
+      if (body.action === 'token_request') return handleTokenRequest(body, info, env);
 
-    const info = await verifyGoogleToken(idToken, env);
-    if (!info) return json({ error: 'invalid_token' }, 401);
-
-    if (body.action === 'token_request') return handleTokenRequest(body, info, env);
-
-    const key = 'user:' + info.email;
-    const existing = await env.USERS.get(key);
-    if (mode === 'signup') {
-      if (existing) return json({ error: 'exists' }, 409);
-      await env.USERS.put(key, JSON.stringify({ created: Date.now(), name: info.name }));
-      return json({ ok: true, status: 'created' });
+      // Check D1 first; on a miss, recognize and migrate a legacy KV account.
+      const existing = await findAccount(env, info);
+      if (mode === 'signup') {
+        if (existing) return json({ error: 'exists' }, 409);
+        const result = await env.DB.prepare(
+          'INSERT OR IGNORE INTO auth_users (email, name, created_ms) VALUES (?, ?, ?)'
+        ).bind(info.email, String(info.name).slice(0, 150), Date.now()).run();
+        return result.meta?.changes === 1
+          ? json({ ok: true, status: 'created' })
+          : json({ error: 'exists' }, 409);
+      }
+      if (!existing) return json({ error: 'not_registered' }, 404);
+      return json({ ok: true, status: 'ok' });
+    } catch (error) {
+      // Error details go only to Cloudflare Worker logs, never to users.
+      console.error('auth_worker_error', error);
+      return json({ error: 'service_unavailable' }, 503);
     }
-    if (!existing) return json({ error: 'not_registered' }, 404);
-    return json({ ok: true, status: 'ok' });
   },
 };
