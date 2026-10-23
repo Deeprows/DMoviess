@@ -176,6 +176,22 @@ class TmdbService {
 
   Future<List<Movie>> tvTrending() => _list('/trending/tv/week', {}, 'tv');
 
+  /// Shows airing today, including newly released episodes.
+  Future<List<Movie>> tvAiringToday() => _list('/tv/airing_today', {}, 'tv');
+
+  /// Series currently broadcasting a season.
+  Future<List<Movie>> tvOnAir() => _list('/tv/on_the_air', {}, 'tv');
+
+  /// TV-only discovery; excludes movies and uses TV genre identifiers.
+  Future<List<Movie>> tvDiscover({String? genreId, String? language}) =>
+      _list('/discover/tv', {
+        'sort_by': 'popularity.desc',
+        'include_adult': 'false',
+        if (genreId != null) 'with_genres': genreId,
+        if (language != null) 'with_original_language': language,
+      }, 'tv');
+
+
   Future<List<Movie>> tvSearch(String query) {
     final q = query.trim();
     if (q.isEmpty) return Future.value(<Movie>[]);
