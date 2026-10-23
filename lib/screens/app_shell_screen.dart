@@ -7,6 +7,8 @@ import '../main.dart';
 import '../services/app_remote_config.dart';
 import '../services/app_analytics.dart';
 import '../services/auth_service.dart';
+import '../services/telegram_popup_service.dart';
+import '../widgets/telegram_promo_dialog.dart';
 import 'community_screen.dart';
 import 'movie_home_screen.dart';
 import 'tv_shows_screen.dart';
@@ -25,6 +27,10 @@ class _AppShellScreenState extends State<AppShellScreen> {
   static const _kSeenNotice = 'damimovies_seen_notice';
   bool _noticeOpen = false;
   bool _welcomeOpen = false;
+  bool _telegramChecking = false;
+  bool _telegramShownThisSession = false;
+  bool _telegramDialogOpen = false;
+  bool _noticeCheckPending = false;
 
   @override
   void initState() {
@@ -171,9 +177,16 @@ class _AppShellScreenState extends State<AppShellScreen> {
 
   /// Shows the "notice" from app_config.json once per notice id.
   Future<void> _checkNotice() async {
+    if (_telegramDialogOpen) {
+      _noticeCheckPending = true;
+      return;
+    }
     if (_noticeOpen || _welcomeOpen || !mounted) return;
     final notice = RemoteConfig.instance.notice;
-    if (!notice.active) return;
+    if (!notice.active) {
+      unawaited(_maybeShowTelegramPromo());
+      return;
+    }
     _noticeOpen = true;
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -211,6 +224,43 @@ class _AppShellScreenState extends State<AppShellScreen> {
     } catch (_) {
     } finally {
       _noticeOpen = false;
+      if (mounted) unawaited(_maybeShowTelegramPromo());
+    }
+  }
+
+  /// Show the Telegram campaign after the signup guide and app notice.
+  /// No popup races, and users see each campaign only at the JSON frequency.
+  Future<void> _maybeShowTelegramPromo() async {
+    if (!mounted || _welcomeOpen || _noticeOpen ||
+        _telegramChecking || _telegramShownThisSession) return;
+    _telegramChecking = true;
+    try {
+      final config = await TelegramPopupService.load();
+      if (config == null || !await TelegramPopupService.shouldShow(config)) {
+        return;
+      }
+      if (config.delaySeconds > 0) {
+        await Future<void>.delayed(Duration(seconds: config.delaySeconds));
+      }
+      if (!mounted || _welcomeOpen || _noticeOpen) return;
+      _telegramShownThisSession = true;
+      _telegramDialogOpen = true;
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        barrierColor: Colors.black87,
+        builder: (_) => TelegramPromoDialog(config: config),
+      );
+      await TelegramPopupService.markSeen(config);
+    } catch (error) {
+      debugPrint('DamiMovies: Telegram promo skipped: $error');
+    } finally {
+      _telegramDialogOpen = false;
+      _telegramChecking = false;
+      if (mounted && _noticeCheckPending) {
+        _noticeCheckPending = false;
+        unawaited(_checkNotice());
+      }
     }
   }
 
