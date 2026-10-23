@@ -22,6 +22,16 @@ import '../services/movie_library.dart';
 import '../services/stream_resolver.dart';
 import '../services/player_urls_config.dart';
 
+// A player can be generated from remote JSON or explicitly set on a movie.
+typedef _MoviePlayerSource = ({
+  String url,
+  String referer,
+  String agent,
+  String providerId,
+  String name,
+  bool blockHeaderActions,
+});
+
 /// Lets a parent (the Watch Together theatre) drive an embedded player.
 class PlayerHandle {
   VoidCallback? exitImmersive;
@@ -64,7 +74,7 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
   Timer? _controlsHideTimer;
   bool _nativeControlsVisible = true;
   DateTime _lastNativeProgressSave = DateTime.fromMillisecondsSinceEpoch(0);
-  late List<({String url, String referer, String agent})> _sources;
+  late List<_MoviePlayerSource> _sources;
   int _sourceIndex = 0;
   bool _loading = true;
   bool _error = false;
@@ -93,17 +103,30 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
   bool get _isImmersive =>
       _fullscreen || _landscape || _fullscreenWidget != null;
 
-  // Each movie keeps its own ID and any specifically configured playback URLs.
-  // The remote JSON controls provider-generated primary/secondary URLs only.
-  List<({String url, String referer, String agent})> _buildSources(
-      PlayerUrlsConfig config) {
+  // Build an ordered list of any number of JSON-configured players, while
+  // preserving movie-specific custom links and legacy backup/third URLs.
+  List<_MoviePlayerSource> _buildSources(PlayerUrlsConfig config) {
     final m = widget.movie;
-    final result = <({String url, String referer, String agent})>[];
+    final result = <_MoviePlayerSource>[];
 
-    void add(String url, String referer, String agent) {
+    void add(
+      String url,
+      String referer,
+      String agent, {
+      String providerId = 'custom',
+      String name = 'Custom player',
+      bool blockHeaderActions = false,
+    }) {
       final clean = url.trim();
       if (clean.isEmpty || result.any((entry) => entry.url == clean)) return;
-      result.add((url: clean, referer: referer.trim(), agent: agent.trim()));
+      result.add((
+        url: clean,
+        referer: referer.trim(),
+        agent: agent.trim(),
+        providerId: providerId,
+        name: name,
+        blockHeaderActions: blockHeaderActions,
+      ));
     }
 
     final parsed = Uri.tryParse(m.url.trim());
@@ -113,55 +136,97 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
       if (primaryBase != null) primaryBase.host.toLowerCase(),
       if (secondaryBase != null) secondaryBase.host.toLowerCase(),
       ...AppConfig.replaceHosts,
+      for (final provider in config.players)
+        for (final template in [provider.movie, provider.tv])
+          if (Uri.tryParse(template)?.host.isNotEmpty == true)
+            Uri.parse(template).host.toLowerCase(),
     };
     final path = parsed?.path ?? '';
     final isProviderUrl = parsed != null &&
         providerHosts.contains(parsed.host.toLowerCase()) &&
         RegExp(r'^/embed/(movie|tv)/', caseSensitive: false).hasMatch(path);
 
-    // Some titles use IMDb IDs (tt...), which should not be replaced with
-    // their different numeric catalogue IDs.
+    // Preserve IMDb tt... identifiers where the catalogue uses them, rather
+    // than incorrectly treating an unrelated TMDB number as the same ID.
     final match = RegExp(
       r'/(?:embed/)?(?:movie|tv)/(tt\d+|\d+)(?:/(\d+))?(?:/(\d+))?',
       caseSensitive: false,
     ).firstMatch(path);
-    final id = match?.group(1) ?? m.tmdbId?.toString();
+    final detectedId = match?.group(1) ?? m.tmdbId?.toString();
+    final tmdbId = m.tmdbId?.toString() ??
+        ((match?.group(1)?.startsWith('tt') ?? false) ? null : match?.group(1));
+    final imdbId = (match?.group(1)?.startsWith('tt') ?? false)
+        ? match!.group(1)
+        : null;
     final season = match?.group(2) ?? '1';
     final episode = match?.group(3) ?? '1';
+    final providers = config.players.where((p) => p.enabled).toList();
 
-    final generatedPrimary = id == null
-        ? ''
-        : config.urlFor(
-            primary: true,
-            isTv: m.isSeries,
-            id: id,
-            season: season,
-            episode: episode,
-          );
-    final generatedSecondary = id == null
-        ? ''
-        : config.urlFor(
-            primary: false,
-            isTv: m.isSeries,
-            id: id,
-            season: season,
-            episode: episode,
-          );
+    String generated(PlayerProvider p) =>
+        p.urlFor(
+          isTv: m.isSeries,
+          detectedId: detectedId,
+          tmdbId: tmdbId,
+          imdbId: imdbId,
+          season: season,
+          episode: episode,
+        ) ?? '';
 
-    // Respect explicit custom sources. Replace only the standard generated
-    // player link with the current primary URL from the JSON configuration.
-    add((m.url.trim().isEmpty || isProviderUrl) && generatedPrimary.isNotEmpty
-        ? generatedPrimary
-        : m.url, m.referer, m.userAgent);
+    void addProvider(PlayerProvider p, {String? overrideUrl}) {
+      add(
+        overrideUrl ?? generated(p),
+        p.referer.isNotEmpty ? p.referer : m.referer,
+        p.userAgent.isNotEmpty ? p.userAgent : m.userAgent,
+        providerId: p.id,
+        name: p.name,
+        blockHeaderActions: p.blockHeaderActions,
+      );
+    }
 
-    // A custom alternate URL in movies.json takes priority over the default.
-    final alternate = m.backupUrl.trim().isNotEmpty
-        ? m.backupUrl
-        : (generatedSecondary.isNotEmpty ? generatedSecondary : m.altUrl);
-    add(alternate,
-        m.altReferer.isNotEmpty ? m.altReferer : m.referer,
-        m.altUserAgent.isNotEmpty ? m.altUserAgent : m.userAgent);
-    add(m.thirdUrl, m.thirdReferer, m.thirdUserAgent);
+    // The first two sources retain previous precedence and per-title overrides.
+    if (providers.isNotEmpty) {
+      final first = providers.first;
+      final firstUrl = generated(first);
+      addProvider(first,
+          overrideUrl: (m.url.trim().isEmpty || isProviderUrl) &&
+                  firstUrl.isNotEmpty
+              ? firstUrl
+              : m.url);
+    } else {
+      add(m.url, m.referer, m.userAgent);
+    }
+
+    if (providers.length > 1) {
+      final second = providers[1];
+      final alternative = m.backupUrl.trim().isNotEmpty
+          ? m.backupUrl
+          : (generated(second).isNotEmpty ? generated(second) : m.altUrl);
+      add(
+        alternative,
+        m.altReferer.isNotEmpty
+            ? m.altReferer
+            : (second.referer.isNotEmpty ? second.referer : m.referer),
+        m.altUserAgent.isNotEmpty
+            ? m.altUserAgent
+            : (second.userAgent.isNotEmpty ? second.userAgent : m.userAgent),
+        providerId: second.id,
+        name: second.name,
+        blockHeaderActions: second.blockHeaderActions,
+      );
+    } else {
+      add(m.backupUrl.isNotEmpty ? m.backupUrl : m.altUrl,
+          m.altReferer, m.altUserAgent);
+    }
+
+    // Existing movies.json thirdUrl stays ahead of any further global players.
+    // That preserves custom Player 3 links already configured for titles.
+    add(m.thirdUrl, m.thirdReferer, m.thirdUserAgent,
+        providerId: 'movie_third', name: 'Movie backup');
+
+    // Player 3, Player 4 ... Player N automatically appear from the JSON.
+    for (final provider in providers.skip(2)) {
+      addProvider(provider);
+    }
     return result;
   }
 
@@ -1117,12 +1182,13 @@ class _MoviePlayerScreenState extends State<MoviePlayerScreen>
             _buildNativeVideo(native)
           else
             WebViewWidget(controller: _controller),
-          // Player 2 embeds its own header actions (Download, video, cloud,
-          // expand, etc.). Keep the buttons visible but block touch input on
-          // that top-right area. This overlay is ONLY active for Player 2;
-          // it never covers the video controls or DamiMovies' bottom toolbar.
-          // Switching back to Player 1 removes the blocker immediately.
-          if (_sourceIndex == 1 && native == null)
+          // Block unwanted embedded webpage header actions only on players
+          // explicitly marked blockHeaderActions in player_urls.json.
+          // The DamiMovies bottom controls remain fully interactive.
+          if (_sources.isNotEmpty &&
+              _sources[_sourceIndex.clamp(0, _sources.length - 1).toInt()]
+                  .blockHeaderActions &&
+              native == null)
             Positioned(
               top: 0,
               right: 0,
