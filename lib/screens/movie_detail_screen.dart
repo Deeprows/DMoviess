@@ -7,6 +7,7 @@ import '../models/movie.dart';
 import '../services/ad_service.dart';
 import '../services/app_analytics.dart';
 import '../services/app_preferences.dart';
+import '../services/download_upgrade_service.dart';
 import '../services/tmdb_service.dart';
 import '../services/movie_library.dart';
 import 'external_download_screen.dart';
@@ -112,7 +113,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
     await MovieLibrary.instance.load();
   }
 
-  void _download() {
+  Future<void> _download() async {
     final url = _movie.downloadUrl.trim();
     if (!url.startsWith('http')) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -122,14 +123,19 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
       return;
     }
 
-    Navigator.push(
+    await DownloadUpgradeService.onDownloadTap(
       context,
-      MaterialPageRoute(
-        builder: (_) => ExternalDownloadScreen(
-          movieTitle: _movie.title,
-          downloadUrl: url,
-        ),
-      ),
+      continueDownload: () async {
+        if (!mounted) return;
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => ExternalDownloadScreen(
+              movieTitle: _movie.title,
+              downloadUrl: url,
+            ),
+          ),
+        );
+      },
     );
   }
 
