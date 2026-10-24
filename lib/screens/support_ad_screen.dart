@@ -27,8 +27,8 @@ enum SupportResult {
 ///     loads; Back is ignored until it can be skipped.
 ///  2. Once loaded: an "Ad" badge, a progress line and a "Skip in N" button
 ///     that turns into "Skip Ad" after [skipAfterSeconds].
-///  3. Normal ads stay up until Skip Ad. Download-triggered ads instead
-///     auto-close when the page is ready (or fail open on a short timeout).
+///  3. Play and Download ads stay up until users tap Skip Ad; they never
+///     auto-close merely because the page loaded.
 class SupportAdScreen extends StatefulWidget {
   final String url;
   final int skipAfterSeconds;
@@ -54,7 +54,7 @@ class SupportAdScreen extends StatefulWidget {
 enum _Phase { loading, ready, error }
 
 class _SupportAdScreenState extends State<SupportAdScreen> {
-  static const _settleDelay = Duration(milliseconds: 1400);
+  static const _settleDelay = Duration(milliseconds: 400);
   static const _maxLoadSeconds = 40;
   static const _yellow = Color(0xFFFFCC00);
   static const _waitText = 'Ad loading… please wait';
