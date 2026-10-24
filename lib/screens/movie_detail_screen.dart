@@ -11,7 +11,7 @@ import '../services/download_upgrade_service.dart';
 import '../services/download_urls_config.dart';
 import '../services/tmdb_service.dart';
 import '../services/movie_library.dart';
-import 'external_download_screen.dart';
+import 'in_app_download_screen.dart';
 import '../services/profile_data.dart';
 import 'community_composer.dart';
 import 'profile_collections_screen.dart';
@@ -141,7 +141,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
         if (!mounted) return;
         await Navigator.of(context).push<void>(
           MaterialPageRoute<void>(
-            builder: (_) => ExternalDownloadScreen(
+            builder: (_) => InAppDownloadScreen(
               movieTitle: _movie.title,
               downloadUrl: url,
             ),
