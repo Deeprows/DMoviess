@@ -1,0 +1,5 @@
+{
+  "enabled": true,
+  "movie": "https://web.nxsha.app/dl/movie/{id}",
+  "tv": "https://web.nxsha.app/dl/tv/{id}/{season}/{episode}"
+}
