@@ -82,7 +82,9 @@ class AdService with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _foreground = true;
-      unawaited(RemoteConfig.instance.refresh());
+      unawaited(RemoteConfig.instance.refresh().then((_) {
+        if (_active) AdPreloader.instance.warmUp();
+      }));
     } else {
       _foreground = false;
       unawaited(_save());
@@ -148,9 +150,9 @@ class AdService with WidgetsBindingObserver {
         // Avoid showing ads to subscribers whose status is still loading.
         await PremiumService.instance.ensureLoaded();
         if (_active && _holds == 0 && context.mounted) {
-          // A fresh ad prevents a previously preloaded page from short-
-          // circuiting the Skip Ad countdown on each user action.
-          await _present(context, freshIntentAd: true);
+          // Reuse the warm WebView, but always start a NEW visible Skip Ad
+          // countdown in SupportAdScreen when the ad is presented.
+          await _present(context);
         }
       } catch (error) {
         debugPrint('DamiMovies: $action ad could not open: $error');
@@ -192,10 +194,7 @@ class AdService with WidgetsBindingObserver {
 
   // ------------------------------------------------------------ showing
 
-  Future<void> _present(
-    BuildContext context, {
-    bool freshIntentAd = false,
-  }) async {
+  Future<void> _present(BuildContext context) async {
     if (_showing) return;
     final ads = _ads;
     _showing = true;
@@ -209,7 +208,7 @@ class AdService with WidgetsBindingObserver {
           skipAfterSeconds: ads.skipAfterSeconds,
           // Preserve the Skip Ad countdown on Play and Download actions.
           // Do not use the special autoContinueOnLoad mode.
-          preloaded: freshIntentAd ? null : AdPreloader.instance.take(),
+          preloaded: AdPreloader.instance.take(),
         ),
       ));
     } finally {
@@ -227,6 +226,8 @@ class AdService with WidgetsBindingObserver {
       _lastAdAt = now;
     }
     await _save();
+    // Prepare the next ad without holding up the current navigation.
+    if (_active && _foreground) AdPreloader.instance.warmUp();
   }
 
   Future<void> _save() async {
