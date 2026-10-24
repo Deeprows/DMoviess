@@ -24,11 +24,49 @@ if 'android:usesCleartextTraffic' not in s:
 s = re.sub(r'android:label="[^"]*"', 'android:label="DamiMovies"', s, count=1)
 if 'android:supportsPictureInPicture' not in s:
     s = s.replace('<activity', '<activity android:supportsPictureInPicture="true"', 1)
-if 'WorkManagerInitializer' not in s:
-    provider = '''<provider android:name="androidx.startup.InitializationProvider" android:authorities="${applicationId}.androidx-startup" android:exported="false" tools:node="merge">
-            <meta-data android:name="androidx.work.WorkManagerInitializer" android:value="androidx.startup" tools:node="remove"/>
+# flutter_downloader schedules transfers through Android WorkManager.
+# Do NOT disable WorkManagerInitializer unless a custom WorkManager
+# initializer is also installed. A previous DamiMovies patch removed the
+# initializer without replacing it, causing enqueue() to fail on Android.
+# `flutter create` regenerates AndroidManifest.xml for every GitHub build.
+legacy_provider = re.compile(
+    r'<provider\s+android:name="androidx\.startup\.InitializationProvider"'
+    r'\s+android:authorities="\$\{applicationId\}\.androidx-startup"'
+    r'\s+android:exported="false"\s+tools:node="merge">'
+    r'\s*<meta-data\s+android:name="androidx\.work\.WorkManagerInitializer"'
+    r'\s+android:value="androidx.startup"\s+tools:node="remove"\s*/>'
+    r'\s*</provider>\s*',
+    flags=re.MULTILINE,
+)
+s = legacy_provider.sub('', s)
+
+# Allow flutter_downloader to open completed files from Library or an Android
+# download notification. The app-private external download folder is allowed.
+if 'vn.hunghd.flutterdownloader.DownloadedFileProvider' not in s:
+    download_provider = '''        <provider
+            android:name="vn.hunghd.flutterdownloader.DownloadedFileProvider"
+            android:authorities="${applicationId}.flutter_downloader.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/provider_paths" />
         </provider>
-        '''
-    s = s.replace('<activity', provider + '<activity', 1)
+'''
+    s = s.replace('<activity', download_provider + '        <activity', 1)
+
+# This resource is regenerated because this repo generates its Android
+# project during GitHub Actions rather than storing it in Git.
+xml_dir = Path('android/app/src/main/res/xml')
+xml_dir.mkdir(parents=True, exist_ok=True)
+(xml_dir / 'provider_paths.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-files-path name="external_files" path="." />
+    <external-path name="external_storage" path="." />
+    <files-path name="files" path="." />
+    <cache-path name="cache" path="." />
+</paths>
+''', encoding='utf-8')
+
 path.write_text(s, encoding='utf-8')
-print('Patched Android manifest for internet, downloads and PiP.')
+print('Patched Android manifest; WorkManager auto-initialization retained, download FileProvider configured.')
