@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'dart:ui' show IsolateNameServer;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_downloader/flutter_downloader.dart' as fd;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -343,21 +344,13 @@ class DownloadManager extends ChangeNotifier {
         if (cookie.isNotEmpty && !cookie.contains('\n') && !cookie.contains('\r'))
           'Cookie': cookie,
       };
+      // Save to the app's external files/Downloads folder first. This works
+      // with Android 10+ scoped storage without requesting broad storage
+      // access. Library -> Downloads is the entry point for these files.
+      // A public Downloads fallback is retained for devices supporting it.
       String? id;
-      try {
-        id = await fd.FlutterDownloader.enqueue(
-          url: url,
-          savedDir: dir,
-          fileName: file,
-          headers: headers,
-          showNotification: true,
-          openFileFromNotification: true,
-          saveInPublicStorage: true,
-        );
-      } catch (error) {
-        debugPrint('DamiMovies: public file download failed: $error');
-      }
-      if (id == null) {
+      Object? nativeError;
+      for (final publicStorage in <bool>[false, true]) {
         try {
           id = await fd.FlutterDownloader.enqueue(
             url: url,
@@ -366,16 +359,41 @@ class DownloadManager extends ChangeNotifier {
             headers: headers,
             showNotification: true,
             openFileFromNotification: true,
-            saveInPublicStorage: false,
-          );
+            saveInPublicStorage: publicStorage,
+          ).timeout(const Duration(seconds: 20));
+          if (id != null && id.isNotEmpty) break;
         } catch (error) {
-          debugPrint('DamiMovies: in-app native download failed: $error');
+          nativeError = error;
+          // Never log the download URL, cookies, or authentication headers.
+          debugPrint('DamiMovies downloader: enqueue failed '
+              '(public=$publicStorage): ${error.runtimeType}');
         }
       }
-      if (id == null) {
-        return 'Android could not start this download. Try a verified direct '
-            'file in In-App Servers. If it still fails, the link may require '
-            'a browser session or the native download service may be unavailable.';
+      if (id == null || id.isEmpty) {
+        if (nativeError is PlatformException) {
+          final message = (nativeError.message ?? '').toLowerCase();
+          if (message.contains('workmanager') ||
+              message.contains('initialized properly')) {
+            return 'Android download service is not initialized. '
+                'Install the APK with the WorkManager manifest fix.';
+          }
+          if (message.contains('permission') ||
+              message.contains('access denied')) {
+            return 'Android denied file access. Check DamiMovies storage '
+                'permissions and available device space.';
+          }
+          // PlatformException.code is safe to show; details can contain
+          // sensitive download URLs, so do not display them.
+          final code = nativeError.code.replaceAll(RegExp(r'[^a-zA-Z0-9_.-]'), '');
+          return 'Android could not queue the file (error: $code). '
+              'Try again or check Library → Downloads.';
+        }
+        if (nativeError is TimeoutException) {
+          return 'Android did not respond while starting the download. '
+              'Try again after restarting DamiMovies.';
+        }
+        return 'Android could not start the download task. '
+            'Restart DamiMovies and try again.';
       }
       _tasks.insert(0, DownloadTask(
         id: id, url: url, name: file, referer: referer,
