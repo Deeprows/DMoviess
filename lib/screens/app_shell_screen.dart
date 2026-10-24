@@ -9,6 +9,7 @@ import '../services/app_analytics.dart';
 import '../services/auth_service.dart';
 import '../services/telegram_popup_service.dart';
 import '../widgets/telegram_promo_dialog.dart';
+import 'community_profile_screen.dart';
 import 'community_screen.dart';
 import 'movie_home_screen.dart';
 import 'tv_shows_screen.dart';
@@ -24,6 +25,7 @@ class AppShellScreen extends StatefulWidget {
 class _AppShellScreenState extends State<AppShellScreen> {
   int _index = 0;
   bool _tvVisited = false;
+  bool _profileVisited = false;
   static const _kSeenNotice = 'damimovies_seen_notice';
   bool _noticeOpen = false;
   bool _welcomeOpen = false;
@@ -264,6 +266,24 @@ class _AppShellScreenState extends State<AppShellScreen> {
     }
   }
 
+  /// The signed-in user's profile, same screen as "My profile" in the menu.
+  Widget _profileTab() {
+    final user = AuthService.instance.user;
+    if (user == null) {
+      return Center(
+        child: Text(
+          'Sign in to see your profile'.tr,
+          style: const TextStyle(color: Colors.white60),
+        ),
+      );
+    }
+    return CommunityProfileScreen(
+      email: user.email,
+      asTab: true,
+      active: _index == 4,
+    );
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         body: IndexedStack(index: _index, children: [
@@ -271,6 +291,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
           _tvVisited ? const TvShowsScreen() : const SizedBox.shrink(),
           CommunityScreen(active: _index == 2),
           const LibraryScreen(),
+          _profileVisited ? _profileTab() : const SizedBox.shrink(),
         ]),
         bottomNavigationBar: _ModernNavBar(
           selectedIndex: _index,
@@ -283,14 +304,23 @@ class _AppShellScreenState extends State<AppShellScreen> {
                 'Community'.tr),
             _NavItem(Icons.video_library_outlined,
                 Icons.video_library_rounded, 'Library'.tr),
+            _NavItem(Icons.account_circle_outlined,
+                Icons.account_circle_rounded, 'Profile'.tr),
           ],
           onSelected: (value) {
             if (value == _index) return;
             setState(() {
               _index = value;
               if (value == 1) _tvVisited = true;
+              if (value == 4) _profileVisited = true;
             });
-            const screens = ['movies', 'tv_shows', 'community', 'library'];
+            const screens = [
+              'movies',
+              'tv_shows',
+              'community',
+              'library',
+              'profile',
+            ];
             AppAnalytics.instance.screenViewed(screens[value]);
           },
         ),
