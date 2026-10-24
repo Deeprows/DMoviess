@@ -168,9 +168,9 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
         Widget action(IconData icon, String label, VoidCallback onTap, {bool active = false}) =>
             Expanded(child: InkWell(
               onTap: onTap,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(18),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 13),
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   Icon(icon, color: active ? appRed : Colors.white70, size: 23),
                   const SizedBox(height: 5),
@@ -181,7 +181,11 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
               ),
             ));
         return Container(
-          decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(14)),
+          decoration: BoxDecoration(
+            color: appSurface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withValues(alpha: .07)),
+          ),
           child: Row(children: [
             action(rating == null ? Icons.star_border_rounded : Icons.star_rounded,
               rating == null ? 'Rate' : 'Rated $rating★',
@@ -199,14 +203,36 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
     );
   }
 
+  ButtonStyle _softOutline() => OutlinedButton.styleFrom(
+    minimumSize: const Size(0, 50),
+    backgroundColor: Colors.white.withValues(alpha: .05),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+    side: BorderSide(color: Colors.white.withValues(alpha: .2)),
+  );
+
+  Widget _sectionHead(String title, {String? note}) => Row(children: [
+    Container(
+      width: 4, height: 20,
+      margin: const EdgeInsets.only(right: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [appAccentSoft, appRed]),
+        borderRadius: BorderRadius.circular(99),
+      ),
+    ),
+    Expanded(child: Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -.5))),
+    if (note != null) Text(note, style: const TextStyle(fontSize: 11.5, color: Colors.white54)),
+  ]);
+
   Widget _socialActions() => Row(children: [
     Expanded(child: OutlinedButton.icon(
+      style: _softOutline(),
       onPressed: () => showCommunityComposer(context, movie: _show),
       icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
       label: const Text('Tweet', style: TextStyle(fontWeight: FontWeight.w800)),
     )),
     const SizedBox(width: 10),
     Expanded(child: OutlinedButton.icon(
+      style: _softOutline(),
       onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => WatchTogetherScreen(movie: _selectedEpisode == null
           ? _show : _episodeMovie(_selectedEpisode!)),
@@ -247,23 +273,32 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
           color: appRed,
           child: CustomScrollView(slivers: [
             SliverToBoxAdapter(child: Stack(children: [
-              SizedBox(height: 310, width: double.infinity,
+              SizedBox(height: 350, width: double.infinity,
                 child: _art(backdrop)),
               Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(
                 gradient: LinearGradient(begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  stops: const [0, .48, 1],
-                  colors: [Colors.black54, Colors.transparent, appBg]),
+                  stops: const [0, .3, .68, 1],
+                  colors: [const Color(0x66000000), const Color(0x00000000), appBg.withValues(alpha: .75), appBg]),
               ))),
               Positioned(top: 12, left: 14, child: _topButton(Icons.arrow_back_rounded, () => Navigator.pop(context))),
               Positioned(top: 12, right: 14, child: _topButton(saved ? Icons.bookmark_rounded : Icons.bookmark_outline_rounded, _toggleSaved)),
               Positioned(left: 18, right: 18, bottom: 13, child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('DAMI SERIES', style: TextStyle(color: appRed, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 2)),
-                  const SizedBox(height: 5),
-                  Text(show.title, maxLines: 3, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 29, fontWeight: FontWeight.w900, height: 1.09)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [appRed, appAccentSoft]),
+                      borderRadius: BorderRadius.circular(99),
+                      boxShadow: [BoxShadow(color: appRed.withValues(alpha: .4), blurRadius: 12, offset: const Offset(0, 4))],
+                    ),
+                    child: Text('TV series', style: TextStyle(color: appRed.computeLuminance() > .5 ? Colors.black : Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800)),
+                  ),
                   const SizedBox(height: 9),
+                  Text(show.title, maxLines: 3, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 31, fontWeight: FontWeight.w900, height: 1.05, letterSpacing: -1,
+                        shadows: [Shadow(color: Colors.black54, blurRadius: 16)])),
+                  const SizedBox(height: 10),
                   Wrap(spacing: 12, runSpacing: 6, children: [
                     if (show.rating.isNotEmpty) _tag(Icons.star_rounded, '${show.rating}/10', color: const Color(0xFFFFCE56)),
                     if (show.year.isNotEmpty) _tag(Icons.calendar_today_outlined, show.year),
@@ -277,20 +312,21 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
               sliver: SliverList(delegate: SliverChildListDelegate([
                 if (show.genres.isNotEmpty)
                   Wrap(spacing: 7, runSpacing: 8, children: show.genres.take(4)
-                      .map((g) => Chip(label: Text(g, style: const TextStyle(fontSize: 11)),
+                      .map((g) => Chip(label: Text(g, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                         visualDensity: VisualDensity.compact,
-                        backgroundColor: appSurface, side: BorderSide(color: Colors.white.withValues(alpha: .12)))).toList()),
+                        shape: const StadiumBorder(),
+                        backgroundColor: appSurface, side: BorderSide(color: Colors.white.withValues(alpha: .1)))).toList()),
                 const SizedBox(height: 13),
                 if (show.overview.isNotEmpty) Text(show.overview,
-                    style: const TextStyle(fontSize: 13, color: Colors.white70, height: 1.55)),
+                    style: const TextStyle(fontSize: 13.5, color: Colors.white70, height: 1.6)),
                 const SizedBox(height: 20),
                 Row(children: [
                   Expanded(child: FilledButton.icon(
                     onPressed: _episodes.isNotEmpty ? () => _watch(_episodes.first) : null,
                     style: FilledButton.styleFrom(
-                      backgroundColor: appRed, foregroundColor: Colors.white,
-                      minimumSize: const Size(0, 48),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13))),
+                      backgroundColor: appRed, foregroundColor: appRed.computeLuminance() > .5 ? Colors.black : Colors.white,
+                      minimumSize: const Size(0, 54),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
                     icon: const Icon(Icons.play_arrow_rounded),
                     label: const Text('Watch episode', style: TextStyle(fontWeight: FontWeight.w800)),
                   )),
@@ -300,7 +336,9 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
                     icon: const Icon(Icons.play_circle_outline_rounded),
                     label: const Text('Trailer'),
                     style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, 48),
+                      minimumSize: const Size(0, 54),
+                      backgroundColor: Colors.white.withValues(alpha: .05),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                       side: BorderSide(color: Colors.white.withValues(alpha: .25)),
                     ),
                   ),
@@ -311,7 +349,11 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
                   icon: const Icon(Icons.download_rounded),
                   label: Text(_selectedEpisode == null ? 'Download episode' :
                     'Download S${_selectedEpisode!.seasonNumber}E${_selectedEpisode!.number}'),
-                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 46)),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 50),
+                    backgroundColor: Colors.white.withValues(alpha: .05),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  ),
                 )),
                 const SizedBox(height: 13),
                 _socialActions(),
@@ -319,18 +361,10 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
                 _engagementActions(),
                 if (show.cast.isNotEmpty) ...[
                   const SizedBox(height: 26),
-                  Row(children: [
-                    const Expanded(child: Text('Top Cast',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900))),
-                    Text('${show.cast.length} actors',
-                      style: const TextStyle(fontSize: 11, color: Colors.white54)),
-                  ]),
-                  const SizedBox(height: 5),
-                  const Text('Tap an actor to explore their profile',
-                    style: TextStyle(color: Colors.white54, fontSize: 11)),
-                  const SizedBox(height: 13),
+                  _sectionHead('Top cast', note: '${show.cast.length} actors'),
+                  const SizedBox(height: 14),
                   SizedBox(
-                    height: 172,
+                    height: 176,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: show.cast.length,
@@ -340,13 +374,12 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
                   ),
                 ],
                 const SizedBox(height: 28),
-                Row(children: [
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Seasons & Episodes', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-                    const SizedBox(height: 4),
-                    Text('Choose a season, then an episode', style: TextStyle(color: Colors.white60, fontSize: 11)),
-                  ])),
-                ]),
+                _sectionHead('Seasons and episodes'),
+                const SizedBox(height: 4),
+                const Padding(
+                  padding: EdgeInsets.only(left: 14),
+                  child: Text('Choose a season, then an episode', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                ),
                 const SizedBox(height: 14),
                 if (_loading) const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
                 else if (_error.isNotEmpty) _message(_error, onRetry: _loadDetails)
@@ -354,8 +387,8 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
                 else ...[
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(13),
-                      border: Border.all(color: Colors.white12)),
+                    decoration: BoxDecoration(color: appSurface, borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.white.withValues(alpha: .1))),
                     child: DropdownButtonHideUnderline(child: DropdownButton<int>(
                       value: _season,
                       isExpanded: true,
@@ -401,13 +434,13 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
     child: Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(13),
+        borderRadius: BorderRadius.circular(18),
         onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
           builder: (_) => ActorProfileScreen(person: person),
         )),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(18),
             child: SizedBox(
               width: 96,
               height: 112,
@@ -423,7 +456,7 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
           ),
           const SizedBox(height: 7),
           Text(person.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
           if (person.character.isNotEmpty) ...[
             const SizedBox(height: 3),
             Text(person.character, maxLines: 2, overflow: TextOverflow.ellipsis,
@@ -440,76 +473,104 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
     child: const Icon(Icons.person_rounded, size: 38, color: Colors.white38),
   );
 
-  Widget _topButton(IconData icon, VoidCallback onTap) => Material(
-    color: Colors.black54, borderRadius: BorderRadius.circular(20),
-    child: IconButton(onPressed: onTap, icon: Icon(icon, color: Colors.white)),
+  Widget _topButton(IconData icon, VoidCallback onTap) => Container(
+    width: 44, height: 44,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: Colors.black.withValues(alpha: .4),
+      border: Border.all(color: Colors.white.withValues(alpha: .2)),
+    ),
+    child: IconButton(onPressed: onTap, icon: Icon(icon, color: Colors.white, size: 22)),
   );
 
-  Widget _tag(IconData icon, String text, {Color color = Colors.white70}) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [Icon(icon, color: color, size: 15), const SizedBox(width: 4),
-      Text(text, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700))],
-  );
-
-  Widget _episodeTile(TvEpisode episode) => Padding(
-    padding: const EdgeInsets.only(bottom: 11),
-    child: Material(
-      color: appSurface, borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: () { setState(() => _selectedEpisode = episode); _watch(episode); },
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            ClipRRect(borderRadius: BorderRadius.circular(9), child: SizedBox(
-              width: 108, height: 84,
-              child: Stack(fit: StackFit.expand, children: [
-                _art(episode.still.isEmpty ? _show.backdrop : episode.still),
-                Center(child: Container(
-                  decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                  padding: const EdgeInsets.all(5),
-                  child: const Icon(Icons.play_arrow_rounded, size: 25, color: Colors.white),
-                )),
-              ]),
-            )),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('EPISODE ${episode.number}', style: TextStyle(color: appRed, fontWeight: FontWeight.w900, fontSize: 10)),
-              const SizedBox(height: 4),
-              Text(episode.name, maxLines: 2, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 4),
-              Text([
-                if (episode.runtime != null && episode.runtime! > 0) '${episode.runtime} min',
-                if (episode.airDate.isNotEmpty) episode.airDate,
-              ].join(' • '), maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white54, fontSize: 10)),
-              if (episode.overview.isNotEmpty) ...[
-                const SizedBox(height: 5),
-                Text(episode.overview, maxLines: 2, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white54, fontSize: 10, height: 1.25)),
-              ],
-            ])),
-            IconButton(
-              tooltip: 'Select episode for download or Watch Together',
-              onPressed: () => setState(() => _selectedEpisode = episode),
-              icon: Icon(_selectedEpisode?.number == episode.number &&
-                      _selectedEpisode?.seasonNumber == episode.seasonNumber
-                  ? Icons.radio_button_checked_rounded
-                  : Icons.radio_button_off_rounded,
-                color: appRed),
-            ),
-          ]),
-        ),
-      ),
+  Widget _tag(IconData icon, String text, {Color color = Colors.white70}) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: BoxDecoration(
+      color: Colors.black.withValues(alpha: .4),
+      border: Border.all(color: Colors.white.withValues(alpha: .15)),
+      borderRadius: BorderRadius.circular(99),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [Icon(icon, color: color, size: 15), const SizedBox(width: 5),
+        Text(text, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700))],
     ),
   );
+
+  Widget _episodeTile(TvEpisode episode) {
+    final selected = _selectedEpisode?.number == episode.number &&
+        _selectedEpisode?.seasonNumber == episode.seasonNumber;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: selected ? appRed.withValues(alpha: .1) : appSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(color: selected ? appRed.withValues(alpha: .7) : Colors.white.withValues(alpha: .07)),
+        ),
+        child: InkWell(
+          onTap: () { setState(() => _selectedEpisode = episode); _watch(episode); },
+          borderRadius: BorderRadius.circular(22),
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              ClipRRect(borderRadius: BorderRadius.circular(16), child: SizedBox(
+                width: 112, height: 88,
+                child: Stack(fit: StackFit.expand, children: [
+                  _art(episode.still.isEmpty ? _show.backdrop : episode.still),
+                  Center(child: Container(
+                    width: 36, height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: .5),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white54, width: 1.2),
+                    ),
+                    child: const Icon(Icons.play_arrow_rounded, size: 22, color: Colors.white),
+                  )),
+                ]),
+              )),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Episode ${episode.number}', style: TextStyle(color: appAccentSoft, fontWeight: FontWeight.w800, fontSize: 11.5)),
+                const SizedBox(height: 3),
+                Text(episode.name, maxLines: 2, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, height: 1.2)),
+                const SizedBox(height: 4),
+                Text([
+                  if (episode.runtime != null && episode.runtime! > 0) '${episode.runtime} min',
+                  if (episode.airDate.isNotEmpty) episode.airDate,
+                ].join(' • '), maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white54, fontSize: 10.5)),
+                if (episode.overview.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(episode.overview, maxLines: 2, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white54, fontSize: 10.5, height: 1.3)),
+                ],
+              ])),
+              IconButton(
+                tooltip: 'Select episode for download or Watch Together',
+                onPressed: () => setState(() => _selectedEpisode = episode),
+                icon: Icon(selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_off_rounded,
+                  color: selected ? appRed : Colors.white38),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _message(String text, {VoidCallback? onRetry}) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 26),
     child: Column(children: [
-      Icon(Icons.info_outline_rounded, color: appRed, size: 28),
-      const SizedBox(height: 8),
+      Container(
+        width: 56, height: 56,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: appRed.withValues(alpha: .14)),
+        child: Icon(Icons.info_outline_rounded, color: appAccentSoft, size: 26),
+      ),
+      const SizedBox(height: 10),
       Text(text, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
       if (onRetry != null) TextButton(onPressed: onRetry, child: const Text('Try again')),
     ]),
