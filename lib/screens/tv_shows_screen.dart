@@ -17,14 +17,15 @@ class TvShowsScreen extends StatefulWidget {
   State<TvShowsScreen> createState() => _TvShowsScreenState();
 }
 
-class _TvShowsScreenState extends State<TvShowsScreen> {
+class _TvShowsScreenState extends State<TvShowsScreen> with WidgetsBindingObserver {
   final _tmdb = TmdbService();
   final _search = TextEditingController();
   final _featured = PageController(viewportFraction: .92);
   Timer? _debounce;
   List<Movie> _trending = [];
   List<Movie> _popular = [];
-  List<Movie> _airing = [];
+  List<TvEpisodeToday> _newEpisodes = [];
+  List<Movie> _newSeries = [];
   List<Movie> _onAir = [];
   List<Movie> _kDrama = [];
   List<Movie> _anime = [];
@@ -37,6 +38,8 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
   int _page = 1;
   int _featuredPage = 0;
   int _request = 0;
+  int _loadSequence = 0;
+  DateTime? _lastLoadedAt;
   String _query = '';
   String _error = '';
   String _genre = 'All Series';
@@ -49,36 +52,56 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
   @override
   void dispose() {
     _request++;
+    WidgetsBinding.instance.removeObserver(this);
     _debounce?.cancel();
     _featured.dispose();
     _search.dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    final last = _lastLoadedAt;
+    if (last == null || DateTime.now().difference(last) >= const Duration(minutes: 30)
+        || !_sameDay(last, DateTime.now())) {
+      _load();
+    }
+  }
+
+  static bool _sameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
   Future<void> _load() async {
+    final serial = ++_loadSequence;
     if (mounted) setState(() { _loading = true; _error = ''; });
     // The requests are independent: one failing should not hide the other.
-    List<Movie> trending = [], popular = [], airing = [], onAir = [], kDrama = [], anime = [], reality = [];
+    List<Movie> trending = [], popular = [], newSeries = [], onAir = [], kDrama = [], anime = [], reality = [];
+    List<TvEpisodeToday> newEpisodes = [];
     await Future.wait([
       () async { try { trending = await _tmdb.tvTrending(); } catch (_) {} }(),
       () async { try { popular = await _tmdb.tvPopular(); } catch (_) {} }(),
-      () async { try { airing = await _tmdb.tvAiringToday(); } catch (_) {} }(),
+      () async { try { newEpisodes = await _tmdb.tvVerifiedEpisodesToday(); } catch (_) {} }(),
+      () async { try { newSeries = await _tmdb.tvNewSeries(); } catch (_) {} }(),
       () async { try { onAir = await _tmdb.tvOnAir(); } catch (_) {} }(),
       () async { try { kDrama = await _tmdb.tvDiscover(genreId: '18', language: 'ko'); } catch (_) {} }(),
       () async { try { anime = await _tmdb.tvDiscover(genreId: '16', language: 'ja'); } catch (_) {} }(),
       () async { try { reality = await _tmdb.tvDiscover(genreId: '10764'); } catch (_) {} }(),
     ]);
-    if (!mounted) return;
+    if (!mounted || serial != _loadSequence) return;
     setState(() {
+      _lastLoadedAt = DateTime.now();
       _trending = trending;
       _popular = popular;
-      _airing = airing;
+      _newEpisodes = newEpisodes;
+      _newSeries = newSeries;
       _onAir = onAir;
       _kDrama = kDrama;
       _anime = anime;
@@ -87,7 +110,7 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
       _hasMore = popular.isNotEmpty;
       _featuredPage = 0;
       _loading = false;
-      _error = trending.isEmpty && popular.isEmpty && airing.isEmpty && onAir.isEmpty
+      _error = trending.isEmpty && popular.isEmpty && newEpisodes.isEmpty && onAir.isEmpty
           ? 'Could not load TV shows. Check your connection and try again.' : '';
     });
   }
@@ -238,7 +261,8 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
                     const SizedBox(height: 28),
                   ],
                   if (!querying) ...[
-                    _seriesRail('New Episodes', 'AIRING TODAY', Icons.new_releases_rounded, _airing),
+                    _episodeRail(),
+                    _seriesRail('New TV Series', 'PREMIERED IN THE LAST 30 DAYS', Icons.fiber_new_rounded, _newSeries),
                     _seriesRail('Currently Airing', 'FOLLOW THE STORY', Icons.live_tv_rounded, _onAir),
                     _seriesRail('Korean Dramas', 'K-DRAMA COLLECTION', Icons.favorite_rounded, _kDrama),
                     _seriesRail('Anime Series', 'ANIMATED STORIES', Icons.auto_awesome_rounded, _anime),
@@ -301,6 +325,32 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
           }),
         ),
       ),
+    );
+  }
+
+  Widget _episodeRail() {
+    if (_newEpisodes.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 28),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _heading('New Episodes Today', 'EPISODE DATE VERIFIED', Icons.new_releases_rounded),
+        const SizedBox(height: 13),
+        SizedBox(height: 236, child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: _newEpisodes.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 11),
+          itemBuilder: (_, index) {
+            final item = _newEpisodes[index];
+            return SizedBox(width: 130, child: Column(children: [
+              Expanded(child: _posterCard(item.show)),
+              const SizedBox(height: 5),
+              Text('${item.episodeCode} · ${item.airDate}',
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: appRed, fontSize: 10, fontWeight: FontWeight.w800)),
+            ]));
+          },
+        )),
+      ]),
     );
   }
 
