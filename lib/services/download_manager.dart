@@ -286,6 +286,99 @@ class DownloadManager extends ChangeNotifier {
 
   // -------------------------------------------------------------------- API
 
+  /// New in-app WebView download flow. Android's WebView has already reported
+  /// a downloadable response, so enqueue directly without making a separate
+  /// range/probe request (important for signed, one-time URLs).
+  /// Returns null when the file is queued, otherwise a human-readable error.
+  Future<String?> enqueueFromWebView(
+    String url, {
+    String referer = '',
+    String cookie = '',
+    String? name,
+    String? mimeType,
+  }) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        (uri.scheme != 'http' && uri.scheme != 'https') ||
+        uri.host.isEmpty) {
+      return 'The website did not supply a direct downloadable file.';
+    }
+    if (!_available) {
+      return 'Android background downloads are not available on this device.';
+    }
+    // Do not enqueue duplicate files if the page fires the event twice.
+    if (_tasks.any((t) => t.url == url && t.status != DownloadStatus.failed)) {
+      return null;
+    }
+    if (!_starting.add(url)) return null;
+    try {
+      unawaited(_askNotificationPermission());
+      final dir = await _saveDir();
+      final fromLink = fileNameFromUrl(url);
+      final hasExtension = RegExp(r'\.[A-Za-z0-9]{2,6}$');
+      var file = sanitizeFileName((name ?? '').trim());
+      if (file == 'download' || !hasExtension.hasMatch(file)) {
+        if (hasExtension.hasMatch(fromLink)) {
+          file = fromLink;
+        } else {
+          final type = (mimeType ?? '').toLowerCase();
+          final ext = type.contains('matroska') ? '.mkv'
+              : type.contains('webm') ? '.webm'
+              : type.contains('mp4') ? '.mp4'
+              : type.contains('zip') ? '.zip'
+              : type.contains('pdf') ? '.pdf'
+              : '.bin';
+          file = '${file == 'download' ? 'DamiMovies-download' : file}$ext';
+        }
+      }
+      final headers = <String, String>{
+        'User-Agent': AppConfig.userAgent,
+        if (referer.isNotEmpty) 'Referer': referer,
+        if (cookie.isNotEmpty && !cookie.contains('\n') && !cookie.contains('\r'))
+          'Cookie': cookie,
+      };
+      String? id;
+      try {
+        id = await fd.FlutterDownloader.enqueue(
+          url: url,
+          savedDir: dir,
+          fileName: file,
+          headers: headers,
+          showNotification: true,
+          openFileFromNotification: true,
+          saveInPublicStorage: true,
+        );
+      } catch (error) {
+        debugPrint('DamiMovies: public file download failed: $error');
+      }
+      if (id == null) {
+        try {
+          id = await fd.FlutterDownloader.enqueue(
+            url: url,
+            savedDir: dir,
+            fileName: file,
+            headers: headers,
+            showNotification: true,
+            openFileFromNotification: true,
+            saveInPublicStorage: false,
+          );
+        } catch (error) {
+          debugPrint('DamiMovies: in-app native download failed: $error');
+        }
+      }
+      if (id == null) {
+        return 'Could not queue this file. The download provider may restrict transfers.';
+      }
+      _tasks.insert(0, DownloadTask(
+        id: id, url: url, name: file, referer: referer,
+      ));
+      _changed();
+      return null;
+    } finally {
+      _starting.remove(url);
+    }
+  }
+
   /// Starts a background download. Returns null on success, otherwise a
   /// message that can be shown to the user.
   Future<String?> enqueue(
