@@ -350,7 +350,7 @@ class _ModernNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
     return Container(
-      padding: EdgeInsets.only(top: 8, bottom: 8 + bottomInset),
+      padding: EdgeInsets.only(top: 6, bottom: 6 + bottomInset),
       decoration: BoxDecoration(
         color: appBg,
         border: Border(
@@ -394,27 +394,27 @@ class _NavButton extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(vertical: 3),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               AnimatedScale(
-                scale: selected ? 1.12 : 1,
+                scale: selected ? 1.08 : 1,
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOutBack,
                 child: Icon(
                   selected ? item.selectedIcon : item.icon,
-                  size: 28,
+                  size: 22,
                   color: color,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 item.label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 10.5,
                   fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
                   color: color,
                 ),
