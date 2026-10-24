@@ -28,7 +28,7 @@ class AdPreloader {
   static final AdPreloader instance = AdPreloader._();
 
   static const maxAgeSeconds = 240;
-  static const _settleDelay = Duration(milliseconds: 1400);
+  static const _settleDelay = Duration(milliseconds: 400);
 
   WebViewController? _wc;
   String? _loadedUrl;
