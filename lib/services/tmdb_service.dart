@@ -179,6 +179,62 @@ class TmdbService {
   /// Shows airing today, including newly released episodes.
   Future<List<Movie>> tvAiringToday() => _list('/tv/airing_today', {}, 'tv');
 
+  /// Series with an episode actually scheduled for the device's current date.
+  /// The airing_today list is only a candidate source; every show is checked
+  /// against last_episode_to_air/next_episode_to_air from its detail endpoint.
+  /// Up to 20 detail calls are made per refresh (not one request per card render).
+  Future<List<TvEpisodeToday>> tvVerifiedEpisodesToday() async {
+    final candidates = await tvAiringToday();
+    if (candidates.isEmpty) return [];
+    final today = _tmdbDate(DateTime.now());
+    final matches = <TvEpisodeToday>[];
+    // Small batches avoid dozens of simultaneous TMDB requests.
+    for (var i = 0; i < candidates.length && i < 20; i += 5) {
+      final batch = candidates.skip(i).take(5).toList();
+      final found = await Future.wait(batch.map((show) async {
+        final id = show.tmdbId;
+        if (id == null) return null;
+        final info = await _get('/tv/$id');
+        if (info == null) return null;
+        for (final key in ['next_episode_to_air', 'last_episode_to_air']) {
+          final episode = info[key];
+          if (episode is! Map || episode['air_date']?.toString() != today) continue;
+          final season = (episode['season_number'] as num?)?.toInt();
+          final number = (episode['episode_number'] as num?)?.toInt();
+          if (season == null || number == null || number <= 0) continue;
+          return TvEpisodeToday(show: show, season: season, episode: number,
+              airDate: today);
+        }
+        return null;
+      }));
+      matches.addAll(found.whereType<TvEpisodeToday>());
+    }
+    return matches;
+  }
+
+  /// Only series whose first episode premiered during the past 30 days.
+  Future<List<Movie>> tvNewSeries() async {
+    final today = DateTime.now();
+    final start = today.subtract(const Duration(days: 30));
+    final minDate = _tmdbDate(start);
+    final maxDate = _tmdbDate(today);
+    final results = await _list('/discover/tv', {
+      'first_air_date.gte': minDate,
+      'first_air_date.lte': maxDate,
+      'sort_by': 'popularity.desc',
+      'include_adult': 'false',
+      'page': '1',
+    }, 'tv');
+    return results.where((show) {
+      final date = DateTime.tryParse(show.releaseDate);
+      return date != null && !date.isBefore(DateTime(start.year, start.month, start.day))
+          && !date.isAfter(DateTime(today.year, today.month, today.day));
+    }).toList();
+  }
+
+  static String _tmdbDate(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
   /// Series currently broadcasting a season.
   Future<List<Movie>> tvOnAir() => _list('/tv/on_the_air', {}, 'tv');
 
@@ -707,4 +763,15 @@ class TmdbTrailer {
       required this.key,
       required this.publishedAt});
   String get youtubeUrl => 'https://www.youtube.com/watch?v=$key';
+}
+
+/// A series with an episode independently verified as airing today.
+class TvEpisodeToday {
+  final Movie show;
+  final int season;
+  final int episode;
+  final String airDate;
+  const TvEpisodeToday({required this.show, required this.season,
+    required this.episode, required this.airDate});
+  String get episodeCode => 'S${season.toString().padLeft(2, '0')}E${episode.toString().padLeft(2, '0')}';
 }
