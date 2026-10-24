@@ -8,6 +8,7 @@ import '../models/tv_show.dart';
 import '../services/movie_library.dart';
 import '../services/profile_data.dart';
 import '../services/download_upgrade_service.dart';
+import '../services/download_urls_config.dart';
 import 'external_download_screen.dart';
 import 'community_composer.dart';
 import 'profile_collections_screen.dart';
@@ -117,16 +118,27 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
     ));
   }
 
-  // Downloads require an explicitly configured episode-specific template.
-  // TMDB supplies metadata, not a downloadable episode file.
-  String _episodeDownloadUrl(TvEpisode episode) {
+  // Prefer an explicitly configured episode download link when present.
+  // Otherwise use the global JSON provider with the SERIES TMDB ID.
+  Future<String?> _episodeDownloadUrl(TvEpisode episode) async {
     final template = _show.downloadUrl.trim();
-    if (!template.startsWith('https://') && !template.startsWith('http://')) return '';
-    if (!template.contains('{season}') || !template.contains('{episode}')) return '';
-    return template
-        .replaceAll('{id}', '${_id}')
-        .replaceAll('{season}', '${episode.seasonNumber}')
-        .replaceAll('{episode}', '${episode.number}');
+    if (template.contains('{season}') && template.contains('{episode}') &&
+        template.contains('{id}')) {
+      final link = template
+          .replaceAll('{id}', '$_id')
+          .replaceAll('{season}', '${episode.seasonNumber}')
+          .replaceAll('{episode}', '${episode.number}');
+      final uri = Uri.tryParse(link);
+      if (uri != null &&
+          (uri.scheme == 'https' || uri.scheme == 'http') &&
+          uri.host.isNotEmpty) return link;
+    }
+    final config = await DownloadUrlsConfig.load();
+    return config.urlFor(
+      tmdbId: _id,
+      season: episode.seasonNumber,
+      episode: episode.number,
+    );
   }
 
   Future<void> _downloadEpisode() async {
@@ -137,10 +149,11 @@ class _TvShowDetailScreenState extends State<TvShowDetailScreen> {
       ));
       return;
     }
-    final url = _episodeDownloadUrl(episode);
-    if (url.isEmpty) {
+    final url = await _episodeDownloadUrl(episode);
+    if (!mounted) return;
+    if (url == null || url.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('An episode download link is not available for this series.'),
+        content: Text('A download page is not available for this episode.'),
       ));
       return;
     }
