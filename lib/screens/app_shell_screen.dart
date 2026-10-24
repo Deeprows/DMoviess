@@ -304,8 +304,8 @@ class _NavItem {
   const _NavItem(this.icon, this.selectedIcon, this.label);
 }
 
-/// Bottom bar: a dark panel with a glowing hairline on top. The selected tab
-/// grows into an accent pill that shows its label; the others show only icons.
+/// Flat bottom bar: every tab shows an icon with its label underneath.
+/// The selected tab is drawn in the accent colour, the others in grey.
 class _ModernNavBar extends StatelessWidget {
   final int selectedIndex;
   final List<_NavItem> items;
@@ -320,41 +320,24 @@ class _ModernNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
     return Container(
-      padding: EdgeInsets.fromLTRB(12, 10, 12, 10 + bottomInset),
+      padding: EdgeInsets.only(top: 8, bottom: 8 + bottomInset),
       decoration: BoxDecoration(
         color: appBg,
         border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: .07)),
+          top: BorderSide(color: Colors.white.withValues(alpha: .08)),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: appRed.withValues(alpha: .10),
-            blurRadius: 30,
-            offset: const Offset(0, -6),
-          ),
-        ],
       ),
-      child: Container(
-        height: 62,
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: appSurface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withValues(alpha: .07)),
-        ),
-        child: Row(
-          children: [
-            for (var i = 0; i < items.length; i++)
-              Expanded(
-                flex: i == selectedIndex ? 25 : 14,
-                child: _NavButton(
-                  item: items[i],
-                  selected: i == selectedIndex,
-                  onTap: () => onSelected(i),
-                ),
+      child: Row(
+        children: [
+          for (var i = 0; i < items.length; i++)
+            Expanded(
+              child: _NavButton(
+                item: items[i],
+                selected: i == selectedIndex,
+                onTap: () => onSelected(i),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -372,8 +355,7 @@ class _NavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onAccent =
-        appRed.computeLuminance() > .5 ? Colors.black : Colors.white;
+    final color = selected ? appRed : Colors.white54;
     return Semantics(
       button: true,
       selected: selected,
@@ -381,51 +363,33 @@ class _NavButton extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOutCubic,
-          margin: const EdgeInsets.symmetric(horizontal: 2),
-          decoration: BoxDecoration(
-            gradient: selected
-                ? LinearGradient(colors: [appRed, appAccentSoft])
-                : null,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: appRed.withValues(alpha: .35),
-                      blurRadius: 14,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedScale(
+                scale: selected ? 1.12 : 1,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutBack,
+                child: Icon(
                   selected ? item.selectedIcon : item.icon,
-                  size: 22,
-                  color: selected ? onAccent : Colors.white60,
+                  size: 28,
+                  color: color,
                 ),
-                if (selected) ...[
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      item.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                        color: onAccent,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+                  color: color,
+                ),
+              ),
+            ],
           ),
         ),
       ),
