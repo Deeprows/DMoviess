@@ -5,11 +5,12 @@ import '../models/download_task.dart';
 import '../services/download_manager.dart';
 
 class DownloadsScreen extends StatelessWidget {
-  const DownloadsScreen({super.key});
+  final bool embedded;
+  const DownloadsScreen({super.key, this.embedded = false});
   @override
   Widget build(BuildContext context) {
     final manager = DownloadManager.instance;
-    return Scaffold(
+    final scaffold = Scaffold(
       appBar: AppBar(
           title: Text('Downloads'.tr,
               style: TextStyle(fontWeight: FontWeight.w900)),
@@ -153,6 +154,22 @@ class DownloadsScreen extends StatelessWidget {
                 });
           }),
     );
+    if (!embedded) return scaffold;
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 10, 4),
+        child: Row(children: [
+          const Expanded(child: Text('Your downloads',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800))),
+          TextButton.icon(
+            onPressed: manager.clearFinished,
+            icon: const Icon(Icons.cleaning_services_outlined, size: 18),
+            label: const Text('Clear completed'),
+          ),
+        ]),
+      ),
+      Expanded(child: scaffold.body!),
+    ]);
   }
 
   IconData _icon(String ext) => switch (ext) {
