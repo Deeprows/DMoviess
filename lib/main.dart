@@ -83,7 +83,6 @@ ThemeData _buildTheme(DamiPalette palette) {
     ),
     pageTransitionsTheme: const PageTransitionsTheme(builders: {
       TargetPlatform.android: ZoomPageTransitionsBuilder(),
-      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
     }),
     appBarTheme: AppBarTheme(
       backgroundColor: palette.background,
