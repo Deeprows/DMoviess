@@ -151,20 +151,30 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
             final columns = constraints.maxWidth >= 700 ? 5 : constraints.maxWidth >= 490 ? 4 : 3;
             return ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
               children: [
                 Row(children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(color: appRed.withValues(alpha: .16), borderRadius: BorderRadius.circular(13)),
-                    child: Icon(Icons.live_tv_rounded, color: appRed, size: 23),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('TV SHOWS', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: .7)),
-                    Text('Binge-worthy stories, all in one place', style: TextStyle(fontSize: 11, color: Colors.white60)),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    ShaderMask(
+                      blendMode: BlendMode.srcIn,
+                      shaderCallback: (rect) => LinearGradient(colors: [Colors.white, appAccentSoft]).createShader(rect),
+                      child: const Text('TV Shows', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -.9)),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text('Binge-worthy stories, all in one place', style: TextStyle(fontSize: 12.5, color: Colors.white60)),
                   ])),
-                  IconButton(tooltip: 'Refresh TV shows', onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
+                  InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _load,
+                    child: Container(
+                      width: 46, height: 46,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle, color: appSurface,
+                        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+                      ),
+                      child: const Icon(Icons.refresh_rounded, size: 22),
+                    ),
+                  ),
                 ]),
                 const SizedBox(height: 22),
                 TextField(
@@ -173,7 +183,7 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
                     hintText: 'Search TV shows, series...',
-                    prefixIcon: Icon(Icons.search_rounded, color: appRed),
+                    prefixIcon: const Icon(Icons.search_rounded, color: Colors.white54),
                     suffixIcon: _query.isNotEmpty ? IconButton(
                       tooltip: 'Clear search',
                       onPressed: () { _search.clear(); _searchChanged(''); FocusScope.of(context).unfocus(); },
@@ -182,7 +192,13 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
                     filled: true,
                     fillColor: appSurface,
                     contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+                    enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide(color: Colors.white.withValues(alpha: .08))),
+                    focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide(color: appRed.withValues(alpha: .8), width: 1.4)),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -194,7 +210,7 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
                   if (!querying && _trending.isNotEmpty) ...[
                     _heading('Trending this week', 'HOT RIGHT NOW', Icons.local_fire_department_rounded),
                     const SizedBox(height: 13),
-                    SizedBox(height: 245, child: PageView.builder(
+                    SizedBox(height: 270, child: PageView.builder(
                       controller: _featured,
                       itemCount: _trending.take(8).length,
                       onPageChanged: (index) => setState(() => _featuredPage = index),
@@ -212,7 +228,11 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
                         duration: const Duration(milliseconds: 180),
                         margin: const EdgeInsets.symmetric(horizontal: 3),
                         height: 5, width: i == _featuredPage ? 22 : 5,
-                        decoration: BoxDecoration(color: i == _featuredPage ? appRed : Colors.white30, borderRadius: BorderRadius.circular(8)),
+                        decoration: BoxDecoration(
+                          color: i == _featuredPage ? appRed : Colors.white24,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: i == _featuredPage ? [BoxShadow(color: appRed.withValues(alpha: .6), blurRadius: 8)] : null,
+                        ),
                       ),
                     )),
                     const SizedBox(height: 28),
@@ -234,9 +254,14 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
                         label: Text(category), selected: _genre == category,
-                        selectedColor: appRed.withValues(alpha: .35),
-                        backgroundColor: appSurface,
-                        side: BorderSide(color: _genre == category ? appRed : Colors.white10),
+                        showCheckmark: false,
+                        shape: const StadiumBorder(),
+                        selectedColor: appRed.withValues(alpha: .22),
+                        backgroundColor: Colors.white.withValues(alpha: .06),
+                        labelStyle: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w800,
+                            color: _genre == category ? Colors.white : Colors.white60),
+                        side: BorderSide(color: _genre == category ? appRed : Colors.white12),
                         onSelected: (_) => setState(() => _genre = category),
                       ),
                     )).toList()),
@@ -264,7 +289,7 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.expand_more_rounded),
                       label: Text(_loadingMore ? 'Loading TV shows...' : 'Load more shows'),
-                      style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: BorderSide(color: appRed.withValues(alpha: .6))),
+                      style: OutlinedButton.styleFrom(foregroundColor: Colors.white, shape: const StadiumBorder(), minimumSize: const Size(0, 46), backgroundColor: Colors.white.withValues(alpha: .05), side: BorderSide(color: appRed.withValues(alpha: .6))),
                     )),
                   ],
                 ],
@@ -286,24 +311,41 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _heading(label, eyebrow, icon),
         const SizedBox(height: 13),
-        SizedBox(height: 222, child: ListView.separated(
+        SizedBox(height: 228, child: ListView.separated(
           scrollDirection: Axis.horizontal,
           itemCount: shows.length > 16 ? 16 : shows.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 11),
-          itemBuilder: (_, index) => SizedBox(width: 120, child: _posterCard(shows[index])),
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (_, index) => SizedBox(width: 124, child: _posterCard(shows[index])),
         )),
       ]),
     );
   }
 
-  Widget _heading(String title, String eyebrow, IconData icon) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(eyebrow, style: TextStyle(color: appRed, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
-      const SizedBox(height: 5),
-      Row(children: [Icon(icon, color: appRed, size: 21), const SizedBox(width: 8),
-        Expanded(child: Text(title, style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900)))],),
-    ],
+  Widget _heading(String title, String eyebrow, IconData icon) => Row(children: [
+    Container(
+      width: 4, height: 20,
+      margin: const EdgeInsets.only(right: 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [appAccentSoft, appRed]),
+        borderRadius: BorderRadius.circular(99),
+      ),
+    ),
+    Expanded(child: Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -.5))),
+    if (icon == Icons.search_rounded)
+      Text(eyebrow.toLowerCase().replaceFirstMapped(RegExp(r'^.'), (m) => m[0]!.toUpperCase()),
+          style: const TextStyle(color: Colors.white54, fontSize: 11.5)),
+  ]);
+
+  Widget _frame({required double radius, required Widget child}) => Container(
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(radius),
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .35), blurRadius: 12, offset: const Offset(0, 6))],
+    ),
+    foregroundDecoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(color: Colors.white.withValues(alpha: .08)),
+    ),
+    child: ClipRRect(borderRadius: BorderRadius.circular(radius), child: child),
   );
 
   Widget _art(String url, {BoxFit fit = BoxFit.cover}) {
@@ -320,67 +362,101 @@ class _TvShowsScreenState extends State<TvShowsScreen> {
 
   Widget _featureCard(Movie show, int rank) => InkWell(
     onTap: () => _open(show),
-    borderRadius: BorderRadius.circular(22),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: Stack(fit: StackFit.expand, children: [
-        _art(show.backdrop.isNotEmpty ? show.backdrop : show.image),
-        const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(
-            begin: Alignment.topCenter, end: Alignment.bottomCenter,
-            colors: [Colors.black26, Colors.transparent, Colors.black87, Colors.black]))),
-        Positioned(top: 15, left: 15, child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-          decoration: BoxDecoration(color: appRed, borderRadius: BorderRadius.circular(9)),
-          child: Text('TRENDING  #$rank', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1)),
-        )),
-        Positioned(bottom: 18, left: 16, right: 16, child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(show.title, maxLines: 2, overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
-            const SizedBox(height: 5),
-            Row(children: [
-              const Icon(Icons.star_rounded, size: 15, color: Color(0xFFFFCC58)),
-              const SizedBox(width: 3),
-              Text(show.rating.isEmpty ? 'New' : show.rating, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-              if (show.year.isNotEmpty) ...[const SizedBox(width: 12), Text(show.year, style: const TextStyle(color: Colors.white70, fontSize: 12))],
-              const Spacer(),
-              Icon(Icons.arrow_circle_right_rounded, color: appRed, size: 29),
+    borderRadius: BorderRadius.circular(28),
+    child: Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [BoxShadow(color: appRed.withValues(alpha: .22), blurRadius: 26, offset: const Offset(0, 10))],
+      ),
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white.withValues(alpha: .08)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Stack(fit: StackFit.expand, children: [
+          _art(show.backdrop.isNotEmpty ? show.backdrop : show.image),
+          DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(
+              begin: Alignment.topCenter, end: Alignment.bottomCenter,
+              colors: [const Color(0x22000000), const Color(0x00000000), appBg.withValues(alpha: .6), appBg.withValues(alpha: .96)],
+              stops: const [0, .3, .62, 1]))),
+          Positioned(top: 14, left: 14, child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [appRed, appAccentSoft]),
+              borderRadius: BorderRadius.circular(99),
+              boxShadow: [BoxShadow(color: appRed.withValues(alpha: .45), blurRadius: 14, offset: const Offset(0, 4))],
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.local_fire_department_rounded, size: 15, color: appRed.computeLuminance() > .5 ? Colors.black : Colors.white),
+              const SizedBox(width: 5),
+              Text('Trending #$rank', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: appRed.computeLuminance() > .5 ? Colors.black : Colors.white)),
             ]),
-          ],
-        )),
-      ]),
+          )),
+          Positioned(bottom: 18, left: 18, right: 18, child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(show.title, maxLines: 2, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 26, height: 1.04, fontWeight: FontWeight.w900, letterSpacing: -.9,
+                    shadows: [Shadow(color: Colors.black54, blurRadius: 16)])),
+              const SizedBox(height: 8),
+              Row(children: [
+                const Icon(Icons.star_rounded, size: 17, color: Color(0xFFFFCC58)),
+                const SizedBox(width: 4),
+                Text(show.rating.isEmpty ? 'New' : show.rating, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                if (show.year.isNotEmpty) ...[const SizedBox(width: 12), Text(show.year, style: const TextStyle(color: Colors.white70, fontSize: 12.5))],
+                const Spacer(),
+                Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+                  child: const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 26),
+                ),
+              ]),
+            ],
+          )),
+        ]),
+      ),
     ),
   );
 
   Widget _posterCard(Movie show) => InkWell(
     onTap: () => _open(show),
-    borderRadius: BorderRadius.circular(12),
+    borderRadius: BorderRadius.circular(18),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Expanded(child: Stack(fit: StackFit.expand, children: [
-        ClipRRect(borderRadius: BorderRadius.circular(12), child: _art(show.image)),
+        _frame(radius: 18, child: _art(show.image)),
         if (show.rating.isNotEmpty)
-          Positioned(top: 6, right: 6, child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-            decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(7)),
+          Positioned(left: 6, bottom: 6, child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: .6),
+              border: Border.all(color: Colors.white24),
+              borderRadius: BorderRadius.circular(99),
+            ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.star_rounded, color: Color(0xFFFFCC58), size: 12),
               const SizedBox(width: 2),
-              Text(show.rating, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              Text(show.rating, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800)),
             ]),
           )),
       ])),
-      const SizedBox(height: 6),
+      const SizedBox(height: 8),
       Text(show.title, maxLines: 1, overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 1),
       Text(show.year.isEmpty ? 'TV Series' : show.year,
-          maxLines: 1, style: const TextStyle(fontSize: 10, color: Colors.white54)),
+          maxLines: 1, style: const TextStyle(fontSize: 10.5, color: Colors.white54)),
     ]),
   );
 
   Widget _empty(String message, {VoidCallback? retry}) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 45, horizontal: 18),
     child: Column(children: [
-      Icon(Icons.live_tv_outlined, color: appRed, size: 43),
+      Container(
+        width: 72, height: 72,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: appRed.withValues(alpha: .14)),
+        child: Icon(Icons.live_tv_outlined, color: appAccentSoft, size: 34),
+      ),
       const SizedBox(height: 12),
       Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
       if (retry != null) ...[
