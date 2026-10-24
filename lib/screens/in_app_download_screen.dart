@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../main.dart';
 import '../services/in_app_download_service.dart';
+import '../services/download_manager.dart';
 import 'library_screen.dart';
 
 /// Download destinations open INSIDE DamiMovies. WebView's actual native
@@ -24,6 +26,15 @@ class InAppDownloadScreen extends StatefulWidget {
   State<InAppDownloadScreen> createState() => _InAppDownloadScreenState();
 }
 
+class _VerifiedDirectLink {
+  const _VerifiedDirectLink(this.url, this.label, this.fileName, this.total, this.mimeType);
+  final String url;
+  final String label;
+  final String? fileName;
+  final int? total;
+  final String? mimeType;
+}
+
 class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
   InAppWebViewController? _webView;
   Key _browserKey = UniqueKey();
@@ -32,6 +43,9 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
   bool _loading = true;
   bool _canGoBack = false;
   bool _queuing = false;
+  bool _scanning = false;
+  final List<_VerifiedDirectLink> _verifiedLinks = [];
+  String _scanStatus = '';
   String? _loadError;
   String? _lastDownloadUrl;
   DateTime? _lastDownloadAt;
@@ -188,8 +202,219 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
     return true;
   }
 
+  /// Read only URLs that are already present in the current page DOM.
+  /// Never simulate clicks or run the provider's onclick scripts: those may
+  /// trigger advertisements, navigation, or an authentication flow.
+  Future<void> _scanDirectLinks() async {
+    if (_scanning || _webView == null || _loading) return;
+    setState(() {
+      _scanning = true;
+      _verifiedLinks.clear();
+      _scanStatus = 'Checking visible download links…';
+    });
+    try {
+      const js = r'''(() => {
+        const output = [];
+        const seen = new Set();
+        const elements = document.querySelectorAll(
+          'a[href], a[download], [data-href], [data-url], [data-download], [data-file], [onclick]'
+        );
+        for (const element of elements) {
+          const label = (element.innerText || element.textContent ||
+            element.getAttribute('title') || 'Download').trim().slice(0, 100);
+          const attributes = ['data-download', 'data-file', 'data-url', 'data-href', 'href'];
+          let raw = attributes.map(name => element.getAttribute(name))
+            .find(value => value && !/^(javascript:|blob:|data:|#)/i.test(value.trim()));
+          // Read a literal direct URL in onclick text without executing it.
+          // Dynamic or encoded links cannot be safely inferred here.
+          if (!raw && element.hasAttribute('onclick')) {
+            const match = element.getAttribute('onclick').match(
+              /https?:\/\/[^\s'\"<>\)]+\.(?:mp4|mkv|webm|avi|mov|m4v|zip|rar|7z)(?:\?[^\s'\"<>\)]*)?/i
+            );
+            if (match) raw = match[0];
+          }
+          if (!raw) continue;
+          let url;
+          try { url = new URL(raw, document.baseURI); } catch (_) { continue; }
+          if (!/^https?:$/.test(url.protocol)) continue;
+          const directExt = /\.(mp4|mkv|webm|avi|mov|m4v|zip|rar|7z|mp3|m4a)(?:$|[?#])/i.test(url.pathname + url.search);
+          const downloadHint = element.hasAttribute('download') ||
+            /download|direct|1080p|720p|480p|server|mirror|hubcloud|pixeldrain/i.test(label);
+          if (!directExt && !downloadHint) continue;
+          if (url.href === document.location.href || seen.has(url.href)) continue;
+          seen.add(url.href);
+          output.push({url: url.href, label});
+          if (output.length >= 20) break;
+        }
+        return JSON.stringify(output);
+      })()''';
+      final raw = await _webView!.evaluateJavascript(source: js);
+      dynamic parsed = raw;
+      // Android may return the JSON string or a JSON-encoded string.
+      if (parsed is String) {
+        parsed = jsonDecode(parsed);
+        if (parsed is String) parsed = jsonDecode(parsed);
+      }
+      if (parsed is! List) throw const FormatException('No readable page links');
+      final candidates = <(String, String)>[];
+      for (final candidate in parsed) {
+        if (candidate is! Map) continue;
+        final url = candidate['url']?.toString() ?? '';
+        final uri = _httpUri(url);
+        if (uri == null) continue;
+        candidates.add((url, candidate['label']?.toString() ?? 'Download'));
+      }
+      if (candidates.isEmpty) {
+        if (mounted) setState(() {
+          _scanStatus = 'No direct file links are exposed on this page. '
+              'The server buttons may lead to another webpage or generate '
+              'a link after you select a server.';
+        });
+        _showVerifiedLinks();
+        return;
+      }
+      final currentPage = (await _webView!.getUrl())?.toString() ?? _lastSafePage;
+      final manager = DownloadManager.instance;
+      final found = <_VerifiedDirectLink>[];
+      // Limit requests: a page can include many advertising and server URLs.
+      // Probe response headers, never download the file during scanning.
+      for (var start = 0; start < candidates.length; start += 4) {
+        final batch = candidates.skip(start).take(4).toList();
+        final matches = await Future.wait(batch.map((entry) async {
+          final (url, label) = entry;
+          var cookies = '';
+          try {
+            final values = await CookieManager.instance().getCookies(url: WebUri(url));
+            cookies = values.map((c) => '${c.name}=${c.value}').join('; ');
+          } catch (_) {}
+          final info = await manager.checkLink(url,
+              referer: currentPage, cookie: cookies);
+          if (!info.isFile) return null;
+          return _VerifiedDirectLink(url, label, info.fileName, info.total, info.mimeType);
+        }));
+        found.addAll(matches.whereType<_VerifiedDirectLink>());
+        if (!mounted) return;
+        setState(() {
+          _verifiedLinks
+            ..clear()
+            ..addAll(found);
+          _scanStatus = 'Checked ${start + batch.length} of ${candidates.length} links…';
+        });
+      }
+      if (mounted) setState(() {
+        _scanStatus = found.isEmpty
+          ? 'No verified direct files found. The buttons on this page '
+              'appear to lead to other pages, require a server step, '
+              'or block file verification.'
+          : '${found.length} direct file link${found.length == 1 ? '' : 's'} verified.';
+      });
+    } catch (error) {
+      debugPrint('DamiMovies direct-link scan: $error');
+      if (mounted) setState(() => _scanStatus =
+          'Could not inspect this page. Try again after it finishes loading.');
+    } finally {
+      if (mounted) setState(() => _scanning = false);
+    }
+    if (mounted) _showVerifiedLinks();
+  }
+
+  void _showVerifiedLinks() {
+    if (!mounted) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: appSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 22),
+          child: Column(mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('DamiMovies In-App Servers',
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Text(_scanStatus, style: const TextStyle(color: Colors.white70)),
+            const SizedBox(height: 8),
+            const Text('Only links confirmed to return a downloadable file are listed. '
+                'Other webpages and unverified links are excluded.',
+              style: TextStyle(fontSize: 12, color: Colors.white54)),
+            const SizedBox(height: 16),
+            if (_verifiedLinks.isEmpty)
+              const Padding(padding: EdgeInsets.symmetric(vertical: 15),
+                child: Text('No verified direct downloads on this page yet. '
+                    'Continue on the original server page if needed.')),
+            Flexible(child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: _verifiedLinks.length,
+              separatorBuilder: (_, __) => const Divider(height: 16),
+              itemBuilder: (_, index) {
+                final link = _verifiedLinks[index];
+                final description = link.fileName ?? link.label;
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.file_download_outlined),
+                  title: Text(description, maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
+                  subtitle: Text(link.total == null
+                      ? link.url
+                      : '${(link.total! / (1024 * 1024)).toStringAsFixed(1)} MB · ${link.url}',
+                    maxLines: 2, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: Colors.white60)),
+                  trailing: FilledButton(
+                    onPressed: () {
+                      Navigator.of(sheetContext).pop();
+                      unawaited(_askToDownload(link.url,
+                        suggestedFile: link.fileName ?? widget.movieTitle,
+                        mimeType: link.mimeType));
+                    },
+                    child: const Text('Download'),
+                  ),
+                );
+              },
+            )),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  /// The URL extension alone does not prove this is a file. Ask for only
+  /// response headers before handing it to the native downloader.
+  Future<void> _verifyAndAsk(String url) async {
+    if (!mounted || _queuing) return;
+    final referer = (await _webView?.getUrl())?.toString() ?? _lastSafePage;
+    String cookies = '';
+    try {
+      final scoped = await CookieManager.instance().getCookies(url: WebUri(url));
+      cookies = scoped.map((c) => '${c.name}=${c.value}').join('; ');
+    } catch (_) {}
+    final info = await DownloadManager.instance.checkLink(
+      url, referer: referer, cookie: cookies,
+    );
+    if (!mounted) return;
+    if (!info.isFile) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('This link did not return a direct file. '
+            'Use In-App Servers to find verified download links.'),
+      ));
+      return;
+    }
+    await _askToDownload(url,
+      suggestedFile: info.fileName, mimeType: info.mimeType);
+  }
+
   Future<void> _askToDownload(String link, {String? suggestedFile, String? mimeType}) async {
     if (!mounted || _queuing) return;
+    final type = (mimeType ?? '').toLowerCase();
+    if (type.contains('html') || type.contains('json') ||
+        type.startsWith('text/')) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('That button returned a webpage, not a file. '
+            'Try In-App Servers for direct download links.'),
+      ));
+      return;
+    }
     final uri = Uri.tryParse(link);
     if (uri == null ||
         (uri.scheme != 'https' && uri.scheme != 'http') ||
@@ -235,7 +460,7 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
         mimeType: mimeType,
       );
     } catch (exception) {
-      error = 'Could not start the download. Check the link and try again.';
+      error = 'Could not start the transfer. Try a verified direct file under In-App Servers.';
       debugPrint('DamiMovies: in-app download failed: $exception');
     } finally {
       if (mounted) setState(() => _queuing = false);
@@ -269,7 +494,7 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
     final uri = _httpUri(url);
     if (uri == null) return NavigationActionPolicy.CANCEL;
     if (_directFile.hasMatch(uri.path) || action.shouldPerformDownload == true) {
-      unawaited(_askToDownload(url));
+      unawaited(_verifyAndAsk(url));
       return NavigationActionPolicy.CANCEL;
     }
     if (_isApproved(uri)) return NavigationActionPolicy.ALLOW;
@@ -411,7 +636,7 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
                         final uri = _httpUri(action.request.url?.toString() ?? '');
                         if (uri == null) return false;
                         if (_directFile.hasMatch(uri.path) || action.shouldPerformDownload == true) {
-                          unawaited(_askToDownload(uri.toString()));
+                          unawaited(_verifyAndAsk(uri.toString()));
                         } else {
                           // Legitimate new-tab server links remain available
                           // through an explicit user-controlled review action.
@@ -462,16 +687,24 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
                   onPressed: () => _webView?.reload(),
                   icon: const Icon(Icons.refresh_rounded),
                 ),
-                const Spacer(),
+                Expanded(child: TextButton.icon(
+                  onPressed: _scanning || _loading ? null : _scanDirectLinks,
+                  icon: _scanning
+                    ? const SizedBox(width: 16, height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.search_rounded, size: 17),
+                  label: const Text('In-App Servers',
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                )),
                 TextButton.icon(
                   onPressed: _returnToDownloadPage,
                   icon: const Icon(Icons.history_rounded, size: 17),
-                  label: const Text('Servers'),
+                  label: const Text('Page'),
                 ),
-                TextButton.icon(
+                IconButton(
+                  tooltip: 'Library downloads',
                   onPressed: _openDownloads,
-                  icon: const Icon(Icons.folder_rounded, size: 17),
-                  label: const Text('My Files'),
+                  icon: const Icon(Icons.folder_rounded, size: 19),
                 ),
               ]),
             ),
