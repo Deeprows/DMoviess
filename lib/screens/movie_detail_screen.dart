@@ -8,6 +8,7 @@ import '../services/ad_service.dart';
 import '../services/app_analytics.dart';
 import '../services/app_preferences.dart';
 import '../services/download_upgrade_service.dart';
+import '../services/download_urls_config.dart';
 import '../services/tmdb_service.dart';
 import '../services/movie_library.dart';
 import 'external_download_screen.dart';
@@ -115,11 +116,21 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
   }
 
   Future<void> _download() async {
-    final url = _movie.downloadUrl.trim();
-    if (!url.startsWith('http')) {
+    // Keep a movie-specific link if it has been supplied; otherwise resolve
+    // the film's TMDB ID using the separately configurable download provider.
+    final explicit = _movie.downloadUrl.trim();
+    final validExplicit = Uri.tryParse(explicit);
+    final customUrl = validExplicit != null &&
+        (validExplicit.scheme == 'https' || validExplicit.scheme == 'http') &&
+        validExplicit.host.isNotEmpty;
+    final config = await DownloadUrlsConfig.load();
+    if (!mounted) return;
+    final url = customUrl
+        ? explicit
+        : config.urlFor(tmdbId: _movie.tmdbId);
+    if (url == null || url.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('No download link is available for this title.'.tr)),
+        SnackBar(content: Text('No download page is available for this title.'.tr)),
       );
       return;
     }
