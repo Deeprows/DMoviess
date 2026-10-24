@@ -6,6 +6,8 @@ import '../models/movie.dart';
 import '../services/ad_service.dart';
 import '../services/movie_library.dart';
 import 'movie_detail_screen.dart';
+import 'downloads_screen.dart';
+import '../services/download_manager.dart';
 
 class LibraryScreen extends StatefulWidget {
   final int initialTab;
@@ -21,8 +23,10 @@ class _LibraryScreenState extends State<LibraryScreen>
   void initState() {
     super.initState();
     _tabs = TabController(
-        length: 2, vsync: this, initialIndex: widget.initialTab.clamp(0, 1));
+        length: 3, vsync: this, initialIndex: widget.initialTab.clamp(0, 2));
     MovieLibrary.instance.load();
+    // Native download tasks are persistent and continue independently of this tab.
+    DownloadManager.instance.init();
   }
 
   @override
@@ -64,6 +68,7 @@ class _LibraryScreenState extends State<LibraryScreen>
           bottom: TabBar(controller: _tabs, indicatorColor: appRed, tabs: [
             Tab(icon: Icon(Icons.bookmark_border), text: 'Watch Later'),
             Tab(icon: Icon(Icons.history_rounded), text: 'History'),
+            Tab(icon: Icon(Icons.download_rounded), text: 'Downloads'),
           ])),
       body: ListenableBuilder(
           listenable: library,
@@ -76,6 +81,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                     emptyIcon: Icons.history_rounded,
                     emptyText: 'Titles you open will appear here.',
                     remove: (m) => library.removeHistory(m)),
+                const DownloadsScreen(embedded: true),
               ])),
     );
   }
