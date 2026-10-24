@@ -115,8 +115,14 @@ class LinkInfo {
   final bool isPage;
   final String? fileName;
   final int? total;
-  const LinkInfo(
-      {this.isFile = false, this.isPage = false, this.fileName, this.total});
+  final String? mimeType;
+  const LinkInfo({
+    this.isFile = false,
+    this.isPage = false,
+    this.fileName,
+    this.total,
+    this.mimeType,
+  });
 }
 
 // ------------------------------------------------------------------ manager
@@ -367,7 +373,9 @@ class DownloadManager extends ChangeNotifier {
         }
       }
       if (id == null) {
-        return 'Could not queue this file. The download provider may restrict transfers.';
+        return 'Android could not start this download. Try a verified direct '
+            'file in In-App Servers. If it still fails, the link may require '
+            'a browser session or the native download service may be unavailable.';
       }
       _tasks.insert(0, DownloadTask(
         id: id, url: url, name: file, referer: referer,
@@ -515,7 +523,8 @@ class DownloadManager extends ChangeNotifier {
     final p = await _probe(url, referer, cookie);
     if (p.isPage) return const LinkInfo(isPage: true);
     if (p.error != null) return const LinkInfo();
-    return LinkInfo(isFile: true, fileName: p.fileName, total: p.total);
+    return LinkInfo(isFile: true, fileName: p.fileName,
+      total: p.total, mimeType: p.contentType);
   }
 
   Future<void> pause(String id) async {
@@ -637,7 +646,7 @@ class DownloadManager extends ChangeNotifier {
       if (referer.isNotEmpty) req.headers['Referer'] = referer;
       if (cookie.isNotEmpty) req.headers['Cookie'] = cookie;
       if (range) req.headers['Range'] = 'bytes=0-0';
-      return client.send(req).timeout(const Duration(seconds: 12));
+      return client.send(req).timeout(const Duration(seconds: 7));
     }
 
     try {
@@ -649,11 +658,27 @@ class DownloadManager extends ChangeNotifier {
 
       final type = (res.headers['content-type'] ?? '').toLowerCase();
       final disp = fileNameFromDisposition(res.headers['content-disposition']);
-      if (type.startsWith('text/html') && disp == null) {
-        return const _Probe(
-            isPage: true,
-            error: 'This link opens a web page, not a file. Use the page\'s '
-                'own download button.');
+      // A successful HTTP response is NOT proof of a file: download buttons
+      // often return HTML verification or advertising pages. Only accept a
+      // recognized media/archive type or a server-declared attachment.
+      final disposition = (res.headers['content-disposition'] ?? '').toLowerCase();
+      final isAttachment = disposition.contains('attachment');
+      final filePath = Uri.parse(url).path.toLowerCase();
+      final hasFileSuffix = RegExp(
+        r'\.(mp4|mkv|webm|avi|mov|m4v|zip|rar|7z|mp3|m4a)$',
+      ).hasMatch(filePath);
+      final isMedia = type.startsWith('video/') || type.startsWith('audio/');
+      final isBinary = type.contains('octet-stream') ||
+          type.contains('matroska') || type.contains('zip') ||
+          type.contains('rar') || type.contains('7z') ||
+          type.contains('x-download');
+      final isWebPage = type.startsWith('text/') ||
+          type.contains('html') || type.contains('json') ||
+          type.contains('xml');
+      if (isWebPage || (!isMedia && !isBinary && !isAttachment &&
+          !(hasFileSuffix && type.isEmpty))) {
+        return const _Probe(isPage: true,
+            error: 'This link returned a webpage or an unrecognized response, not a downloadable file.');
       }
 
       int? total;
