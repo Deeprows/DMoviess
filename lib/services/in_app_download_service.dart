@@ -36,9 +36,6 @@ class InAppDownloadService {
 
     final manager = DownloadManager.instance;
     await manager.init();
-    if (!manager.available) {
-      return 'The Android download service is unavailable. Please restart the app.';
-    }
 
     // Native downloader keeps tasks running when the embedded page is closed.
     // Referer and the target-host cookies help supported providers validate
