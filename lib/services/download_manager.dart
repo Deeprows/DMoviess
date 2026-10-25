@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Directory;
+import 'dart:io' show Directory, File, FileMode, HttpClient, IOSink;
 import 'dart:isolate';
 import 'dart:ui' show IsolateNameServer;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart' show PlatformException;
+import 'package:open_filex/open_filex.dart';
 import 'package:flutter_downloader/flutter_downloader.dart' as fd;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -100,6 +100,12 @@ class _Probe {
       this.contentType = ''});
 }
 
+/// A running transfer of the built-in fallback downloader.
+class _DartJob {
+  HttpClient? client;
+  bool stop = false;
+}
+
 class _Attempt {
   final Map<String, String> headers;
   final String fileName;
@@ -141,6 +147,8 @@ class DownloadManager extends ChangeNotifier {
 
   final List<DownloadTask> _tasks = [];
   final Set<String> _starting = {};
+  final Map<String, _DartJob> _jobs = {};
+  final Map<String, Map<String, String>> _dartHeaders = {};
   bool _ready = false;
   bool _available = false;
   Timer? _notifyTimer;
@@ -191,6 +199,13 @@ class DownloadManager extends ChangeNotifier {
       }
     } catch (_) {}
 
+    // Fallback-downloader transfers cannot survive the app being closed.
+    for (final t in _tasks) {
+      if (_isDart(t.id) && t.status == DownloadStatus.downloading) {
+        t.status = DownloadStatus.paused;
+      }
+    }
+
     // ... reconciled with what the native side says happened meanwhile.
     if (_available) {
       try {
@@ -198,6 +213,7 @@ class DownloadManager extends ChangeNotifier {
                 .timeout(const Duration(seconds: 6)) ??
             [];
         for (final t in List.of(_tasks)) {
+          if (_isDart(t.id)) continue;
           fd.DownloadTask? n;
           for (final x in native) {
             if (x.taskId == t.id) {
@@ -310,9 +326,6 @@ class DownloadManager extends ChangeNotifier {
         uri.host.isEmpty) {
       return 'The website did not supply a direct downloadable file.';
     }
-    if (!_available) {
-      return 'Android background downloads are not available on this device.';
-    }
     // Do not enqueue duplicate files if the page fires the event twice.
     if (_tasks.any((t) => t.url == url && t.status != DownloadStatus.failed)) {
       return null;
@@ -349,8 +362,7 @@ class DownloadManager extends ChangeNotifier {
       // access. Library -> Downloads is the entry point for these files.
       // A public Downloads fallback is retained for devices supporting it.
       String? id;
-      Object? nativeError;
-      for (final publicStorage in <bool>[false, true]) {
+      for (final publicStorage in _available ? <bool>[false, true] : <bool>[]) {
         try {
           id = await fd.FlutterDownloader.enqueue(
             url: url,
@@ -363,37 +375,16 @@ class DownloadManager extends ChangeNotifier {
           ).timeout(const Duration(seconds: 20));
           if (id != null && id.isNotEmpty) break;
         } catch (error) {
-          nativeError = error;
           // Never log the download URL, cookies, or authentication headers.
           debugPrint('DamiMovies downloader: enqueue failed '
               '(public=$publicStorage): ${error.runtimeType}');
         }
       }
       if (id == null || id.isEmpty) {
-        if (nativeError is PlatformException) {
-          final message = (nativeError.message ?? '').toLowerCase();
-          if (message.contains('workmanager') ||
-              message.contains('initialized properly')) {
-            return 'Android download service is not initialized. '
-                'Install the APK with the WorkManager manifest fix.';
-          }
-          if (message.contains('permission') ||
-              message.contains('access denied')) {
-            return 'Android denied file access. Check DamiMovies storage '
-                'permissions and available device space.';
-          }
-          // PlatformException.code is safe to show; details can contain
-          // sensitive download URLs, so do not display them.
-          final code = nativeError.code.replaceAll(RegExp(r'[^a-zA-Z0-9_.-]'), '');
-          return 'Android could not queue the file (error: $code). '
-              'Try again or check Library → Downloads.';
-        }
-        if (nativeError is TimeoutException) {
-          return 'Android did not respond while starting the download. '
-              'Try again after restarting DamiMovies.';
-        }
-        return 'Android could not start the download task. '
-            'Restart DamiMovies and try again.';
+        // Android's native download service refused (or is unavailable).
+        // Download with the built-in downloader instead so it still works.
+        // null = started with the built-in downloader; else its error.
+        return _startDart(url, headers, file, null);
       }
       _tasks.insert(0, DownloadTask(
         id: id, url: url, name: file, referer: referer,
@@ -413,10 +404,6 @@ class DownloadManager extends ChangeNotifier {
     String cookie = '',
     String? name,
   }) async {
-    if (!_available) {
-      return 'Background downloads aren\'t available on this device.';
-    }
-
     // Same link already in the list -> resume it instead of duplicating.
     for (final t in _tasks) {
       if (t.url == url && t.status != DownloadStatus.completed) {
@@ -467,7 +454,7 @@ class DownloadManager extends ChangeNotifier {
     ];
     String? id;
     _lastError = null;
-    for (final a in attempts) {
+    for (final a in _available ? attempts : const <_Attempt>[]) {
       try {
         id = await fd.FlutterDownloader.enqueue(
           url: url,
@@ -484,7 +471,11 @@ class DownloadManager extends ChangeNotifier {
         debugPrint('Download enqueue failed: $e');
       }
     }
-    if (id == null) return 'Couldn\'t start the download${_shortError()}.';
+    if (id == null) {
+      final fallback = await _startDart(url, full, fileName, probe.total);
+      if (fallback == null) return null;
+      return 'Couldn\'t start the download${_shortError()}. $fallback';
+    }
 
     _tasks.insert(
       0,
@@ -548,6 +539,12 @@ class DownloadManager extends ChangeNotifier {
   Future<void> pause(String id) async {
     final t = _find(id);
     if (t == null || !t.active) return;
+    if (_isDart(id)) {
+      _stopJob(id);
+      t.status = DownloadStatus.paused;
+      _changed();
+      return;
+    }
     try {
       await fd.FlutterDownloader.pause(taskId: id);
       t.status = DownloadStatus.paused;
@@ -558,6 +555,18 @@ class DownloadManager extends ChangeNotifier {
   Future<void> resume(String id) async {
     final t = _find(id);
     if (t == null || t.status == DownloadStatus.completed || t.active) return;
+    if (_isDart(id)) {
+      t.status = DownloadStatus.downloading;
+      t.error = null;
+      _changed();
+      final err = await _runDart(t);
+      if (err != null) {
+        t.status = DownloadStatus.failed;
+        t.error = err;
+        _changed();
+      }
+      return;
+    }
     try {
       final newId = t.status == DownloadStatus.failed
           ? await fd.FlutterDownloader.retry(taskId: id)
@@ -583,7 +592,7 @@ class DownloadManager extends ChangeNotifier {
   Future<void> cancel(String id) async {
     final t = _find(id);
     if (t == null) return;
-    if (t.active) {
+    if (t.active && !_isDart(id)) {
       try {
         await fd.FlutterDownloader.cancel(taskId: id);
       } catch (_) {}
@@ -596,6 +605,17 @@ class DownloadManager extends ChangeNotifier {
     if (t == null) return;
     _tasks.remove(t);
     _changed();
+    if (_isDart(id)) {
+      _stopJob(id);
+      _dartHeaders.remove(id);
+      if (deleteFile && t.path != null) {
+        try {
+          final f = File(t.path!);
+          if (await f.exists()) await f.delete();
+        } catch (_) {}
+      }
+      return;
+    }
     try {
       await fd.FlutterDownloader.remove(
           taskId: id, shouldDeleteContent: deleteFile);
@@ -608,6 +628,7 @@ class DownloadManager extends ChangeNotifier {
     _tasks.removeWhere((t) => t.status == DownloadStatus.completed);
     _changed();
     for (final t in done) {
+      if (_isDart(t.id)) continue;
       try {
         await fd.FlutterDownloader.remove(
             taskId: t.id, shouldDeleteContent: false);
@@ -617,11 +638,203 @@ class DownloadManager extends ChangeNotifier {
 
   /// Opens a finished download with an installed app. False if it couldn't.
   Future<bool> open(String id) async {
+    if (_isDart(id)) {
+      final path = _find(id)?.path;
+      if (path == null) return false;
+      try {
+        final r = await OpenFilex.open(path);
+        return r.type == ResultType.done;
+      } catch (_) {
+        return false;
+      }
+    }
     try {
       return await fd.FlutterDownloader.open(taskId: id);
     } catch (_) {
       return false;
     }
+  }
+
+  // ------------------------------------------------- fallback downloader
+
+  bool _isDart(String id) => id.startsWith('dart-');
+
+  void _stopJob(String id) {
+    final job = _jobs.remove(id);
+    if (job == null) return;
+    job.stop = true;
+    try {
+      job.client?.close(force: true);
+    } catch (_) {}
+  }
+
+  Future<String> _uniquePath(String dir, String name) async {
+    final dot = name.lastIndexOf('.');
+    final base = dot > 0 ? name.substring(0, dot) : name;
+    final ext = dot > 0 ? name.substring(dot) : '';
+    var path = '$dir/$name';
+    var i = 1;
+    while (await File(path).exists()) {
+      path = '$dir/$base ($i)$ext';
+      i++;
+    }
+    return path;
+  }
+
+  /// Downloads with plain HTTP inside the app (no Android WorkManager needed).
+  /// Returns null once the file is really downloading, or an error message.
+  Future<String?> _startDart(String url, Map<String, String> headers,
+      String fileName, int? total) async {
+    try {
+      final dir = await _saveDir();
+      final path = await _uniquePath(dir, fileName);
+      final task = DownloadTask(
+        id: 'dart-${DateTime.now().microsecondsSinceEpoch}',
+        url: url,
+        name: path.substring(path.lastIndexOf('/') + 1),
+        referer: headers['Referer'] ?? '',
+        total: total,
+        path: path,
+      );
+      _dartHeaders[task.id] = Map.of(headers);
+      _tasks.insert(0, task);
+      _changed();
+      final err = await _runDart(task);
+      if (err != null) {
+        _tasks.remove(task);
+        _dartHeaders.remove(task.id);
+        _changed();
+        return err;
+      }
+      return null;
+    } catch (_) {
+      return 'Couldn\'t save the file. Check free space on your device.';
+    }
+  }
+
+  /// Runs (or resumes) one fallback transfer. Completes with null as soon as
+  /// the server has accepted the request and data is flowing, or with an
+  /// error message. The rest of the transfer continues in the background.
+  Future<String?> _runDart(DownloadTask t) {
+    final started = Completer<String?>();
+    final job = _DartJob();
+    _jobs[t.id] = job;
+
+    () async {
+      IOSink? sink;
+      try {
+        final file = File(t.path!);
+        var offset = await file.exists() ? await file.length() : 0;
+
+        final client = HttpClient()
+          ..connectionTimeout = const Duration(seconds: 20)
+          ..autoUncompress = false;
+        job.client = client;
+        final req = await client.getUrl(Uri.parse(t.url));
+        req.followRedirects = true;
+        req.maxRedirects = 10;
+        final headers = _dartHeaders[t.id] ??
+            <String, String>{
+              'User-Agent': AppConfig.userAgent,
+              if (t.referer.isNotEmpty) 'Referer': t.referer,
+            };
+        headers.forEach((k, v) => req.headers.set(k, v));
+        req.headers.set('Accept', '*/*');
+        if (offset > 0) req.headers.set('Range', 'bytes=$offset-');
+        final res = await req.close().timeout(const Duration(seconds: 30));
+
+        if (res.statusCode == 416 && offset > 0) {
+          // Nothing left to fetch: the file is already complete.
+          t.status = DownloadStatus.completed;
+          t.percent = 100;
+          if (!started.isCompleted) started.complete(null);
+          _changed();
+          return;
+        }
+        if (res.statusCode >= 400) {
+          throw 'The server replied ${res.statusCode}.';
+        }
+        final type = (res.headers.value('content-type') ?? '').toLowerCase();
+        if (type.startsWith('text/') ||
+            type.contains('html') ||
+            type.contains('json') ||
+            type.contains('xml')) {
+          throw 'This link returned a webpage, not a downloadable file.';
+        }
+
+        if (res.statusCode == 206) {
+          final m = RegExp(r'/(\d+)\s*$')
+              .firstMatch(res.headers.value('content-range') ?? '');
+          final tot = m == null ? null : int.tryParse(m.group(1)!);
+          if (tot != null) t.total = tot;
+        } else {
+          offset = 0; // server ignored the range: start from the beginning
+          if (res.contentLength > 0) t.total = res.contentLength;
+        }
+
+        sink = file.openWrite(
+            mode: offset > 0 ? FileMode.append : FileMode.write);
+        if (!started.isCompleted) started.complete(null);
+
+        var got = offset;
+        var sinceFlush = 0;
+        await for (final chunk in res) {
+          if (job.stop) break;
+          sink.add(chunk);
+          got += chunk.length;
+          sinceFlush += chunk.length;
+          if (sinceFlush > 4 * 1024 * 1024) {
+            sinceFlush = 0;
+            await sink.flush();
+          }
+          final tot = t.total;
+          if (tot != null && tot > 0) {
+            final p = (got * 100 ~/ tot).clamp(0, 99).toInt();
+            if (p != t.percent) {
+              t.percent = p;
+              _tick();
+            }
+          }
+        }
+        await sink.flush();
+        await sink.close();
+        sink = null;
+        if (job.stop) return;
+
+        final tot = t.total;
+        if (tot != null && tot > 0 && got < tot) {
+          throw 'The connection dropped. Tap retry to continue.';
+        }
+        t.status = DownloadStatus.completed;
+        t.percent = 100;
+        t.error = null;
+        _changed();
+      } catch (e) {
+        try {
+          await sink?.close();
+        } catch (_) {}
+        if (job.stop) return;
+        final msg = e is String
+            ? e
+            : e is TimeoutException
+                ? 'The server took too long to respond.'
+                : 'The download was interrupted. Tap retry to continue.';
+        if (!started.isCompleted) {
+          started.complete(msg);
+        } else {
+          t.status = DownloadStatus.failed;
+          t.error = msg;
+          _changed();
+        }
+      } finally {
+        if (identical(_jobs[t.id], job)) _jobs.remove(t.id);
+        try {
+          job.client?.close(force: true);
+        } catch (_) {}
+      }
+    }();
+
+    return started.future;
   }
 
   // ---------------------------------------------------------------- helpers
