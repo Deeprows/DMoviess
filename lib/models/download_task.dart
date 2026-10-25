@@ -12,6 +12,9 @@ class DownloadTask {
   String? error;
   final DateTime createdAt;
 
+  /// Saved file location. Only set by the built-in fallback downloader.
+  String? path;
+
   DownloadTask({
     required this.id,
     required this.url,
@@ -21,6 +24,7 @@ class DownloadTask {
     this.total,
     this.status = DownloadStatus.downloading,
     this.error,
+    this.path,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -50,6 +54,7 @@ class DownloadTask {
         'total': total,
         'status': status.name,
         'error': error,
+        'path': path,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -70,6 +75,7 @@ class DownloadTask {
         orElse: () => DownloadStatus.failed,
       ),
       error: raw['error']?.toString(),
+      path: raw['path']?.toString(),
       createdAt: DateTime.tryParse((raw['createdAt'] ?? '').toString()),
     );
   }
