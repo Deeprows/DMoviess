@@ -657,7 +657,7 @@ class _MovieDetailScreenState extends State<MovieDetailScreen>
                   SizedBox(width: 12),
                   Expanded(
                       child: Text(
-                          'No YouTube trailer is listed on TMDB for this title yet.'
+                          'No YouTube trailer is listed for this title yet.'
                               .tr,
                           style: TextStyle(
                               color: Colors.white70,
