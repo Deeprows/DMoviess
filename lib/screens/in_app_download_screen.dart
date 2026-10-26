@@ -5,13 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../main.dart';
+import '../utils/external_link.dart';
 import '../services/in_app_download_service.dart';
 import '../services/download_manager.dart';
 import 'library_screen.dart';
 
-/// Download destinations open INSIDE DamiMovies. WebView's actual native
-/// download events are handed to Android's background download engine.
-/// A download page (HTML) itself is never treated as a movie file.
+/// Download pages open INSIDE DamiMovies and behave like a normal browser:
+/// every server / download button the user taps may lead to another page
+/// (HubCDN -> HBLinks -> HubCloud ...), and the browser simply follows it.
+/// Real file downloads are caught at any step and handed to Android's
+/// background download engine. Only automatic pop-ups (no user tap) are held
+/// back, and the user can open them with one tap.
 class InAppDownloadScreen extends StatefulWidget {
   const InAppDownloadScreen({
     super.key,
@@ -37,11 +41,14 @@ class _VerifiedDirectLink {
 
 class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
   InAppWebViewController? _webView;
+  PullToRefreshController? _pull;
   Key _browserKey = UniqueKey();
   String _lastPageUrl = '';
+  String _pageTitle = '';
   late final String _pageUrl;
   bool _loading = true;
   bool _canGoBack = false;
+  bool _canGoForward = false;
   bool _queuing = false;
   bool _scanning = false;
   final List<_VerifiedDirectLink> _verifiedLinks = [];
@@ -51,14 +58,12 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
   DateTime? _lastDownloadAt;
   int _progress = 0;
 
-  // Keep the last known-good download page instead of allowing ad popups to
-  // replace the in-app browser. Extra hosts can be approved by the user.
-  final Set<String> _approvedHosts = <String>{};
-  String _lastSafePage = '';
+  // Pop-ups opened WITHOUT a user tap (advertisement scripts) are held back
+  // here. Anything the user taps opens normally.
   Uri? _blockedLink;
-  bool _restoringPage = false;
-  int _consecutiveRestores = 0;
-  DateTime? _lastRestore;
+  // URLs that were probed, turned out to be web pages, and must now load
+  // normally instead of being treated as a file.
+  final Set<String> _allowOnce = <String>{};
 
   static final RegExp _directFile = RegExp(
     r'\.(mp4|mkv|webm|avi|mov|m4v|zip|rar|7z|pdf|mp3|m4a|apk)(?:$|[?#])',
@@ -70,7 +75,19 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
     super.initState();
     _pageUrl = widget.downloadUrl;
     _lastPageUrl = _pageUrl;
-    _lastSafePage = _pageUrl;
+    _pull = PullToRefreshController(
+      settings: PullToRefreshSettings(color: appRed),
+      onRefresh: () async {
+        final c = _webView;
+        if (c == null) return;
+        final u = await c.getUrl();
+        if (u != null) {
+          await c.loadUrl(urlRequest: URLRequest(url: u));
+        } else {
+          await c.reload();
+        }
+      },
+    );
     final valid = Uri.tryParse(_pageUrl);
     if (valid == null ||
         (valid.scheme != 'https' && valid.scheme != 'http') ||
@@ -81,14 +98,19 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_askToDownload(_pageUrl));
       });
-    } else {
-      _approvedHosts.add(valid.host.toLowerCase());
     }
   }
 
+  @override
+  void dispose() {
+    _pull = null;
+    super.dispose();
+  }
+
   Future<void> _refreshBackState(InAppWebViewController controller) async {
-    final value = await controller.canGoBack();
-    if (mounted) setState(() => _canGoBack = value);
+    final back = await controller.canGoBack();
+    final forward = await controller.canGoForward();
+    if (mounted) setState(() { _canGoBack = back; _canGoForward = forward; });
   }
 
   static Uri? _httpUri(String value) {
@@ -99,104 +121,46 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
     return uri;
   }
 
-  bool _isApproved(Uri uri) => _approvedHosts.contains(uri.host.toLowerCase());
-
-  void _recordSafePage(Uri uri) {
-    if (!_isApproved(uri) || _directFile.hasMatch(uri.path)) return;
-    _lastSafePage = uri.toString();
-    _lastPageUrl = _lastSafePage;
+  Future<void> _open(String url) async {
+    final c = _webView;
+    if (c == null) return;
+    await c.loadUrl(urlRequest: URLRequest(url: WebUri(url)));
   }
 
-  void _blockLink(Uri uri) {
+  void _holdPopup(Uri uri) {
     if (!mounted || _blockedLink == uri) return;
-    // Defer because WebView navigation callbacks can run during a frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _blockedLink == uri) return;
-      setState(() => _blockedLink = uri);
+      if (mounted) setState(() => _blockedLink = uri);
     });
   }
 
-  /// Cross-site links (including onclick ad destinations) are never silently
-  /// loaded. A genuine file host can be approved explicitly by the user.
-  Future<void> _reviewBlockedLink() async {
-    final destination = _blockedLink;
-    if (!mounted || destination == null) return;
-    final allow = await showDialog<bool>(
-      context: context,
-      builder: (dialog) => AlertDialog(
-        title: const Text('Open another website?'),
-        content: Text(
-          'This link goes to ${destination.host}.\n\n'
-          'Only continue if this is the download server you selected. '
-          'Unexpected advertisement redirects should be declined.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialog, false),
-            child: const Text('Stay on download page'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialog, true),
-            child: const Text('Open in DamiMovies'),
-          ),
-        ],
-      ),
-    );
-    if (!mounted || _blockedLink != destination) return;
+  /// The user decides: an automatic pop-up can still be opened in-app.
+  Future<void> _openHeldPopup() async {
+    final target = _blockedLink;
+    if (target == null) return;
     setState(() => _blockedLink = null);
-    if (allow != true) return;
-    _approvedHosts.add(destination.host.toLowerCase());
-    await _webView?.loadUrl(urlRequest: URLRequest(url: WebUri(destination.toString())));
+    await _open(target.toString());
   }
 
-  /// Last-resort recovery for redirects WebView cannot intercept (notably
-  /// some HTTP redirect chains). Never restore more than twice in a burst.
-  Future<void> _recoverUnexpectedPage(InAppWebViewController controller) async {
-    if (_restoringPage || _lastSafePage.isEmpty) return;
-    final now = DateTime.now();
-    if (_lastRestore == null || now.difference(_lastRestore!) > const Duration(seconds: 8)) {
-      _consecutiveRestores = 0;
-    }
-    _lastRestore = now;
-    if (_consecutiveRestores >= 2) return;
-    _consecutiveRestores++;
-    _restoringPage = true;
-    try {
-      await controller.loadUrl(urlRequest: URLRequest(url: WebUri(_lastSafePage)));
-    } finally {
-      _restoringPage = false;
-    }
-  }
-
-  Future<void> _returnToDownloadPage() async {
-    final controller = _webView;
-    if (controller == null || _lastSafePage.isEmpty) return;
+  Future<void> _goToDownloadPage() async {
+    if (_webView == null) return;
     setState(() { _blockedLink = null; _loadError = null; });
-    final current = (await controller.getUrl())?.toString();
-    // Never reload the server list merely because a popup was blocked:
-    // refreshing it can restart the provider's security check.
-    if (current != _lastSafePage) {
-      await controller.loadUrl(urlRequest: URLRequest(url: WebUri(_lastSafePage)));
-    }
-    await _refreshBackState(controller);
+    await _open(_pageUrl);
   }
 
+  /// Back follows the browser history like any browser, and leaves the
+  /// screen only when there is nothing left to go back to.
   Future<bool> _handleBack() async {
     final controller = _webView;
     if (controller == null) return true;
-    final current = _httpUri((await controller.getUrl())?.toString() ?? '');
-    if (current != null && !_isApproved(current)) {
-      await _returnToDownloadPage();
+    if (_blockedLink != null) setState(() => _blockedLink = null);
+    if (_loadError != null) {
+      setState(() { _loadError = null; _loading = true; _browserKey = UniqueKey(); });
       return false;
     }
     if (await controller.canGoBack()) {
       await controller.goBack();
-      final after = _httpUri((await controller.getUrl())?.toString() ?? '');
-      if (after != null && !_isApproved(after)) await _returnToDownloadPage();
       await _refreshBackState(controller);
-      return false;
-    }
-    if (_blockedLink != null) {
-      await _returnToDownloadPage();
       return false;
     }
     return true;
@@ -267,13 +231,14 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
       if (candidates.isEmpty) {
         if (mounted) setState(() {
           _scanStatus = 'No direct file links are exposed on this page. '
-              'The server buttons may lead to another webpage or generate '
-              'a link after you select a server.';
+              'Just tap a server\'s Download button on the page: it opens '
+              'like a normal browser and the file downloads automatically '
+              'once the server provides it.';
         });
         _showVerifiedLinks();
         return;
       }
-      final currentPage = (await _webView!.getUrl())?.toString() ?? _lastSafePage;
+      final currentPage = (await _webView!.getUrl())?.toString() ?? _lastPageUrl;
       final manager = DownloadManager.instance;
       final found = <_VerifiedDirectLink>[];
       // Limit requests: a page can include many advertising and server URLs.
@@ -303,9 +268,8 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
       }
       if (mounted) setState(() {
         _scanStatus = found.isEmpty
-          ? 'No verified direct files found. The buttons on this page '
-              'appear to lead to other pages, require a server step, '
-              'or block file verification.'
+          ? 'No direct files could be verified here. Tap a Download button '
+              'on the page and continue: it opens like a normal browser.'
           : '${found.length} direct file link${found.length == 1 ? '' : 's'} verified.';
       });
     } catch (error) {
@@ -336,14 +300,17 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
             const SizedBox(height: 8),
             Text(_scanStatus, style: const TextStyle(color: Colors.white70)),
             const SizedBox(height: 8),
-            const Text('Only links confirmed to return a downloadable file are listed. '
-                'Other webpages and unverified links are excluded.',
+            const Text('Direct file links found on this page are listed here. '
+                'Any other button still works normally on the page.',
               style: TextStyle(fontSize: 12, color: Colors.white54)),
             const SizedBox(height: 16),
             if (_verifiedLinks.isEmpty)
-              const Padding(padding: EdgeInsets.symmetric(vertical: 15),
-                child: Text('No verified direct downloads on this page yet. '
-                    'Continue on the original server page if needed.')),
+              Padding(padding: const EdgeInsets.symmetric(vertical: 10),
+                child: SizedBox(width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                    icon: const Icon(Icons.open_in_browser_rounded),
+                    label: const Text('Continue on the page')))),
             Flexible(child: ListView.separated(
               shrinkWrap: true,
               itemCount: _verifiedLinks.length,
@@ -379,11 +346,12 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
     );
   }
 
-  /// The URL extension alone does not prove this is a file. Ask for only
-  /// response headers before handing it to the native downloader.
+  /// A link that looks like a file is probed (headers only). Real files go
+  /// to the downloader; web pages load normally in the browser; if the
+  /// provider refuses the probe we still offer the download, like a browser.
   Future<void> _verifyAndAsk(String url) async {
     if (!mounted || _queuing) return;
-    final referer = (await _webView?.getUrl())?.toString() ?? _lastSafePage;
+    final referer = (await _webView?.getUrl())?.toString() ?? _lastPageUrl;
     String cookies = '';
     try {
       final scoped = await CookieManager.instance().getCookies(url: WebUri(url));
@@ -393,11 +361,9 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
       url, referer: referer, cookie: cookies,
     );
     if (!mounted) return;
-    if (!info.isFile) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('This link did not return a direct file. '
-            'Use In-App Servers to find verified download links.'),
-      ));
+    if (info.isPage) {
+      _allowOnce.add(url);
+      await _open(url);
       return;
     }
     await _askToDownload(url,
@@ -409,10 +375,9 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
     final type = (mimeType ?? '').toLowerCase();
     if (type.contains('html') || type.contains('json') ||
         type.startsWith('text/')) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('That button returned a webpage, not a file. '
-            'Try In-App Servers for direct download links.'),
-      ));
+      // It is a web page, not a file: just open it like a browser would.
+      _allowOnce.add(link);
+      await _open(link);
       return;
     }
     final uri = Uri.tryParse(link);
@@ -486,22 +451,27 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
 
   Future<NavigationActionPolicy> _navigate(
       InAppWebViewController controller, NavigationAction action) async {
-    // Don't break captcha widgets, external images or third-party content
-    // rendered inside frames. Only protect the top-level download page.
+    // Frames (captcha, embeds) always load.
     if (!action.isForMainFrame) return NavigationActionPolicy.ALLOW;
     final url = action.request.url?.toString() ?? '';
     if (url == 'about:blank') return NavigationActionPolicy.ALLOW;
     final uri = _httpUri(url);
+    // intent:, market:, app deep links etc. cannot render in the page.
     if (uri == null) return NavigationActionPolicy.CANCEL;
+    if (_allowOnce.remove(url)) return NavigationActionPolicy.ALLOW;
     if (_directFile.hasMatch(uri.path) || action.shouldPerformDownload == true) {
       unawaited(_verifyAndAsk(url));
       return NavigationActionPolicy.CANCEL;
     }
-    if (_isApproved(uri)) return NavigationActionPolicy.ALLOW;
-    // An ad's cross-site redirect must not replace the download page, even
-    // if the redirect originated from tapping an actual Download button.
-    _blockLink(uri);
-    return NavigationActionPolicy.CANCEL;
+    // Everything else — including buttons that lead to another website —
+    // opens normally, exactly like a real browser.
+    return NavigationActionPolicy.ALLOW;
+  }
+
+  Future<void> _openExternal() async {
+    final url = (await _webView?.getUrl())?.toString() ?? _lastPageUrl;
+    if (!mounted) return;
+    await openInExternalBrowser(context, url);
   }
 
   @override
@@ -558,9 +528,14 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
                                 _loadError = null;
                                 _loading = true;
                                 _browserKey = UniqueKey();
+                                _webView = null;
                               });
                             },
                             child: const Text('Try again'),
+                          ),
+                          TextButton(
+                            onPressed: _openExternal,
+                            child: const Text('Open in my browser'),
                           ),
                         ]),
                       ),
@@ -568,58 +543,69 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
                   : InAppWebView(
                       key: _browserKey,
                       initialUrlRequest: URLRequest(url: WebUri(_pageUrl)),
+                      pullToRefreshController: _pull,
                       initialSettings: InAppWebViewSettings(
                         javaScriptEnabled: true,
                         domStorageEnabled: true,
+                        databaseEnabled: true,
                         useOnDownloadStart: true,
                         useShouldOverrideUrlLoading: true,
                         supportMultipleWindows: true,
                         javaScriptCanOpenWindowsAutomatically: false,
                         thirdPartyCookiesEnabled: true,
+                        useWideViewPort: true,
+                        loadWithOverviewMode: true,
+                        supportZoom: true,
+                        builtInZoomControls: true,
+                        displayZoomControls: false,
+                        mixedContentMode:
+                            MixedContentMode.MIXED_CONTENT_COMPATIBILITY_MODE,
                       ),
                       onWebViewCreated: (controller) => _webView = controller,
                       onLoadStart: (controller, url) {
                         if (!mounted) return;
-                        final uri = _httpUri(url?.toString() ?? '');
-                        if (uri != null && !_isApproved(uri)) {
-                          _blockLink(uri);
-                          unawaited(_recoverUnexpectedPage(controller));
-                          return;
-                        }
-                        setState(() { _loading = true; _progress = 5; });
+                        final u = url?.toString() ?? '';
+                        setState(() {
+                          _loading = true;
+                          _progress = 5;
+                          _loadError = null;
+                          if (_httpUri(u) != null) _lastPageUrl = u;
+                        });
                         unawaited(_refreshBackState(controller));
                       },
                       onProgressChanged: (controller, value) {
                         if (mounted) setState(() => _progress = value);
                       },
-                      onLoadStop: (controller, url) {
-                        final uri = _httpUri(url?.toString() ?? '');
-                        if (uri != null && !_isApproved(uri)) {
-                          _blockLink(uri);
-                          unawaited(_recoverUnexpectedPage(controller));
-                          return;
-                        }
-                        if (uri != null) _recordSafePage(uri);
-                        if (mounted) setState(() { _loading = false; _progress = 100; });
+                      onLoadStop: (controller, url) async {
+                        _pull?.endRefreshing();
+                        final u = url?.toString() ?? '';
+                        final title = await controller.getTitle();
+                        if (!mounted) return;
+                        setState(() {
+                          _loading = false;
+                          _progress = 100;
+                          if (_httpUri(u) != null) _lastPageUrl = u;
+                          _pageTitle = title ?? '';
+                        });
                         unawaited(_refreshBackState(controller));
                       },
+                      onTitleChanged: (controller, title) {
+                        if (mounted) setState(() => _pageTitle = title ?? '');
+                      },
                       onUpdateVisitedHistory: (controller, url, isReload) {
-                        final uri = _httpUri(url?.toString() ?? '');
-                        if (uri != null && !_isApproved(uri)) {
-                          _blockLink(uri);
-                          unawaited(_recoverUnexpectedPage(controller));
-                        } else {
-                          unawaited(_refreshBackState(controller));
+                        final u = url?.toString() ?? '';
+                        if (mounted && _httpUri(u) != null) {
+                          setState(() => _lastPageUrl = u);
                         }
+                        unawaited(_refreshBackState(controller));
                       },
                       onReceivedError: (controller, request, error) {
+                        _pull?.endRefreshing();
                         if (request.isForMainFrame != true || !mounted) return;
-                        final failed = _httpUri(request.url.toString());
-                        // Canceled popups / unapproved redirects are deliberate,
-                        // and must never replace the real page with an error.
-                        if (failed != null && !_isApproved(failed)) return;
+                        // Cancelled loads (our own download hand-off) are not errors.
+                        if (error.type == WebResourceErrorType.CANCELLED) return;
                         setState(() { _loading = false; _loadError =
-                          'The download page could not be loaded. Check your connection and retry.'; });
+                          'This page could not be loaded. Check your connection and retry.'; });
                       },
                       onDownloadStartRequest: (controller, request) {
                         unawaited(_askToDownload(
@@ -629,18 +615,58 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
                         ));
                       },
                       shouldOverrideUrlLoading: _navigate,
+                      onJsAlert: (controller, request) async {
+                        if (!mounted) return null;
+                        await showDialog<void>(
+                          context: context,
+                          builder: (d) => AlertDialog(
+                            content: Text(request.message ?? ''),
+                            actions: [TextButton(
+                              onPressed: () => Navigator.pop(d),
+                              child: const Text('OK'))],
+                          ),
+                        );
+                        return JsAlertResponse(
+                          handledByClient: true,
+                          action: JsAlertResponseAction.CONFIRM,
+                        );
+                      },
+                      onJsConfirm: (controller, request) async {
+                        if (!mounted) return null;
+                        final ok = await showDialog<bool>(
+                          context: context,
+                          builder: (d) => AlertDialog(
+                            content: Text(request.message ?? ''),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(d, false),
+                                child: const Text('Cancel')),
+                              TextButton(
+                                onPressed: () => Navigator.pop(d, true),
+                                child: const Text('OK')),
+                            ],
+                          ),
+                        );
+                        return JsConfirmResponse(
+                          handledByClient: true,
+                          action: ok == true
+                              ? JsConfirmResponseAction.CONFIRM
+                              : JsConfirmResponseAction.CANCEL,
+                        );
+                      },
                       onCreateWindow: (controller, action) async {
-                        // Do not load target="_blank" / window.open links into
-                        // the CURRENT WebView. They are the main source of
-                        // onclick ads taking users away from download servers.
+                        // target="_blank" / window.open. A tap by the user
+                        // opens the page right here (like a browser tab);
+                        // a script-opened pop-up with no tap is held back.
                         final uri = _httpUri(action.request.url?.toString() ?? '');
                         if (uri == null) return false;
-                        if (_directFile.hasMatch(uri.path) || action.shouldPerformDownload == true) {
+                        if (_directFile.hasMatch(uri.path) ||
+                            action.shouldPerformDownload == true) {
                           unawaited(_verifyAndAsk(uri.toString()));
+                        } else if (action.hasGesture == false) {
+                          _holdPopup(uri);
                         } else {
-                          // Legitimate new-tab server links remain available
-                          // through an explicit user-controlled review action.
-                          _blockLink(uri);
+                          unawaited(_open(uri.toString()));
                         }
                         return false;
                       },
@@ -653,10 +679,15 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
                 child: Row(children: [
                   const Icon(Icons.gpp_good_outlined, size: 18, color: Colors.white70),
                   const SizedBox(width: 8),
-                  const Expanded(child: Text('Redirect blocked — download page protected',
+                  Expanded(child: Text('Pop-up held back · ${_blockedLink!.host}',
                     maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: Colors.white70))),
-                  TextButton(onPressed: _reviewBlockedLink, child: const Text('Review')),
+                    style: const TextStyle(fontSize: 11, color: Colors.white70))),
+                  TextButton(onPressed: _openHeldPopup, child: const Text('Open')),
+                  IconButton(
+                    tooltip: 'Dismiss',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => setState(() => _blockedLink = null),
+                    icon: const Icon(Icons.close_rounded, size: 18)),
                 ]),
               ),
             if (_queuing)
@@ -676,16 +707,22 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: Row(children: [
                 IconButton(
-                  tooltip: 'Back on download page',
-                  onPressed: !_canGoBack && _blockedLink == null ? null : () async {
-                    await _handleBack();
+                  tooltip: 'Back',
+                  onPressed: () async {
+                    final exit = await _handleBack();
+                    if (exit && mounted) Navigator.of(context).pop();
                   },
                   icon: const Icon(Icons.arrow_back_rounded),
                 ),
                 IconButton(
-                  tooltip: 'Refresh download page',
-                  onPressed: () => _webView?.reload(),
-                  icon: const Icon(Icons.refresh_rounded),
+                  tooltip: 'Forward',
+                  onPressed: _canGoForward ? () => _webView?.goForward() : null,
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                ),
+                IconButton(
+                  tooltip: _loading ? 'Stop' : 'Refresh',
+                  onPressed: () => _loading ? _webView?.stopLoading() : _webView?.reload(),
+                  icon: Icon(_loading ? Icons.close_rounded : Icons.refresh_rounded),
                 ),
                 Expanded(child: TextButton.icon(
                   onPressed: _scanning || _loading ? null : _scanDirectLinks,
@@ -696,10 +733,10 @@ class _InAppDownloadScreenState extends State<InAppDownloadScreen> {
                   label: const Text('In-App Servers',
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                 )),
-                TextButton.icon(
-                  onPressed: _returnToDownloadPage,
-                  icon: const Icon(Icons.history_rounded, size: 17),
-                  label: const Text('Page'),
+                IconButton(
+                  tooltip: 'Back to download page',
+                  onPressed: _goToDownloadPage,
+                  icon: const Icon(Icons.home_rounded, size: 21),
                 ),
                 IconButton(
                   tooltip: 'Library downloads',
