@@ -318,7 +318,7 @@ class _TvShowsScreenState extends State<TvShowsScreen> with WidgetsBindingObserv
                   ],
                 ],
                 const SizedBox(height: 18),
-                const Text('TV show details and episodes powered by TMDB', textAlign: TextAlign.center,
+                const Text('TV show details and episodes powered by DamiMovies', textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white38, fontSize: 10)),
               ],
             );
