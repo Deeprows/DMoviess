@@ -231,7 +231,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
   }
 
   /// Show the Telegram campaign after the signup guide and app notice.
-  /// No popup races, and users see each campaign only at the JSON frequency.
+  /// Dismissal does not count as joining; it returns on the next app launch.
   Future<void> _maybeShowTelegramPromo() async {
     if (!mounted || _welcomeOpen || _noticeOpen ||
         _telegramChecking || _telegramShownThisSession) return;
@@ -253,7 +253,6 @@ class _AppShellScreenState extends State<AppShellScreen> {
         barrierColor: Colors.black87,
         builder: (_) => TelegramPromoDialog(config: config),
       );
-      await TelegramPopupService.markSeen(config);
     } catch (error) {
       debugPrint('DamiMovies: Telegram promo skipped: $error');
     } finally {
