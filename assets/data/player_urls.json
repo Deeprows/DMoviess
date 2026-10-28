@@ -17,7 +17,7 @@
       "movie": "https://web.nxsha.app/embed/movie/{id}",
       "tv": "https://web.nxsha.app/embed/tv/{id}/{season}/{episode}",
       "idType": "auto",
-      "blockHeaderActions": true
+      "blockHeaderActions": false
     },
     {
       "id": "third",
