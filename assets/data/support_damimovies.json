@@ -9,9 +9,9 @@
   "wallets": [
     {
       "label": "Bank transfer",
-      "provider": "YOUR BANK NAME",
-      "accountName": "YOUR ACCOUNT NAME",
-      "accountNumber": "YOUR ACCOUNT NUMBER",
+      "provider": "OPAY",
+      "accountName": "Taiwo",
+      "accountNumber": "8164887683",
       "instructions": "Transfer your chosen amount to this account."
     },
     {
