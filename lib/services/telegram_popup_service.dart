@@ -73,7 +73,7 @@ class TelegramPopupService {
   static const remoteUrl =
       'https://raw.githubusercontent.com/Deeprows/DMoviess/main/assets/data/telegram_popup.json';
   static const _cacheKey = 'damimovies_telegram_popup_last_valid_json';
-  static const _seenPrefix = 'damimovies_telegram_popup_seen_';
+  static const _joinedPrefix = 'damimovies_telegram_popup_joined_';
 
   /// Bundled default -> last cached config -> fresh GitHub JSON.
   /// A network failure does not prevent the app homepage from opening.
@@ -113,33 +113,22 @@ class TelegramPopupService {
     return config;
   }
 
-  static String _seenKey(TelegramPopupConfig config) =>
-      '$_seenPrefix${config.campaignId}';
+  static String _joinedKey(TelegramPopupConfig config) =>
+      '$_joinedPrefix${config.campaignId}';
 
+  /// Keep showing the promo on every app launch until the user taps the
+  /// JOIN CHANNEL button and the Telegram link successfully opens.
   static Future<bool> shouldShow(TelegramPopupConfig config) async {
     if (!config.active) return false;
-    if (config.frequency == 'every_launch') return true;
     final prefs = await SharedPreferences.getInstance();
-    final seen = prefs.getString(_seenKey(config));
-    if (config.frequency == 'daily') {
-      final now = DateTime.now();
-      final date = '${now.year}-${now.month}-${now.day}';
-      return seen != date;
-    }
-    return seen != 'done';
+    return prefs.getBool(_joinedKey(config)) != true;
   }
 
-  /// Mark only after the popup is closed, never merely because it was fetched.
-  static Future<void> markSeen(TelegramPopupConfig config) async {
-    if (config.frequency == 'every_launch') return;
+  /// This is deliberately not called when the dialog is dismissed. Closing
+  /// the popup is not the same as choosing to join the Telegram channel.
+  static Future<void> markJoined(TelegramPopupConfig config) async {
     final prefs = await SharedPreferences.getInstance();
-    if (config.frequency == 'daily') {
-      final now = DateTime.now();
-      await prefs.setString(
-        _seenKey(config), '${now.year}-${now.month}-${now.day}',
-      );
-    } else {
-      await prefs.setString(_seenKey(config), 'done');
-    }
+    await prefs.setBool(_joinedKey(config), true);
   }
+
 }
