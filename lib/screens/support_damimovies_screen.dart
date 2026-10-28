@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
 class SupportDamiMoviesScreen extends StatefulWidget {
   const SupportDamiMoviesScreen({super.key});
@@ -24,18 +25,53 @@ class _SupportDamiMoviesScreenState extends State<SupportDamiMoviesScreen> {
   }
 
   Future<void> _load() async {
+    Map<String, dynamic>? data;
+
+    // Load the latest support details from the repository so JSON changes can
+    // appear without rebuilding the APK. The bundled asset remains a fallback
+    // for offline use or if GitHub is temporarily unavailable.
     try {
-      final text = await rootBundle.loadString('assets/data/support_damimovies.json');
-      final data = jsonDecode(text) as Map<String, dynamic>;
-      if (!mounted) return;
-      final amounts = (data['amounts'] as List? ?? []).whereType<num>().map((n) => n.toInt()).where((n) => n > 0).toList();
-      setState(() {
-        config = data;
-        amount = amounts.isEmpty ? null : amounts.first;
-      });
+      final uri = Uri.parse(
+        'https://raw.githubusercontent.com/Deeprows/DMoviess/main/assets/data/support_damimovies.json?t=${DateTime.now().millisecondsSinceEpoch}',
+      );
+      final response = await http.get(uri, headers: const {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+      }).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        if (decoded is Map<String, dynamic>) data = decoded;
+      }
     } catch (_) {
-      if (mounted) setState(() => error = 'Unable to load support details.');
+      // Continue to the bundled copy below.
     }
+
+    if (data == null) {
+      try {
+        final text = await rootBundle.loadString('assets/data/support_damimovies.json');
+        final decoded = jsonDecode(text);
+        if (decoded is Map<String, dynamic>) data = decoded;
+      } catch (_) {
+        // Show the friendly error state below.
+      }
+    }
+
+    if (!mounted) return;
+    if (data == null) {
+      setState(() => error = 'Unable to load support details. Check your connection and try again.');
+      return;
+    }
+
+    final amounts = (data['amounts'] as List? ?? [])
+        .whereType<num>()
+        .map((n) => n.toInt())
+        .where((n) => n > 0)
+        .toList();
+    setState(() {
+      config = data;
+      amount = amounts.isEmpty ? null : amounts.first;
+      error = null;
+    });
   }
 
   @override
