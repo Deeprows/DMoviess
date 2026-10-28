@@ -4,7 +4,13 @@
   "message": "DamiMovies is built for movie lovers. Your voluntary contribution helps us improve the app, maintain our services, and bring more features to the community.",
   "currency": "NGN",
   "currencySymbol": "₦",
-  "amounts": [500, 1000, 2000, 5000, 10000],
+  "amounts": [
+    500,
+    1000,
+    2000,
+    5000,
+    10000
+  ],
   "allowCustomAmount": true,
   "wallets": [
     {
