@@ -18,7 +18,7 @@
       "label": "Crypto wallet (optional)",
       "provider": "USDT",
       "network": "TRC20",
-      "accountName": "",
+      "accountName": "Taiwo",
       "accountNumber": "TFijBKULxEJuJwgj9nrEcQHvTuweKQoZ2M",
       "instructions": "Only send funds on the listed network."
     }
