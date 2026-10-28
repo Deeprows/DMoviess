@@ -15,6 +15,9 @@ class TelegramPromoDialog extends StatelessWidget {
     if (uri == null) return;
     try {
       final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (opened) {
+        await TelegramPopupService.markJoined(config);
+      }
       if (opened && context.mounted) {
         Navigator.of(context).pop();
       } else if (context.mounted) {
